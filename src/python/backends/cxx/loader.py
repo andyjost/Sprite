@@ -31,6 +31,7 @@ def read_dynamic(sofile):
   Raises:
     ValueError: the file is of neither format, or malformed.
   '''
+  _findcurry.verify_loaded_product(sofile)
   with open(sofile, 'rb') as stream:
     magic = stream.read(4)
   if magic == b'\x7fELF':
@@ -49,6 +50,7 @@ def _dynamic_names(sofile):
   entries of the form of a SONAME of a compiled module.  The other entries,
   the runtime library and the system libraries, are left out.
   '''
+  _findcurry.verify_loaded_product(sofile)
   with open(sofile, 'rb') as stream:
     magic = stream.read(2)
   if magic == b'MZ':
@@ -170,12 +172,14 @@ def _program_path(interp, sofile):
     return None
   return _findcurry.program_path(curryfile, interp.path, is_sourcefile=True)
 
-def load_module(interp, sofile, from_plan=False, fresh=False):
+def load_module(interp, sofile, from_plan=False, fresh=False, _saved_payload=False):
+  _findcurry.verify_loaded_product(sofile, interp)
+  _findcurry.verify_loaded_product(sofile + ".abi", interp)
   from .toolchain import Cpp2So
   for attempt in range(3):
     before = Cpp2So.product_snapshot(sofile)
     try:
-      module = _load_module_once(interp, sofile, from_plan, fresh)
+      module = _load_module_once(interp, sofile, from_plan, fresh, _saved_payload)
     except (OSError, exceptions.LoadError):
       if attempt == 2 or before == Cpp2So.product_snapshot(sofile):
         raise
@@ -185,7 +189,7 @@ def load_module(interp, sofile, from_plan=False, fresh=False):
   raise exceptions.LoadError('cannot load %r: object changed repeatedly' % sofile)
 
 
-def _load_module_once(interp, sofile, from_plan, fresh):
+def _load_module_once(interp, sofile, from_plan, fresh, _saved_payload):
   assert (fresh and not from_plan) or sofile.endswith(config.module_object_suffix())
   sofile = os.path.abspath(sofile)
   from .toolchain import Cpp2So
@@ -199,6 +203,15 @@ def _load_module_once(interp, sofile, from_plan, fresh):
   name, needed = _dynamic_names(sofile)
   if name is not None:
     _wait_pending(interp, name, sofile)
+    record = tiered._state.records.get(name)
+    module = interp.modules.get(name)
+    if record is not None and record.module() is module and module is not None \
+        and record.publish and os.path.realpath(record.publish) == os.path.realpath(sofile) \
+        and getHandle(module).sofilename is not None:
+      # A completed job may retain a mapped canonical file and adopt its
+      # private generation. A load of its publication destination takes
+      # that same completed adoption, whether this call waited or not.
+      return module
   # The object names the objects of its imports by their SONAMEs, and the
   # dynamic linker satisfies such a name with an object of that name this
   # process has mapped: no search path leads to the file.  So the imports
@@ -219,24 +232,28 @@ def _load_module_once(interp, sofile, from_plan, fresh):
         )
   if before != Cpp2So.product_snapshot(sofile):
     return None # a producer published while dependencies were imported
-  return _open_module(interp, sofile, name, from_plan, fresh, before)
+  return _open_module(interp, sofile, name, from_plan, fresh, before, _saved_payload)
 
 @native_metadata
-def _open_module(interp, sofile, name, from_plan, fresh, before):
+def _open_module(interp, sofile, name, from_plan, fresh, before, _saved_payload):
   from . import tiered
   from .toolchain import Cpp2So
   if before != Cpp2So.product_snapshot(sofile):
     return None
-  if name is not None:
+  if name is not None and not _saved_payload:
     _findcurry.reject_library_shadow(name, sofile, interp)
   previous = None if name is None else curryrt.SharedCurryModule.find_sofilename(name)
   module = interp.modules.get(name)
   if isinstance(module, CurryPackage):
     module = None # a namespace has no interpreted module to replace
+  _findcurry.verify_loaded_product(sofile)
   with open(sofile, 'rb') as stream:
     digest = hashlib.sha256(stream.read()).hexdigest()
+  loaded = _objects.get(name)
+  unchanged = loaded is not None and os.path.realpath(loaded[0]) == os.path.realpath(sofile) \
+      and loaded[1] == digest
   replace = previous is not None and module is None \
-      and (from_plan or fresh) and _objects.get(name) != (sofile, digest)
+      and (from_plan or fresh) and not unchanged
   if name is not None and not replace:
     registered = curryrt.SharedCurryModule.find_sofilename(name)
     if registered is not None:
@@ -294,6 +311,6 @@ def _open_module(interp, sofile, name, from_plan, fresh, before):
     , aliases   = bom.aliases
     , metadata  = metadata
     )
-  result = interp.import_(imodule)
+  result = interp.import_(imodule, _saved_payload=_saved_payload)
   logger.info('module %s: compiled object loaded (%s)', imodule.fullname, sofile)
   return result

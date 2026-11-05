@@ -45,11 +45,37 @@ class TestImage(cytest.TestCase):
       icyfile = toolchain.icurryfilename(source)
       with mock.patch.object(image.cache, 'write_file',
           side_effect=AssertionError('current compile rewrote a product')) as writes:
-        image.ensure(curry._interpreter_, icyfile)
+        with mock.patch.object(image, 'read', side_effect=AssertionError('loaded image reopened')):
+          image.ensure(curry._interpreter_, icyfile)
+          self.assertIs(image.load(curry._interpreter_, icyfile), getHandle(module).icurry)
+          self.assertIs(image.current(curry._interpreter_, source), getHandle(module).icurry)
         plan = toolchain.plans.makeplan(curry._interpreter_, toolchain.plans.MAKE_ICURRY
             | toolchain.plans.MAKE_IMAGE)
         toolchain.makecurry(plan, source, curry.path, is_sourcefile=True)
       self.assertEqual(writes.call_count, 0)
+
+  def test_staleness_uses_loaded_import_digest(self):
+    from curry.toolchain._icurry2image import ICurry2Image
+    with tempfile.TemporaryDirectory() as directory:
+      leaf = os.path.join(directory, 'ImageReceiptLeaf.curry')
+      probe = os.path.join(directory, 'ImageReceiptProbe.curry')
+      with open(leaf, 'w') as stream:
+        stream.write('module ImageReceiptLeaf where\nanswer :: Int\nanswer = 1\n')
+      module = curry.import_(leaf)
+      with open(leaf, 'w') as stream:
+        stream.write('module ImageReceiptLeaf where\nanswer :: Int\nanswer = 2\n')
+      with open(probe, 'w') as stream:
+        stream.write('module ImageReceiptProbe where\nimport ImageReceiptLeaf\nvalue :: Int\nvalue = answer\n')
+      code = "import curry; curry.reset(interpret='all', jit='off'); curry.path.insert(0, %r); curry.import_(%r)" % (directory, probe)
+      result = subprocess.run([sys.executable, '-c', code], capture_output=True,
+          text=True, timeout=120)
+      self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+      step = ICurry2Image(curry._interpreter_)
+      search = [directory] + list(curry.path)
+      with mock.patch('curry.toolchain._findcurry.loaded_generation', return_value=None):
+        self.assertFalse(step.is_stale(image.filename(probe), search))
+      self.assertTrue(step.is_stale(image.filename(probe), search))
+      self.assertEqual(curry.eval(module.answer).one(), 1)
 
   def test_prelude(self):
     module = curry.import_('Prelude')
@@ -91,6 +117,7 @@ class TestImage(cytest.TestCase):
             stream.write(data)
         module = curry.import_(source)
         self.assertEqual(curry.eval(module.answer).one(), 42)
+        path = image._path(curry._interpreter_, source)
         self.assertEqual(image.read(path)['source'], image.digest(toolchain.icurryfilename(source)))
       curry.reset(backend='cxx', interpret='all', jit='off')
       with mock.patch('curry.toolchain._loadcurry.loadicurry',
@@ -117,6 +144,7 @@ class TestImage(cytest.TestCase):
       curry.reset(backend='cxx', interpret='all', jit='off')
       module = curry.import_(source)
       self.assertEqual(curry.eval(module.answer).one(), 43)
+      path = image._path(curry._interpreter_, source)
       self.assertNotEqual(image.digest(path), first)
       curry.reset(backend='cxx', interpret='all', jit='off', inline_budget=0)
       module = curry.import_(source)
@@ -205,7 +233,7 @@ class TestImage(cytest.TestCase):
       self.assertIsNone(image.filename(raw.filename))
       self.assertIsNone(image.write(curry._interpreter_, raw))
       self.assertEqual(image._import_images(curry._interpreter_, [raw.fullname], None),
-          {raw.fullname: None})
+          {raw.fullname: image.generation_digest(raw._loaded_generation)})
       importer = icurry.IModule('ImageNoFileImporter', [raw.fullname], {}, {})
       image.optimize(curry._interpreter_, importer)
 
@@ -225,7 +253,7 @@ class TestImage(cytest.TestCase):
       curry.reset(backend='cxx', interpret='all', jit='off')
       module = curry.import_(source)
       self.assertEqual(curry.eval(module.answer).one(), 42)
-      self.assertNotIn('ImageVanishedHelper', image.read(image.filename(source))['imports'])
+      self.assertNotIn('ImageVanishedHelper', image.read(image._path(curry._interpreter_, source))['imports'])
 
   def test_foreign_budget_never_publishes(self):
     prelude = curry.import_('Prelude')
@@ -409,7 +437,7 @@ assert curry.eval(module.answer).one() == 42
     self.assertEqual(curry.eval(module.answer).one(), 42)
     self.assertIn("'I', 42", inspect.getimpl(module.answer))
 
-  def test_translation_reads_aot_import_image(self):
+  def test_translation_uses_loaded_aot_summaries(self):
     curry.reset(backend='cxx', interpret='new', jit='off')
     prelude = curry.import_('Prelude')
     self.assertIsNotNone(getHandle(prelude).sofilename)
@@ -423,7 +451,7 @@ assert curry.eval(module.answer).one() == 42
         mock.patch.object(image._loadcurry, 'loadicurry', side_effect=own_json):
       module = curry.compile('answer :: Int\nanswer = id 42\n')
     self.assertEqual(curry.eval(module.answer).one(), 42)
-    self.assertTrue(any(call.kwargs.get('attach_code') is False
+    self.assertFalse(any(call.kwargs.get('attach_code') is False
         for call in reader.call_args_list))
     self.assertIsNotNone(getHandle(prelude).sofilename)
 

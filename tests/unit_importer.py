@@ -2,13 +2,36 @@ import cytest # from ./lib; must be first
 from curry import interpreter
 from curry.exceptions import ModuleLookupError
 from curry.objects.handle import getHandle
-import pathlib, tempfile, sys
+import os, pathlib, tempfile, sys
 
 class TestImporter(cytest.TestCase):
+  def test_literate_source_identity(self):
+    import curry
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=os.name == 'nt') as work:
+      root = pathlib.Path(work)
+      reserved = root / 'Prelude.lcurry'
+      reserved.write_text('> module Prelude where\n')
+      with self.assertRaisesRegex(ModuleLookupError, 'runtime implements'):
+        curry.import_(reserved)
+      reserved.unlink()
+      first = root / 'Different.lcurry'
+      first.write_text('> module LiterateRoundEight where\n> import Prelude\n> answer :: Bool\n> answer = True\n')
+      module = curry.import_(first)
+      self.assertEqual(module.__name__, 'LiterateRoundEight')
+      import warnings
+      with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter('always')
+        self.assertIs(curry.import_(first), module)
+      self.assertEqual(caught, [])
+      other = root / 'Other.lcurry'
+      other.write_text(first.read_text())
+      with self.assertWarnsRegex(Warning, 'other file'):
+        self.assertIs(curry.import_(other), module)
+
   def test_unlink_child_of_module_or_namespace(self):
     for prefix_module in (False, True):
       with self.subTest(prefix_module=prefix_module):
-        with tempfile.TemporaryDirectory() as work:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=os.name == 'nt') as work:
           root = pathlib.Path(work)
           (root / 'Parent').mkdir()
           (root / 'Parent/Child.curry').write_text(
@@ -31,7 +54,7 @@ class TestImporter(cytest.TestCase):
             self.assertNotIn('Child', getHandle(parent).icurry)
 
   def test_directory_does_not_hide_module(self):
-    with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') as work:
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=os.name == 'nt') as work:
       root = pathlib.Path(work)
       (root / 'early/Parent').mkdir(parents=True)
       (root / 'late').mkdir()
@@ -56,7 +79,7 @@ class TestImporter(cytest.TestCase):
           self.assertIs(parent.Child, child)
 
   def test_directory_does_not_hide_library_module(self):
-    with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') as work:
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=os.name == 'nt') as work:
       directory = pathlib.Path(work) / 'System/IO'
       directory.mkdir(parents=True)
       (directory / 'Child.curry').write_text(
@@ -72,7 +95,7 @@ class TestImporter(cytest.TestCase):
     for by_path in (False, True):
       for name in ('Leaf', 'Parent.Leaf', 'Parent.Middle.Leaf'):
         with self.subTest(by_path=by_path, name=name):
-          with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') as work:
+          with tempfile.TemporaryDirectory(ignore_cleanup_errors=os.name == 'nt') as work:
             root = pathlib.Path(work)
             source = root / 'src' / (name.replace('.', '/') + '.curry')
             source.parent.mkdir(parents=True)
@@ -99,7 +122,7 @@ class TestImporter(cytest.TestCase):
     for header, place in [(header, 'Parent') for header in headers] + [
         ('module Parent.Leaf where', 'Other')]:
       with self.subTest(header=header, place=place):
-        with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') as work:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=os.name == 'nt') as work:
           root = pathlib.Path(work)
           source = root / place / 'Leaf.curry'
           source.parent.mkdir()
@@ -113,7 +136,7 @@ class TestImporter(cytest.TestCase):
           self.assertEqual(list(interp.eval(module.value)), [True])
 
   def test_hierarchy_root_precedes_sibling_directory(self):
-    with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') as work:
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=os.name == 'nt') as work:
       root = pathlib.Path(work)
       (root / 'Parent').mkdir()
       (root / 'Parent/Leaf.curry').write_text(
@@ -128,7 +151,7 @@ class TestImporter(cytest.TestCase):
       self.assertEqual(list(interp.eval(module.value)), [True])
 
   def test_misplaced_filename_prefers_sibling_helper(self):
-    with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') as work:
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=os.name == 'nt') as work:
       root = pathlib.Path(work)
       (root / 'Parent').mkdir()
       source = root / 'Parent/Other.curry'
@@ -146,7 +169,7 @@ class TestImporter(cytest.TestCase):
 
   def test_module_and_namespace(self):
     # Both import orders must preserve the parent's symbols and its child.
-    with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') as work:
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=os.name == 'nt') as work:
       root = pathlib.Path(work)
       (root / 'Parent').mkdir()
       (root / 'Parent.curry').write_text(
@@ -170,7 +193,7 @@ class TestImporter(cytest.TestCase):
           self.assertEqual(interp.type('Parent.Child.Marker').name, 'Marker')
 
   def test_library_namesake(self):
-    with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') as work:
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=os.name == 'nt') as work:
       source = pathlib.Path(work) / 'Prelude.curry'
       source.write_text('module Prelude where\nuserSymbol = 1\n')
       for loaded in (False, True):
@@ -180,28 +203,34 @@ class TestImporter(cytest.TestCase):
         interp.path.insert(0, work)
         with self.subTest(loaded=loaded):
           with self.assertRaisesRegex(ModuleLookupError,
-              "Curry module 'Prelude'.*conflicts with the installed library module"):
+              "Curry module 'Prelude'.*has the name of a module the runtime implements"):
             interp.import_(str(source), is_sourcefile=True)
-          with self.assertRaisesRegex(ModuleLookupError, 'conflicts with the installed library'):
+          with self.assertRaisesRegex(ModuleLookupError, 'has the name of a module the runtime implements'):
             interp.import_('Prelude')
 
   def test_ordinary_library_namesake(self):
-    with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') as work:
-      directory = pathlib.Path(work) / 'Data'
-      directory.mkdir()
-      source = directory / 'List.curry'
-      source.write_text('module Data.List where\nuserValue :: Bool\nuserValue = True\n')
-      for interpret in ('off', 'all'):
-        for loaded in (False, True):
-          interp = interpreter.Interpreter(flags={'interpret': interpret})
-          if loaded:
-            interp.import_('Data.List')
-          interp.path.insert(0, work)
-          for name, isfile in (('Data.List', False), (str(source), True)):
-            with self.subTest(interpret=interpret, loaded=loaded, isfile=isfile):
-              with self.assertRaisesRegex(ModuleLookupError,
-                  "Curry module 'Data.List'.*conflicts with the installed library module"):
-                interp.import_(name, is_sourcefile=isfile)
+    for mode in ('off', 'all'):
+      for loaded in (False, True):
+        code = r'''
+import curry
+from pathlib import Path
+import os, tempfile
+curry.reset(interpret=%r, jit='off')
+with tempfile.TemporaryDirectory(ignore_cleanup_errors=os.name == 'nt') as work:
+  source = Path(work) / 'Data/List.curry'
+  source.parent.mkdir()
+  source.write_text('module Data.List where\nuserValue :: Bool\nuserValue = True\n')
+  library = curry.import_('Data.List') if %r else None
+  curry.path.insert(0, work)
+  for target in ('Data.List', source):
+    module = curry.import_(target)
+    if library is not None:
+      assert module is library
+    else:
+      assert list(curry.eval(module.userValue)) == [True]
+''' % (mode, loaded)
+        child = cytest.run_in_subprocess(code, timeout=60, address_space=2 << 30)
+        self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
 
   def test_automodules(self):
     interp = interpreter.Interpreter()

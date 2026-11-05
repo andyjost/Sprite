@@ -465,9 +465,6 @@ assert curry.eval(M.getCurrentDirectory).one() == 'sentinel'
     script = """
 import curry
 import sys
-# Bypass only the outer reserved-name guard to test primitive selection.
-from curry.toolchain import _findcurry
-_findcurry.reject_library_shadow = lambda *args: None
 curry.path.insert(0, sys.argv[1])
 M = curry.import_('System.IO.Unsafe')
 assert curry.eval(M.isVar(0)).one() is True
@@ -567,9 +564,9 @@ else:
             input='x', capture_output=True, text=True)
         self.assertEqual(child.returncode, 0, child.stderr)
         self.assertEqual(child.stdout.strip(), expected)
-      child = self.run_child([sys.executable, '-m', 'curry.tools.icy',
-          ':load', str(SOURCE / 'PrimitiveIO.curry')], env=env,
-          input=':eval exitTest\n', capture_output=True, text=True)
+      child = self.run_child([sys.executable, '-m', 'curry.tools.repl'], env=env,
+          input=':load ' + str(SOURCE / 'PrimitiveIO.curry') + '\n:eval exitTest\n',
+          capture_output=True, text=True)
       self.assertEqual(child.returncode, 23, child.stderr)
     curry.reset(interpret='off')
     curry.path.insert(0, str(SOURCE))

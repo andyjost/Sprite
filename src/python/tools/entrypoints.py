@@ -10,3 +10,8 @@ def execute():
 def make():
   from curry.tools.make import main
   main('sprite-make', sys.argv[1:])
+
+
+def repl():
+  from curry.tools.repl.__main__ import main
+  main(sys.argv[1:])

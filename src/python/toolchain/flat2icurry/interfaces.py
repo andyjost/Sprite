@@ -20,13 +20,16 @@ SUFFIXES = ('.fint', '.fcy')
 
 _LOADED = {}
 
-def load_interface(filename):
+def load_interface(filename, data=None):
   '''Reads a FlatCurry file.  Files are cached by name, size, and time.'''
-  st = os.stat(filename)
-  key = (filename, st.st_size, st.st_mtime_ns)
+  if data is None:
+    st = os.stat(filename)
+    key = (filename, st.st_size, st.st_mtime_ns)
+  else:
+    key = (filename, data)
   prog = _LOADED.get(key)
   if prog is None:
-    candidate = fc.load(filename)
+    candidate = fc.load(filename) if data is None else fc.read(data.decode('utf-8'))
     with _loaded_lock:
       prog = _LOADED.setdefault(key, candidate)
   return prog
@@ -76,7 +79,11 @@ class InterfaceFinder:
     '''The FlatCurry interface of ``modname``.'''
     prog = self.progs.get(modname)
     if prog is None:
-      prog = self.progs[modname] = load_interface(self.filename(modname))
+      from .._findcurry import loaded_generation
+      generation = loaded_generation(modname)
+      data = generation.texts.get('.fint') if generation is not None else None
+      prog = self.progs[modname] = load_interface(modname + '.fint', data) if data is not None else \
+          load_interface(self.filename(modname))
     return prog
 
 def product_path(filename):
@@ -117,8 +124,9 @@ def module_root(fcyfile, modname):
 def local_type_interfaces(filename, prog, searchdirs=()):
   '''Imports for type annotations synthesized by the typed-local rewrites.
 
-  Old files need no annotation inference. Search both front-end interfaces
-  and the versioned copies restored beside cached ICurry products.
+  Old files need no annotation inference. A supplied path preserves the
+  translation's front-end roots and order. Standalone rewrites also search
+  the versioned copies restored beside cached ICurry products.
   '''
   from ... import config
   location = product_path(filename)
@@ -126,6 +134,8 @@ def local_type_interfaces(filename, prog, searchdirs=()):
       or config.frontend_version() != '3.1.0':
     return []
   finder = InterfaceFinder(
-      [module_root(filename, prog.name)] + list(searchdirs) + config.currypath()
-    , [location[1], config.intermediate_subdir()])
+      list(searchdirs) if searchdirs else
+      [module_root(filename, prog.name)] + config.currypath()
+    , [location[1]] if searchdirs else
+      [location[1], config.intermediate_subdir()])
   return [finder.find(name) for name in prog.imports]

@@ -77,6 +77,49 @@ def chmod_tree(root, dirmode, filemode):
 class TestCurryLib(cytest.TestCase):
   '''Tests for the Curry library installed from curry/lib.'''
 
+  def test_missing_installed_translation(self):
+    from pathlib import Path
+    from curry.toolchain import _filenames
+    from unit_reserved_modules import installed, products
+    import re
+    for mode in ('new', 'all', 'off'):
+      for readonly in (False, True):
+        if readonly and os.name == 'nt':
+          continue
+        with self.subTest(mode=mode, readonly=readonly), tempfile.TemporaryDirectory() as work:
+          if not readonly:
+            source = Path(work) / 'Data/Char.curry'
+            source.parent.mkdir()
+            text = installed('Data.Char').read_text().replace(
+                'digitToInt      :: Char -> Int', 'digitToInt      :: Num a => Char -> a')
+            text = re.sub(r"=  (ord c - ord '[0Aa]'(?: \+ 10)?)", r'=  fromInt (\1)', text)
+            source.write_text(text)
+          icy = Path(_filenames.icurryfilename(str(installed('Numeric'))))
+          saved = {p: p.read_bytes() for p in (icy, Path(str(icy) + '.imports'))}
+          permissions = icy.parent.stat().st_mode
+          try:
+            for p in saved:
+              p.unlink()
+            before = products(installed('Numeric'))
+            if readonly:
+              icy.parent.chmod(permissions & ~0o222)
+            code = """
+import curry, os
+from curry.objects.handle import getHandle
+curry.reset(interpret=%r, jit='off')
+curry.path.insert(0, %r)
+m = curry.import_('Numeric')
+assert not os.path.realpath(getHandle(m).icurry.filename).startswith(os.path.realpath(curry.config.installed_path('curry')) + os.sep)
+assert curry.show(curry.eval(m.readNat(curry.term('1'))).one()) == '[(1,"")]'
+""" % (mode, work)
+            child = cytest.run_in_subprocess(code, timeout=120, address_space=3 << 30)
+            self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
+            self.assertEqual(products(installed('Numeric')), before)
+          finally:
+            icy.parent.chmod(permissions)
+            for p, data in saved.items():
+              p.write_bytes(data)
+
   def library_goal(self, imports, declarations):
     module = curry.compile(imports + '\n' + declarations)
     return list(curry.eval(module['goal']))
@@ -311,6 +354,482 @@ goal = ( getSum mempty, getProduct mempty, getAll mempty, getAny mempty
     self.assertTrue(os.path.isfile(fcyfile))
     self.assertTrue(fcyfile.startswith(tmpdir))
     self.assertEqual(snapshot(copy), before)
+
+  def test_builtin_missing_prerequisite_rewrite(self):
+    self._explicit_make_replaced_import_is_private(
+        '--rewrite-flat', transitive=True, missing_frontend=True)
+
+  def test_builtin_missing_prerequisite_import(self):
+    self._explicit_make_replaced_import_is_private(
+        '--import', transitive=True, missing_frontend=True)
+
+  def test_user_rewrite_replaced_import_is_private(self):
+    self._explicit_make_replaced_import_is_private(
+        '--rewrite-flat', transitive=True, user=True)
+
+  def test_user_import_replaced_import_is_private(self):
+    self._explicit_make_replaced_import_is_private(
+        '--import', transitive=True, user=True)
+
+  def test_interface_view_reuse_and_invalidation(self):
+    from pathlib import Path
+    from unittest.mock import patch
+    from curry.toolchain import _interfaceview
+    from contextlib import contextmanager
+    import time
+    outdir = os.path.join('.curry', config.frontend_subdir())
+    _interfaceview._views.clear()
+    copy = shutil.copy2
+    with tempfile.TemporaryDirectory() as work:
+      for number in (1, 2):
+        program = Path(work) / ('View%d.curry' % number)
+        program.write_text('module View%d where\ngoal = True\n' % number)
+        elapsed = []
+        original_view = _interfaceview.interface_view
+        @contextmanager
+        def measured(outdir):
+          started = time.monotonic()
+          with original_view(outdir) as library:
+            elapsed.append(time.monotonic() - started)
+            yield library
+        with patch.object(_interfaceview, 'interface_view', measured), \
+             patch.object(_interfaceview.shutil, 'copy2', wraps=copy) as copies:
+          _frontend.curry2flat(str(program), [], quiet=True)
+        print('Interface view translation %d: %d copies, %.6f s' %
+              (number, copies.call_count, elapsed[0]))
+        if number == 1:
+          self.assertGreater(copies.call_count, 0)
+        else:
+          self.assertEqual(copies.call_count, 0)
+      fake = Path(work) / 'library/.curry' / config.intermediate_subdir()
+      fake.mkdir(parents=True)
+      product = fake / 'Probe.fint'
+      product.write_text('first')
+      installed_path = config.installed_path
+      def installed(*parts):
+        return str(Path(work) / 'library') if parts == ('curry',) else installed_path(*parts)
+      with patch.object(config, 'syslibs', return_value=['Probe']), \
+           patch.object(config, 'installed_path', installed):
+        with _interfaceview.interface_view(outdir) as first:
+          before = product.stat()
+          self.assertEqual((Path(first) / 'Probe.fint').stat().st_mtime_ns,
+                           before.st_mtime_ns)
+          product.write_text('other')
+          os.utime(product, ns=(before.st_atime_ns, before.st_mtime_ns))
+          with _interfaceview.interface_view(outdir) as second:
+            self.assertNotEqual(first, second)
+            self.assertEqual((Path(second) / 'Probe.fint').read_text(), 'other')
+          os.utime(product, ns=(before.st_atime_ns, before.st_mtime_ns + 1000000))
+          with _interfaceview.interface_view(outdir) as third:
+            self.assertNotEqual(second, third)
+
+  def test_loaded_private_import_closure_destination(self):
+    from pathlib import Path
+    from curry.toolchain import _filenames
+    for mode in ('new', 'all'):
+      with self.subTest(mode=mode), tempfile.TemporaryDirectory() as work:
+        root = Path(work)
+        maybe = root / 'Data/Maybe.curry'
+        maybe.parent.mkdir()
+        maybe.write_text(Path(sourcefile('Data.Maybe')).read_text().replace(
+            'listToMaybe (a : _) = Just a', 'listToMaybe (a : _) = Nothing'))
+        target = Path(_filenames.icurryfilename(sourcefile('System.Console.GetOpt')))
+        removed = [target, Path(str(target) + '.imports')]
+        library = Path(config.installed_path('curry'))
+        before = {p: p.read_bytes() for p in library.rglob('*') if p.is_file()}
+        try:
+          for p in removed:
+            p.unlink(missing_ok=True)
+          expected = {p: p.read_bytes() for p in library.rglob('*') if p.is_file()}
+          code = r"""
+import curry, os
+from curry.backends.cxx import image
+from curry.objects.handle import getHandle
+curry.reset(interpret=%r, jit='off')
+curry.path.insert(0, %r)
+lists = curry.import_('Data.List')
+raw = getHandle(lists).icurry
+generation = raw._loaded_generation
+assert generation.source.startswith(curry.config.installed_path('curry')), generation.source
+assert not generation.image.startswith(curry.config.installed_path('curry')), generation.image
+module = curry.import_('System.Console.GetOpt')
+raw = getHandle(module).icurry
+assert not raw.filename.startswith(curry.config.installed_path('curry')), raw.filename
+assert not raw._loaded_generation.image.startswith(curry.config.installed_path('curry'))
+curry.reset(interpret=%r, jit='off')
+curry.path.remove(%r)
+module = curry.import_('Data.Maybe')
+assert curry.show(curry.eval(module.listToMaybe(curry.term([1]))).one()) == 'Just 1'
+""" % (mode, work, mode, work)
+          child = cytest.run_in_subprocess(code, timeout=180, address_space=3 << 30)
+          self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
+          self.assertEqual({p: p.read_bytes() for p in library.rglob('*') if p.is_file()}, expected)
+        finally:
+          # Restore the complete installation even if a writer regresses.
+          for p in library.rglob('*'):
+            if p.is_file() and p not in before:
+              p.unlink()
+          for p, data in before.items():
+            if not p.exists() or p.read_bytes() != data:
+              p.write_bytes(data)
+
+  def test_later_explicit_list_replacement(self):
+    from pathlib import Path
+    from curry.backends.cxx import tiered
+    for reset in (False, True):
+      with self.subTest(reset=reset), tempfile.TemporaryDirectory() as work:
+        root = Path(work)
+        maybe = root / 'first/Data/Maybe.curry'
+        maybe.parent.mkdir(parents=True)
+        maybe.write_text(Path(sourcefile('Data.Maybe')).read_text().replace(
+            'listToMaybe (a : _) = Just a', 'listToMaybe (a : _) = Nothing'))
+        first = root / 'user/First.curry'
+        first.parent.mkdir()
+        first.write_text('module First where\nimport System.Console.GetOpt\ngoal = True\n')
+        _frontend.curry2flat(str(first), [str(root / 'first')], quiet=True)
+        self.assertTrue(list(Path(tiered._state.tmpdir).rglob('List.curry')))
+        if reset:
+          curry.reset()
+        replacement = root / 'second/Data/List.curry'
+        replacement.parent.mkdir(parents=True)
+        text = Path(sourcefile('Data.List')).read_text()
+        # Add the export to the existing explicit export list.
+        start = text.index('module Data.List')
+        export = text.index('(', start)
+        text = text[:export + 1] + 'sentinel, ' + text[export + 1:]
+        replacement.write_text(text + '\nsentinel :: Int\nsentinel = 42\n')
+        second = root / 'other/Second.curry'
+        second.parent.mkdir()
+        second.write_text('module Second where\nimport Data.List (sentinel)\ngoal = sentinel\n')
+        result = _frontend.curry2flat(str(second), [str(root / 'second')], quiet=True)
+        self.assertTrue(Path(result).is_file())
+
+  def test_external_user_import_is_private(self):
+    if config.icurry_tool() is None:
+      self.skipTest('external icurry is not configured')
+    self._explicit_make_replaced_import_is_private(
+        '--external', transitive=True, user=True)
+
+  def test_user_frontend_command(self):
+    from unittest.mock import patch
+    from curry.toolchain import _system
+    import time
+    with tempfile.TemporaryDirectory() as work:
+      program = os.path.join(work, 'Probe.curry')
+      with open(program, 'w') as stream:
+        stream.write('module Probe where\nimport System.Console.GetOpt\ngoal = True\n')
+      ordinary = _frontend.command(program, [], quiet=True)
+      execute = _system.pexec
+      commands = []
+      def checked(cmd, **kwargs):
+        commands.append(cmd)
+        return execute(cmd, **kwargs)
+      started = time.monotonic()
+      with patch.object(_system, 'pexec', checked):
+        result = _frontend.curry2flat(program, [], quiet=True)
+      print('Warm user translation: %.6f s' % (time.monotonic() - started))
+      self.assertTrue(os.path.isfile(result))
+      self.assertEqual(len(commands), 1)
+      actual = commands[0]
+      def without_paths(cmd):
+        result = []
+        skip = False
+        for item in cmd:
+          if skip:
+            skip = False
+          elif item in ('-i', '-P'):
+            skip = True
+          else:
+            result.append(item)
+        return result
+      self.assertEqual(without_paths(actual), without_paths(ordinary))
+      self.assertIn('-P', actual)
+      paths = [actual[i + 1] for i, item in enumerate(actual[:-1]) if item == '-i']
+      self.assertNotIn(config.system_curry_path(), paths)
+      self.assertEqual(os.path.realpath(paths[0]), os.path.realpath(work))
+      self.assertEqual(paths[-1], actual[actual.index('-P') + 1])
+
+  def test_missing_object_replaced_import_is_private(self):
+    self._explicit_make_replaced_import_is_private(
+        '--image', generalized=False, missing_object=True)
+
+  def test_transitive_explicit_image_is_private(self):
+    self._explicit_make_replaced_import_is_private(
+        '--image', transitive=True, direct_icy=True)
+
+  def test_transitive_rewrite_is_private(self):
+    self._explicit_make_replaced_import_is_private(
+        '--rewrite-flat', transitive=True)
+
+  def test_transitive_import_stale_translation_is_private(self):
+    self._explicit_make_replaced_import_is_private(
+        '--import', transitive=True)
+
+  def test_installed_icy_spellings(self):
+    for spelling in ('relative', 'symlink'):
+      for replaced in (False, True):
+        with self.subTest(spelling=spelling, replaced=replaced):
+          self._explicit_make_replaced_import_is_private(
+              '--image', generalized=False, direct_icy=True,
+              spelling=spelling, replaced=replaced)
+
+  def test_explicit_icy_image_replaced_import_is_private(self):
+    self._explicit_make_replaced_import_is_private(
+        '--image', generalized=False, direct_icy=True)
+
+  def test_explicit_image_replaced_import_is_private(self):
+    self._explicit_make_replaced_import_is_private('--image', generalized=False)
+
+  def test_explicit_rewrite_replaced_import_is_private(self):
+    self._explicit_make_replaced_import_is_private('--rewrite-flat')
+
+  def test_explicit_make_replaced_import_is_private(self):
+    self._explicit_make_replaced_import_is_private('--icy')
+
+  def _explicit_make_replaced_import_is_private(self, route, generalized=True,
+                                                     direct_icy=False,
+                                                     missing_object=False,
+                                                     transitive=False,
+                                                     spelling='absolute',
+                                                     replaced=True, user=False,
+                                                     missing_frontend=False):
+    # This file runs exclusively: restore every installed byte and mode even
+    # when an unfixed builder writes replacement-dependent products there.
+    from pathlib import Path
+    root = Path(config.installed_path('curry'))
+    with tempfile.TemporaryDirectory() as work:
+      backup = Path(work) / 'backup'
+      shutil.copytree(root, backup)
+      module = 'System.Console.GetOpt' if transitive else 'Numeric'
+      dependency = 'Data.Maybe' if transitive else 'Data.Char'
+      source = Path(work) / ('replacement/' + dependency.replace('.', '/') + '.curry')
+      source.parent.mkdir(parents=True)
+      text = Path(sourcefile('Data.Char')).read_text()
+      text = text.replace('digitToInt      :: Char -> Int',
+                          'digitToInt      :: Num a => Char -> a')
+      import re
+      text = re.sub(r"=  (ord c - ord '[0Aa]'(?: \+ 10)?)", r'=  fromInt (\1)', text)
+      if not generalized:
+        text = Path(sourcefile('Data.Char')).read_text()
+        text = re.sub(r"=  (ord c - ord '[0Aa]'(?: \+ 10)?)", r'=  (\1) + 1', text)
+      self.assertNotEqual(text, Path(sourcefile('Data.Char')).read_text())
+      if transitive:
+        text = Path(sourcefile(dependency)).read_text().replace(
+            'listToMaybe (a : _) = Just a', 'listToMaybe (a : _) = Nothing')
+      source.write_text(text)
+      def restore():
+        for entry in [root] + list(root.rglob('*')):
+          entry.chmod(entry.stat().st_mode | 0o700)
+        for entry in sorted(root.rglob('*'), reverse=True):
+          if not (backup / entry.relative_to(root)).exists():
+            if entry.is_dir():
+              entry.rmdir()
+            else:
+              entry.unlink()
+        for saved in backup.rglob('*'):
+          destination = root / saved.relative_to(backup)
+          if saved.is_dir():
+            destination.mkdir(exist_ok=True)
+          else:
+            if not destination.exists() or destination.read_bytes() != saved.read_bytes():
+              shutil.copyfile(saved, destination)
+            shutil.copystat(saved, destination)
+        for saved in sorted(backup.rglob('*'), reverse=True):
+          if saved.is_dir():
+            shutil.copystat(saved, root / saved.relative_to(backup))
+        shutil.copystat(backup, root)
+
+      for readonly in (False, True):
+        with self.subTest(readonly=readonly):
+          try:
+            if route == '--import' and not user and not missing_frontend:
+              for suffix in ('.icy', '.icy.source'):
+                Path(productfile('Data.List', suffix)).unlink()
+            if missing_frontend:
+              if route == '--import':
+                for suffix in ('.icy', '.icy.source'):
+                  path = Path(productfile(module, suffix))
+                  if path.exists():
+                    path.unlink()
+              for suffix in ('.fint', '.fcy'):
+                paths = [Path(interfacefile('Data.List', suffix)),
+                         root / 'Data/.curry' / config.frontend_subdir() /
+                         ('List' + suffix)]
+                for path in paths:
+                  if path.exists():
+                    path.unlink()
+              self.assertTrue(Path(productfile('Data.List', '.fint')).is_file())
+              self.assertTrue(Path(productfile('Data.List', '.icy')).is_file())
+            if missing_object:
+              Path(productfile(module, config.module_object_suffix())).unlink()
+            expected_files = snapshot(str(root))
+            expected_bytes = {p.relative_to(root): p.read_bytes()
+                              for p in root.rglob('*') if p.is_file()}
+            if readonly:
+              for entry in [root] + list(root.rglob('*')):
+                entry.chmod(entry.stat().st_mode & ~0o222)
+            argument = productfile(module, '.icy') if direct_icy else module
+            directory = str(source.parent.parent) if replaced else ''
+            if transitive:
+              directory = str(Path(work) / 'replacement')
+            if user:
+              userdir = Path(work) / ('user-readonly' if readonly else 'user-writable')
+              userdir.mkdir()
+              probe = userdir / 'Probe.curry'
+              probe.write_text('module Probe where\nimport System.Console.GetOpt\ngoal = True\n')
+              argument = str(probe)
+            code = r"""
+import os
+os.environ['SPRITE_CACHE_FILE'] = ''
+os.environ['SPRITE_DEBUG'] = '1'
+os.environ['CURRYPATH'] = %r
+missing_frontend = %r
+if missing_frontend:
+  os.environ['SPRITE_CURRY2ICURRY'] = 'frontend'
+import curry
+from pathlib import Path
+from curry.tools import make
+from curry.backends.cxx import tiered, image
+from curry.objects.handle import getHandle
+from curry.toolchain import _frontend
+from curry.toolchain import flat2icurry
+original_translate = flat2icurry.translate_file
+read_list = []
+frontend_paths = {}
+from contextlib import contextmanager
+from curry.toolchain import _interfaceview
+original_view = _interfaceview.interface_view
+live_views = set()
+@contextmanager
+def checked_view(outdir):
+  with original_view(outdir) as library:
+    live_views.add(library)
+    try:
+      yield library
+    finally:
+      live_views.remove(library)
+if missing_frontend:
+  _interfaceview.interface_view = checked_view
+def checked_translate(fcyfile, finder, *args, **kwargs):
+  if missing_frontend and fcyfile.endswith(os.path.join('System', 'Console', 'GetOpt.fcy')):
+    path = finder.filename('Data.List')
+    paths, library = frontend_paths[fcyfile]
+    assert finder.searchdirs == paths, (finder.searchdirs, paths)
+    assert library in live_views, 'interface view closed before translation'
+    assert tiered._state.tmpdir and path.startswith(tiered._state.tmpdir + os.sep), path
+    assert Path(path).name == 'List.fint', path
+    assert Path(path).with_suffix('.fcy').is_file(), path
+    assert path in [_frontend.interfacefile(str(p), '.fint')
+                    for p in Path(tiered._state.tmpdir).rglob('List.curry')], path
+    read_list.append(path)
+  return original_translate(fcyfile, finder, *args, **kwargs)
+flat2icurry.translate_file = checked_translate
+original_protected_translation = _frontend.protected_translation
+translation_routes = []
+command_routes = []
+@contextmanager
+def checked_protected_translation(file_in, currypath, quiet=False, rewrite=True, external=False):
+  translation_routes.append(external)
+  try:
+    with original_protected_translation(file_in, currypath, quiet, rewrite, external) as context:
+      yield context
+  finally:
+    translation_routes.pop()
+_frontend.protected_translation = checked_protected_translation
+original_command = _frontend.command
+def checked_command(*args, **kwargs):
+  cmd = original_command(*args, **kwargs)
+  if '-P' in cmd:
+    library = cmd[cmd.index('-P') + 1]
+    paths = [cmd[i + 1] for i, value in enumerate(cmd[:-1]) if value == '-i']
+    frontend_paths[_frontend.flatcurryfile(args[0])] = paths, library
+    private = tiered._state.private
+    views = {entry[1] for entry in _interfaceview._views.values()}
+    loaded_views = [path for path in paths if path in views and path != library]
+    external = translation_routes[-1]
+    command_routes.append(external)
+    assert all(any(p.is_file() for p in Path(path).rglob('*.curry')) == external
+               for path in loaded_views)
+    if loaded_views:
+      assert paths[0] in loaded_views, paths
+    assert all(path in private or path in loaded_views for path in paths
+               if path != library and tiered._state.tmpdir
+               and path.startswith(tiered._state.tmpdir + os.sep)), paths
+    assert not any(path.startswith(curry.config.installed_path('curry')) for path in paths)
+    assert any(path.is_file() for path in Path(library).rglob('*.curry')) == external
+    assert list(Path(library).rglob('*.fint'))
+  return cmd
+_frontend.command = checked_command
+curry.reset(interpret='all' if %r == '--import' else
+            ('off' if %r else 'new'), jit='off')
+argument = %r
+absolute = argument
+spelling = %r
+if spelling == 'relative':
+  os.chdir(os.path.dirname(argument))
+  argument = os.path.basename(argument)
+elif spelling == 'symlink':
+  link = Path(%r) / 'Numeric.icy'
+  if link.is_symlink():
+    link.unlink()
+  link.symlink_to(argument)
+  argument = str(link)
+if spelling != 'absolute':
+  expected_path, expected_header = image.ensure(curry._interpreter_, absolute, curry.path)
+if %r:
+  module = curry.import_('Numeric')
+  handle = getHandle(module)
+  assert handle.sofilename and not handle.sofilename.startswith(curry.config.installed_path('curry'))
+  assert Path(handle.sofilename).with_suffix('.cpp').is_file()
+  answer = curry.show(curry.eval(curry.parse('readNat "1"', imports=[module])).one())
+  assert answer == '[(2,"")]', answer
+else:
+  route = %r
+  if route == '--import':
+    if %r:
+      curry.path.insert(0, str(Path(argument).parent))
+      curry.import_('Probe')
+    else:
+      curry.import_('System.Console.GetOpt')
+  else:
+    make.main('sprite-make', (['--icy', '--curry2icurry', 'icurry', argument]
+        if route == '--external' else [route, argument]))
+  if spelling != 'absolute':
+    actual_path, actual_header = image.ensure(curry._interpreter_, argument, curry.path)
+    assert actual_path == expected_path, (actual_path, expected_path)
+    assert actual_header == expected_header
+if %r:
+  assert Path(_frontend.flatcurryfile(argument)).is_file(), 'user FlatCurry missing'
+  if route == '--import':
+    from curry.toolchain import _filenames
+    assert Path(_filenames.icurryfilename(argument)).is_file(), 'user ICurry missing'
+if %r:
+  assert tiered._state.tmpdir is not None, 'no private generation'
+  products = list(Path(tiered._state.tmpdir).rglob(%r))
+  assert products, 'private product missing'
+if %r:
+  if route == '--rewrite-flat':
+    assert list(Path(tiered._state.tmpdir).rglob('List.fcy')), 'private dependency missing'
+  elif route == '--import':
+    assert list(Path(tiered._state.tmpdir).rglob('List.icy')), 'private translation missing'
+  module = curry.import_('System.Console.GetOpt')
+  path = image._path(curry._interpreter_, getHandle(module).icurry.filename)
+  assert not path.startswith(curry.config.installed_path('curry')), path
+if missing_frontend:
+  assert read_list, 'GetOpt did not read its private List interface'
+assert any(command_routes) == %r, command_routes
+""" % (directory, missing_frontend, route, missing_object, argument, spelling, work,
+           missing_object, route, user, user, replaced,
+           module.split('.')[-1] + ('.img' if route == '--image' else
+               '.fcy' if route == '--rewrite-flat' else '.icy'),
+           transitive, route == '--external')
+            child = cytest.run_in_subprocess(code, timeout=120, address_space=3 << 30)
+            self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
+            self.assertEqual(snapshot(str(root)), expected_files)
+            self.assertEqual({p.relative_to(root): p.read_bytes()
+                              for p in root.rglob('*') if p.is_file()}, expected_bytes)
+          finally:
+            restore()
 
   def test_install_interfaces(self):
     """CMake installs the interfaces and pinned products of its build image."""

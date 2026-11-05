@@ -1,0 +1,8 @@
+{
+  "name": "sprite-repl-test",
+  "version": "0.0.1",
+  "author": "Sprite",
+  "synopsis": "Local REPL integration properties",
+  "dependencies": {},
+  "testsuite": [{"src-dir": "src", "modules": ["Arithmetic", "Compiler"]}]
+}

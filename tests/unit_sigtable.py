@@ -25,8 +25,8 @@ _PRELUDE = []
 
 def prelude_prog():
   if not _PRELUDE:
-    path = cytest.raw.interp().sigtable.interface_filename('Prelude')
-    _PRELUDE.append(fc.load(path))
+    iface = cytest.raw.interp().sigtable.interface('Prelude')
+    _PRELUDE.append(fc.read(iface.data.decode('utf-8')))
   return _PRELUDE[0]
 
 def interface_entries(prog):
@@ -201,7 +201,7 @@ class TestSchemes(cytest.TestCase):
       iface = interp.sigtable.interface(module)
       self.assertIsNotNone(iface, modname)
       self.assertEqual(iface.name, modname)
-      self.assertTrue(os.path.isfile(iface.path))
+      self.assertTrue(iface.data)
       self.assertEqual(
           iface.path, interp.sigtable.interface_filename(modname)
         )
@@ -469,10 +469,10 @@ class TestInstances(cytest.TestCase):
 class TestInterface(cytest.TestCase):
   '''The index over one interface file.'''
 
-  def check_against_full_parse(self, path):
+  def check_against_full_parse(self, iface):
     '''Every entry of the index decodes to the entry of a full parse.'''
-    prog = fc.load(path)
-    iface = sigtable.Interface(path)
+    prog = fc.read(iface.data.decode('utf-8'))
+    iface = sigtable.Interface(iface.path, data=iface.data)
     self.assertEqual(iface.name, prog.name)
     self.assertEqual(iface.imports, tuple(prog.imports))
     funcs, types, ctors = interface_entries(prog)
@@ -495,7 +495,7 @@ class TestInterface(cytest.TestCase):
     interp = cytest.raw.interp()
     for modname in 'Data.Maybe', 'Data.List', 'SigTable':
       curry.import_(modname)
-      self.check_against_full_parse(interp.sigtable.interface_filename(modname))
+      self.check_against_full_parse(interp.sigtable.interface(modname))
 
   def test_prelude_names(self):
     '''The index of the Prelude finds every entry of the full parse.'''
@@ -516,9 +516,9 @@ class TestInterface(cytest.TestCase):
     numbers go to the log and to the issue; nothing is asserted about them.
     '''
     interp = cytest.raw.interp()
-    path = interp.sigtable.interface_filename('Prelude')
+    retained = interp.sigtable.interface('Prelude')
     t0 = time.perf_counter()
-    iface = sigtable.Interface(path)
+    iface = sigtable.Interface(retained.path, data=retained.data)
     t1 = time.perf_counter()
     scheme = iface.scheme('+')
     t2 = time.perf_counter()
@@ -577,6 +577,37 @@ class TestInterface(cytest.TestCase):
 
 class TestModules(cytest.TestCase):
   '''A test module, a dynamic module, and the reset.'''
+
+  def test_fresh_symlink_import_without_cache(self):
+    code = r'''
+import os
+os.environ['SPRITE_CACHE_FILE'] = ''
+import tempfile
+from pathlib import Path
+import curry
+with tempfile.TemporaryDirectory() as work:
+  root = Path(work)
+  original = root / 'source'
+  alias = root / 'alias'
+  original.mkdir()
+  alias.mkdir()
+  source = original / 'FreshAlias.curry'
+  source.write_text('module FreshAlias where\nf :: Int -> Int\nf x = x + 1\n')
+  link = alias / source.name
+  try:
+    link.symlink_to(source)
+  except OSError:
+    import sys
+    sys.exit(77)
+  module = curry.import_(link)
+  assert module.f.signature == 'Int -> Int', module.f.signature
+  assert curry.show(curry.eval(module.f(41)).one()) == '42'
+  assert not list(original.rglob('*.fint'))
+'''
+    child = cytest.run_in_subprocess(code, timeout=120, address_space=3 << 30)
+    if child.returncode == 77:
+      self.skipTest('source symlinks are unavailable')
+    self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
 
   def test_test_module(self):
     '''The module SigTable under tests/data/curry.'''
@@ -642,9 +673,9 @@ class TestModules(cytest.TestCase):
 
   def test_dynamic_module(self):
     '''
-    A module compiled from text finds its interface in its own directory.
-    Without the file, the symbols have no scheme, and the typed path gets
-    the error that names the module and raw_expr.
+    A module compiled from text keeps its generation's interface and typing
+    after source-side interfaces are removed and the signature cache cleared.
+    An object loaded without interfaces still reports the typed-path error.
     '''
     interp = cytest.raw.interp()
     M = compile_without_cache(
@@ -655,7 +686,8 @@ class TestModules(cytest.TestCase):
       )
     tmpd = Handle(M).icurry.metadata['all.tmpd']
     path = interp.sigtable.interface_filename(M)
-    self.assertTrue(path.startswith(tmpd + os.sep), path)
+    from pathlib import Path
+    self.assertEqual(path, M.__name__ + '.fint')
     self.assertEqual(M.f.signature, 'Int -> Int')
     self.assertEqual(M.g.signature, 'Num a => Maybe a')
     self.assertEqual(M.T.signature, 'a -> Bool -> T a')
@@ -664,16 +696,46 @@ class TestModules(cytest.TestCase):
       if os.path.isfile(candidate):
         os.remove(candidate)
     interp.sigtable.clear()
-    self.assertIsNone(interp.sigtable.interface(M))
-    self.assertIsNone(M.f.signature)
-    self.assertIsNone(M.f.scheme)
-    name = M.__name__
-    with self.assertRaisesRegex(
-        curry.CurryTypeError
-      , r'^no type for %s\.f: no FlatCurry interface found; recompile %s or '
-        r'use raw_expr$' % (name, name)
-      ):
-      interp.sigtable.lookup(M.f, required=True)
+    self.assertIsNotNone(interp.sigtable.interface(M))
+    self.assertEqual(M.f.signature, 'Int -> Int')
+    self.assertIsNotNone(M.f.scheme)
+    code = r'''
+import curry
+import shutil
+import os, tempfile
+from pathlib import Path
+from curry.backends.cxx import toolchain
+from curry.objects.handle import Handle
+with tempfile.TemporaryDirectory(ignore_cleanup_errors=os.name == 'nt') as work:
+  root = Path(work)
+  source = root / 'X.curry'
+  source.write_text('module X where\nf :: Int -> Int\nf x = x + 1\n')
+  module = curry.import_(source)
+  saved = root / 'saved'
+  saved.mkdir()
+  cpp = Path(curry.inspect.geticurryfile(module)).with_suffix('.cpp')
+  curry._interpreter_.save(module, str(cpp), module_main=False, interfaces=False)
+  obj = toolchain.Cpp2So(curry._interpreter_)(str(cpp), curry.path)
+  product = saved / Path(obj).name
+  shutil.copyfile(obj, product)
+  shutil.copyfile(cpp, saved / cpp.name)
+  curry.reset()
+  module = curry.load(product)
+  assert Handle(module).icurry.filename is None
+  table = curry._interpreter_.sigtable
+  assert table.interface(module) is None
+  assert module.f.signature is None
+  assert module.f.scheme is None
+  try:
+    table.lookup(module.f, required=True)
+  except curry.CurryTypeError as error:
+    assert str(error) == ('no type for X.f: no FlatCurry interface found; '
+                          'recompile X or use raw_expr'), str(error)
+  else:
+    raise AssertionError('required lookup accepted a module without an interface')
+'''
+    child = cytest.run_in_subprocess(code, timeout=120, address_space=3 << 30)
+    self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
 
   def test_reset(self):
     '''Interpreter.reset clears the table.'''

@@ -463,8 +463,8 @@ class TestFormatStamp(ToolchainTestCase):
     prereq = _findcurry.currentfile(plan, name, [self.srcdir])
     self.assertEqual(prereq, self.cached_file(name, '.so'))
     self.write_cpp(name, [self.IMPORTS, self.stamp(1), self.STALE])
-    prereq = _findcurry.currentfile(plan, name, [self.srcdir])
-    self.assertEqual(prereq, self.cached_file(name, '.img'))
+    with self.assertRaisesRegex(ValueError, 'changed since it was loaded; reload it'):
+      _findcurry.currentfile(plan, name, [self.srcdir])
 
   def test_source_only_plan_refuses_a_stale_file(self):
     '''
@@ -1470,7 +1470,9 @@ class TestPortableObjects(ToolchainTestCase):
     with open(self.cpp2so.stampfile(sofile), 'w') as stream:
       stream.write(text.replace(build_prefix, toolchain.installation_path()))
     self.assertFalse(self.cpp2so.is_stale(sofile))
-    self.assertEqual(_findcurry.currentfile(self.plan, name, [copy]), sofile)
+    # This interpreter retains the original generation under the loaded name.
+    self.assertEqual(_findcurry.currentfile(self.plan, name, [copy]),
+                     self.cached_file(name, '.so'))
     # The import in a child: the runtime of this process holds the library
     # of the module under its first path.
     before = os.stat(sofile).st_mtime_ns

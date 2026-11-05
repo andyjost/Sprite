@@ -20,6 +20,7 @@ namespace
 {
   struct BuiltinModuleData
   {
+    bool reserved = false;
     TypeTable   types;
     SymbolTable symbols;
   };
@@ -93,6 +94,15 @@ namespace curryrt
     std::vector<DataType *> owned_types;
   };
 
+  std::vector<std::string> Module::builtin_module_names()
+  {
+    std::vector<std::string> names;
+    for(auto const & item: builtin_modules())
+      if(item.second.reserved) names.push_back(item.first);
+    std::sort(names.begin(), names.end());
+    return names;
+  }
+
   std::vector<std::string> Module::registered_names(std::string const & module)
   {
     std::vector<std::string> names;
@@ -130,7 +140,7 @@ namespace curryrt
     )
   {
     assert(builtin_modules().count(name) == 0);
-    BuiltinModuleData data{std::move(types), std::move(symbols)};
+    BuiltinModuleData data{true, std::move(types), std::move(symbols)};
     auto rv = builtin_modules().try_emplace(name, std::move(data));
     (void) rv;
     assert(rv.second);

@@ -97,11 +97,10 @@ Compiler and runtime variables
   value ``1`` they print the Python traceback.
 
 ``SPRITE_DISABLE_SYSLIB_CHECKS``
-  When the variable is set, Sprite skips the check of the Curry library,
-  the Prelude and the other modules of ``curry/`` in the installation.  The
-  check finds each of them on the Curry path and confirms that no file
-  earlier on the path shadows it.  Without the variable a failed library
-  check raises ``ImportError`` with the reason and the paths.
+  When the variable is set, Sprite skips the startup check that each
+  installed Curry library module can be found on the Curry path.
+  A missing module raises ``ImportError`` with the reason and paths.
+  The loader always refuses outside files whose names the runtime reserves.
 
 ``SPRITE_ENABLE_BREAKPOINT``
   When the variable is set, ``import curry`` installs a ``breakpoint``

@@ -30,7 +30,7 @@ def current_only(source):
 
 
 def support_paths(source):
-  # The installed Test.Prop hierarchy loads now; a local namesake is refused.
+  # The installed Test.Prop hierarchy and plain library replacements load.
   return [str(source.parent)]
 
 
@@ -74,7 +74,7 @@ def check_source(self, filename):
     if source.name == 'Prelude.curry':
       self.assertNotEqual(proc.returncode, 0)
       self.assertIn("Curry module 'Prelude'", proc.stderr)
-      self.assertIn('conflicts with the installed library module', proc.stderr)
+      self.assertIn('has the name of a module the runtime implements', proc.stderr)
       self.assertIn(repr(str(local))[1:-1], proc.stderr)
       self.assertIn(repr(config.installed_path('curry', 'Prelude.curry'))[1:-1], proc.stderr)
       return

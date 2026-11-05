@@ -114,21 +114,30 @@ def enabled():
 
 def _module_texts(curryfile):
   '''
-  The module's own texts, as pairs of a label and the bytes: its Curry
+  The module's own digests, as pairs of a label and a digest: its Curry
   source, its ICurry file and its image, each one that exists, in that
   order. Empty when none of them exists. Images carry optimizer summaries,
   so an image written again from the same source by another
   ICurry reader, or from a pinned ICurry file that was replaced, changes
   the key; the source alone would not see it.
   '''
-  from . import _filenames
-  candidates = [('curry', curryfile), ('icy', _filenames.icurryfilename(curryfile))]
-  candidates += [('image', _filenames.replacesuffix(curryfile, '.img'))]
+  from . import _filenames, _findcurry
+  generation = _findcurry.generation_for_source(curryfile)
+  if generation is None:
+    candidates = [('curry', curryfile), ('icy', _filenames.icurryfilename(curryfile)),
+                  ('image', _filenames.replacesuffix(curryfile, '.img'))]
+  else:
+    values = [('curry', generation.source_info.digest if generation.source_info else None),
+              ('icy', generation.product_digest('.icy')),
+              ('image', generation.product_digest('image'))]
+    return [(label, value) for label, value in values if value is not None]
   texts = []
   for label, filename in candidates:
+    if filename is None:
+      continue
     try:
       with open(filename, 'rb') as stream:
-        texts.append((label, stream.read()))
+        texts.append((label, hashlib.sha256(stream.read()).hexdigest()))
     except FileNotFoundError:
       continue
   return texts
@@ -139,7 +148,10 @@ def _imports(curryfile):
   the source when it exists (``cache.SourceInfo``), else the imports of the
   image beside the products; nothing when neither exists.
   '''
-  from . import _filenames, _loadcurry
+  from . import _filenames, _loadcurry, _findcurry
+  generation = _findcurry.generation_for_source(curryfile)
+  if generation is not None:
+    return [name for name, _ in generation.imports]
   if os.path.isfile(curryfile):
     return cache._sourceinfo(curryfile).imports
   imagefile = _filenames.replacesuffix(curryfile, '.img')
@@ -173,8 +185,20 @@ def import_closure(curryfile, currypath=()):
     if name in seen:
       continue
     seen.add(name)
+    from ._findcurry import loaded_generation
+    generation = loaded_generation(name)
+    if generation is not None:
+      info = generation.source_info
+      if info is None:
+        from ..backends.cxx.image import generation_digest
+        info = cache.SourceInfo(generation.object or generation.image, b'')
+        info.digest = generation_digest(generation)
+      closure[name] = info
+      pending.extend(dep for dep, _ in generation.imports)
+      continue
     relpath = name.replace('.', os.sep) + '.curry'
-    for found in filesys.findfiles(searchpaths, relpath):
+    from ._findcurry import module_path
+    for found in filesys.findfiles(module_path(name, searchpaths), relpath):
       found = os.path.abspath(found)
       if found != curryfile:
         info = cache._sourceinfo(found)
@@ -213,7 +237,7 @@ def chain_digest(curryfile, currypath=()):
   for label, text in texts:
     hasher.update(label.encode('utf-8'))
     hasher.update(b'\0')
-    hasher.update(hashlib.sha256(text).hexdigest().encode('utf-8'))
+    hasher.update(text.encode('ascii'))
     hasher.update(b'\0')
   for name, info in sorted(import_closure(curryfile, currypath).items()):
     hasher.update(name.encode('utf-8'))
@@ -337,6 +361,8 @@ def store(digest, key, files, cache_root=None):
   os.mkdir(tmpdir, 0o777)
   try:
     for path in files:
+      from ._findcurry import verify_loaded_product
+      verify_loaded_product(path)
       _place(
           path, os.path.join(tmpdir, os.path.basename(path))
         , link=path.endswith(LINK_SUFFIXES)
@@ -370,6 +396,10 @@ def restore(digest, key, directory, names, cache_root=None):
   if found is None:
     return None
   placed = {}
+  for name in names:
+    from ._findcurry import verify_loaded_product
+    verify_loaded_product(os.path.join(directory, name))
+    verify_loaded_product(found[name], identity=os.path.join(directory, name))
   for name in names:
     _place(found[name], os.path.join(directory, name),
            link=name.endswith(LINK_SUFFIXES), publish=True)

@@ -112,11 +112,17 @@ def save(interp, cymodule, filename=None, goal=None, **kwds):
     iface = interp.sigtable.interface(cymodule)
     if iface is not None:
       icy.update_metadata({'all.fint': iface.data.decode('utf-8')})
-      try:
-        with open(exprtype.icurry_filename(iface.path), encoding='utf-8') as stream:
-          icy.update_metadata({'all.interface': stream.read()})
-      except OSError:
-        pass
+      generation = getattr(getattr(cymodule, '.icurry'), '_loaded_generation', None)
+      if generation is not None:
+        text = generation.texts.get('.icurry')
+        if text is not None:
+          icy.update_metadata({'all.interface': text.decode('utf-8')})
+      else:
+        try:
+          with open(exprtype.icurry_filename(iface.path), encoding='utf-8') as stream:
+            icy.update_metadata({'all.interface': stream.read()})
+        except OSError:
+          pass
   be = interp.backend
   target_object = be.compile(interp, icy)
   if isinstance(filename, str):
@@ -180,6 +186,7 @@ def compilable_icurry(interp, cymodule, icy):
       )
   logger.info('Reading the ICurry of %s from %s', icy.fullname, icyfile)
   complete = toolchain.loadicurry(icyfile)
+  complete.filename = icy.filename
   toolchain.mergebuiltins(complete, interp.backend)
   toolchain.validatemodule(complete)
   # The passes read the module under its name among the loaded modules

@@ -334,13 +334,13 @@ def report_rewrites(program_name, args, counts):
 def _make_one(program_name, plan, name, args, kwds):
   '''Makes one named module, source file, or ICurry file in this process.'''
   if name.endswith('.icy'):
-    # A committed ICurry file.  The image is written beside it, so the Curry
-    # library can be rebuilt without icurry.
+    # Standalone ICurry need not have a Curry source or interfaces.
     _convert_icy(program_name, name, args)
     return
   kwds = dict(kwds, is_sourcefile=name.endswith('.curry'))
   if args.rewrite_flat:
-    _rewrite_flat(plan, name, kwds)
+    name = _rewrite_flat(plan, name, kwds)
+    kwds['is_sourcefile'] = True
   toolchain.makecurry(plan, name, config.currypath(), **kwds)
 
 def _rewrite_flat(plan, name, kwds):
@@ -357,7 +357,9 @@ def _rewrite_flat(plan, name, kwds):
     raise exceptions.CompileError(
         '--rewrite-flat needs the Curry source of %s.' % name
       )
-  toolchain.curry2icurry(curryfile, currypath, **dict(kwds, use_cache=False))
+  icyfile = toolchain.curry2icurry(
+      curryfile, currypath, **dict(kwds, use_cache=False))
+  return _filenames.curryfilename(icyfile)
 
 def _convert_icy(program_name, name, args):
   '''
@@ -366,16 +368,23 @@ def _convert_icy(program_name, name, args):
   '''
   from .. import _interpreter_
   from ..backends.cxx import image
+  from ..toolchain import _destination
+  name = _destination.canonical(name)
   if args.icy and not (args.image or args.cxx):
     product = name
   else:
     product, _ = image.ensure(_interpreter_, name, config.currypath())
   if args.cxx:
     from ..backends.cxx.toolchain import ICurry2Cpp, Cpp2So
-    product = ICurry2Cpp(_interpreter_)(product, config.currypath())
+    product = ICurry2Cpp(_interpreter_)(
+        _filenames.ImageProduct(product,
+            _filenames.icurryfilename(product)
+            if os.path.isfile(_filenames.icurryfilename(product)) else name),
+        config.currypath())
     if args.so:
       product = Cpp2So(_interpreter_)(product, config.currypath())
   if args.output and os.path.abspath(args.output) != os.path.abspath(product):
+    _findcurry.verify_loaded_product(product, _interpreter_)
     shutil.copy(product, args.output)
 
 KEYWORDS = {
@@ -433,14 +442,17 @@ class Job(object):
   def __repr__(self):
     return 'Job(%r)' % self.arg
 
-def imports_of(curryfile):
+def imports_of(curryfile, interp=None):
   '''
   The names of the modules that the module of ``curryfile`` imports, the
   Prelude among them.  The names come from the source when it exists (a scan
   of the import declarations; see curry.cache.SourceInfo), else from the
   image file beside the products.  Nothing when neither exists.
   '''
-  if os.path.isfile(curryfile):
+  generation = _findcurry.generation_for_source(curryfile, interp)
+  if generation is not None:
+    names = [name for name, _ in generation.imports]
+  elif os.path.isfile(curryfile):
     with open(curryfile, 'rb') as stream:
       names = cache.SourceInfo(curryfile, stream.read()).imports
   else:
@@ -458,7 +470,8 @@ def imports_of(curryfile):
 
 def is_done(plan, currentfile, currypath=None):
   '''Tells whether ``currentfile`` ends ``plan``, so that nothing is to be made.'''
-  if plan.flags & plans.MAKE_IMAGE and not os.path.isdir(currentfile) \
+  if _findcurry.generation_for_source(currentfile, plan.interp) is None \
+      and plan.flags & plans.MAKE_IMAGE and not os.path.isdir(currentfile) \
       and _filenames.logging_module_name(currentfile) not in config.unsupported_syslibs():
     from ..backends.cxx import image
     if image.writable(_filenames.curryfilename(currentfile)):
@@ -467,8 +480,11 @@ def is_done(plan, currentfile, currypath=None):
         header = image._check(plan.interp, source, image.filename(currentfile))
         search = _findcurry.program_path(source,
             config.currypath() if currypath is None else currypath, is_sourcefile=True)
-        imports = {name: image.digest(image.filename(_findcurry.currentfile(
-            plan, name, search))) for name in header['imports']}
+        imports = {}
+        for name in header['imports']:
+          generation = _findcurry.loaded_generation(name, plan.interp)
+          imports[name] = image.generation_digest(generation) if generation is not None else \
+              image.digest(image.filename(_findcurry.currentfile(plan, name, search)))
         image._check(plan.interp, source, image.filename(currentfile), imports)
       except (OSError, ValueError, KeyError, exceptions.CurryError):
         return False
@@ -517,7 +533,7 @@ class JobGraph(object):
     self._own[curryfile] = None
     self._deps[curryfile] = []
     waits = []
-    for name in imports_of(curryfile):
+    for name in imports_of(curryfile, self.plan.interp):
       try:
         imported = _findcurry.currentfile(self.plan, name, currypath)
       except (exceptions.ModuleLookupError, exceptions.PrerequisiteError):

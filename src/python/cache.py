@@ -181,10 +181,16 @@ class SourceInfo(object):
 @synchronized(_memo_lock)
 def _sourceinfo(path):
   '''
-  Reads ``path`` and returns its ``SourceInfo``.  The file is read every time:
+  Reads ``path`` and returns its ``SourceInfo``. An unloaded file is read every time:
   a digest costs well under a millisecond, and file time stamps are too coarse
   to tell a rewrite of the same size apart.
   '''
+  from .toolchain._findcurry import generation_for_source
+  generation = generation_for_source(path)
+  if generation is not None:
+    if generation.source_info is None:
+      raise FileNotFoundError(path)
+    return generation.source_info
   with open(path, 'rb') as stream:
     data = stream.read()
   return SourceInfo(path, data)
@@ -289,8 +295,20 @@ def import_closure(curryfile, currypath=()):
     if name in seen:
       continue
     seen.add(name)
+    from .toolchain._findcurry import loaded_generation
+    generation = loaded_generation(name)
+    if generation is not None:
+      info = generation.source_info
+      if info is None:
+        from .backends.cxx.image import generation_digest
+        info = SourceInfo(generation.object or generation.image, b'')
+        info.digest = generation_digest(generation)
+      closure[name] = info
+      pending.extend(dep for dep, _ in generation.imports)
+      continue
     relpath = name.replace('.', os.sep) + '.curry'
-    for found in filesys.findfiles(searchpaths, relpath):
+    from .toolchain._findcurry import module_path
+    for found in filesys.findfiles(module_path(name, searchpaths), relpath):
       found = os.path.abspath(found)
       if found != curryfile:
         info = _sourceinfo(found)
@@ -404,6 +422,8 @@ def write_file(filename, content):
 
 def _read_interface(filename):
   '''The text of an interface file, or None when it is missing or empty.'''
+  from .toolchain._findcurry import verify_loaded_product
+  verify_loaded_product(filename)
   try:
     with open(filename, encoding='utf-8') as stream:
       text = stream.read()
@@ -632,6 +652,8 @@ class Curry2ICurryCache(object):
       assert not self.found
       if self.db is None or self.key is None:
         return
+      from .toolchain._findcurry import verify_loaded_product
+      verify_loaded_product(self.file_out)
       with open(self.file_out, encoding='utf-8') as stream:
         text = stream.read()
       name = icurry_modulename(text)

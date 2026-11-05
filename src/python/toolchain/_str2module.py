@@ -31,12 +31,12 @@ def _log_removals(directories):
 
 def is_temporary(filename):
   '''Tells whether ``filename`` lies in a directory str2module made.'''
-  filename = os.path.abspath(filename)
+  filename = os.path.realpath(filename)
   with _dirs_lock:
     removed = _purge_dirs()
     directories = tuple(_TEMPORARY_DIRS)
   _log_removals(removed)
-  return any(filename.startswith(directory + os.sep)
+  return any(filename.startswith(os.path.realpath(directory) + os.sep)
       for directory in directories)
 
 @formatDocstring(config.python_package_name())
@@ -115,4 +115,4 @@ def _rmdir(moduledir):
   # Even an enclosing registry section must never enter logging here:
   # a logging handler may call is_temporary while holding its own lock.
   _pending_removals.append(moduledir)
-  shutil.rmtree(moduledir)
+  shutil.rmtree(moduledir, ignore_errors=os.name == 'nt')

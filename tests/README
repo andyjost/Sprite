@@ -387,7 +387,7 @@ Unit tests match the pattern unit_*.py.
     compiles one module from text with the ICurry cache off, so the front
     end runs once per test run; the interface files it reads are the .fint
     files beside the .icy.
-  - unit_goals.py runs the REPL (python -m curry.tools.icy) and sprite-exec
+  - unit_goals.py runs the REPL (python -m curry.tools.repl) and sprite-exec
     in child processes on the backend of the test process, and compiles
     text goals, so the front end runs for texts the cache does not hold.
     Its module is data/curry/UnsignedGoals.curry.  It also pins the

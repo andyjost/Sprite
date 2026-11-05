@@ -22,10 +22,11 @@ namespace
       std::string module, std::vector<std::string> argv
     , std::vector<std::string> envp, std::string logfile, std::string sofile
     , std::string publish, py::sequence steps, std::string icurryfile
-    , std::string icurry_digest, py::sequence imports
+    , std::string icurry_digest, py::sequence imports, std::vector<std::string> fingerprints
     )
   {
     TieredJob job;
+    job.fingerprints = std::move(fingerprints);
     job.module = std::move(module);
     job.argv = std::move(argv);
     job.envp = std::move(envp);
@@ -66,13 +67,13 @@ namespace
       std::string module, std::vector<std::string> argv
     , std::vector<std::string> envp, std::string logfile, std::string sofile
     , std::string publish, py::sequence steps, std::string icurryfile
-    , std::string icurry_digest, py::sequence imports
+    , std::string icurry_digest, py::sequence imports, std::vector<std::string> fingerprints
     )
   {
     tiered_submit(make_job(
         std::move(module), std::move(argv), std::move(envp)
       , std::move(logfile), std::move(sofile), std::move(publish), steps
-      , std::move(icurryfile), std::move(icurry_digest), imports
+      , std::move(icurryfile), std::move(icurry_digest), imports, std::move(fingerprints)
       ));
   }
 
@@ -80,13 +81,13 @@ namespace
       std::string module, std::vector<std::string> argv
     , std::vector<std::string> envp, std::string logfile, std::string sofile
     , std::string publish, py::sequence steps, std::string icurryfile
-    , std::string icurry_digest, py::sequence imports
+    , std::string icurry_digest, py::sequence imports, std::vector<std::string> fingerprints
     )
   {
     cxx_arm(make_job(
         std::move(module), std::move(argv), std::move(envp)
       , std::move(logfile), std::move(sofile), std::move(publish), steps
-      , std::move(icurryfile), std::move(icurry_digest), imports
+      , std::move(icurryfile), std::move(icurry_digest), imports, std::move(fingerprints)
       ));
   }
 
@@ -111,7 +112,7 @@ namespace
   {
     TieredJob job = make_job(
         std::move(module), {}, {}, {}, std::move(sofile), {}, steps, {}, {}
-      , py::tuple()
+      , py::tuple(), {}
       );
     return result_dict(tiered_adopt(std::move(job), true));
   }
@@ -155,6 +156,7 @@ namespace curryrt { namespace python
       , py::arg("steps")
       , py::arg("icurryfile") = "", py::arg("icurry_digest") = ""
       , py::arg("imports") = py::tuple()
+      , py::arg("fingerprints") = std::vector<std::string>()
       , "Queues the background compile of a module.  sofile is the object "
         "the compile writes, in a private directory; publish names the "
         "object beside the source the swap publishes before it opens the "
@@ -174,6 +176,7 @@ namespace curryrt { namespace python
       , py::arg("steps")
       , py::arg("icurryfile") = "", py::arg("icurry_digest") = ""
       , py::arg("imports") = py::tuple()
+      , py::arg("fingerprints") = std::vector<std::string>()
       , "Arms the background compile until a function becomes hot. sofile is "
         "the object "
         "the compile writes, in a private directory; publish names the "

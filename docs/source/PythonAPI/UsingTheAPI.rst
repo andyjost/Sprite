@@ -345,6 +345,7 @@ held terms:
     ...   print('build the term again from M')
     build the term again from M
 
+Loaded modules are served from memory until reload or reset.
 Text modules require ``text=`` on reload.  File modules reread their source
 when text is omitted; under ``interpret='off'`` a reload requires
 a new process or ``reset(interpret='new')`` before import.
@@ -422,16 +423,59 @@ Curry packages
 ==============
 
 The Curry Package Manager resolves and downloads Curry packages.
-Use your own ``cypm``, configured for your PAKCS or KiCS2 installation;
-Sprite runs the installed modules. In a project with a ``package.json``
+Use your own ``cypm``. Set ``CURRY_BIN=/path/to/install/bin/sprite`` in
+``.cpmrc``, or pass ``cypm -d CURRYBIN=/path/to/install/bin/sprite`` on each
+command, to select Sprite as the Curry system. The version probe reports
+``sprite``; packages with compiler constraints must explicitly allow it. In a project with a ``package.json``
 that lists its dependencies, run::
 
     cypm install
-    cypm exec python -m curry
+    cypm exec sprite
 
 To run a source file instead, use::
 
     cypm exec sprite-exec Main.curry
+
+``cypm test`` runs the package's declared test suites. It needs CurryCheck;
+without it CPM only compiles the modules. CurryCheck invokes the Curry system
+that compiled CurryCheck, so installing a PAKCS CurryCheck does not test Sprite.
+Sprite supplies private ``bin/curry`` and ``bin/cleancurry`` launchers in the
+installation (also in the wheel's resources); these add no commands to PATH.
+Build CurryCheck with ``cypm -d CURRYBIN=sprite install currycheck``.
+
+The package index currently omits Sprite from compiler compatibility lists,
+including base, so CPM refuses packages under Sprite until the index lists it.
+For testing only, use a scratch CPM home and copy the downloaded index::
+
+    export HOME="$(mktemp -d)"
+    cypm update
+    cypm -d CURRYBIN=pakcs install currypp
+    export PATH="$HOME/.cpm/bin:$PATH"
+    export SPRITE_DISABLE_SYSLIB_CHECKS=1
+    python scripts/cpm-test-overlay.py "$HOME/.cpm/index" "$HOME/sprite-index"
+    cypm -d REPOSITORYPATH="$HOME/sprite-index" -d CURRYBIN=sprite checkout currycheck -o "$HOME/currycheck-download"
+    python scripts/cpm-test-overlay.py "$HOME/.cpm/index" "$HOME/sprite-index" --packages "$HOME/.cpm/packages"
+    cypm -d REPOSITORYPATH="$HOME/sprite-index" -d CURRYBIN=sprite install currycheck
+
+From the package directory, invoke its declared suites with::
+
+    cypm -d REPOSITORYPATH="$HOME/sprite-index" -d CURRYBIN=sprite test
+
+The current CurryCheck source contains a quoted preprocessor pragma that
+Sprite's preprocessor-presence check recognizes as active. Keep ``currypp``
+available during installation; this check needs a separate toolchain fix.
+The preprocessor may be built with PAKCS; CurryCheck must be built with Sprite.
+
+EasyCheck supplies its own ``Test.Prop`` interface, which follows the same
+path rules as other ordinary library modules. CurryCheck runs on Sprite.
+The local prerequisite for property execution is the ``sqlite3`` program
+that CurryCheck needs.
+
+The script adds ``"sprite": ">= 0.9.0"`` to every compatibility list that
+names PAKCS. CPM also reads metadata from downloaded packages; ``--packages``
+applies the same change to those scratch copies after checkout. It preserves
+the original index. Neither this script nor its
+overlay is installed for users. Sprite still identifies itself as ``sprite``.
 
 ``cypm exec`` sets ``CURRYPATH`` to the dependency source directories.
 Sprite also recognizes the local layout directly. When the working
@@ -440,12 +484,20 @@ directory has both ``package.json`` and ``.cpm/packages/``, importing
 installed package under ``.cpm/packages/<name>-<version>/``. A missing
 ``sourceDirs`` means ``["src"]``. Packages follow directory-name order;
 each package keeps its declared source-directory order. These paths follow
-``CURRYPATH`` and precede the installed library. A source directory that
-provides a module of the installed library is skipped with a warning.
+``CURRYPATH`` and precede the installed library.
 The discovery runs once
 at import and logs the packages at INFO. ``SPRITE_CPM_PATH=0`` disables it.
 Thus ``python -m curry`` works from the project root after installation,
 without ``cypm exec``.
+
+The first file on the Curry path defines a module, including a library module.
+A loaded module keeps its name until reset or reload; another import returns
+it, warning if an explicitly named file differs.
+Names implemented by the runtime are reserved: an outside file with such a
+name is refused with a message naming both files.
+A replacement must export what the library's importers use.
+Products compiled against another version of an import are rebuilt, privately
+when their directory is not writable.
 
 From Python, inspect or change ``curry.path``. To discover another project,
 use ``curry.cpm_path(root)``; it returns a list of source directories without

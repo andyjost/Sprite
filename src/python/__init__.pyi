@@ -779,7 +779,7 @@ class _ModuleInfo:
   symbols: Mapping[str, Symbol]
   types: Mapping[str, DataType]
 
-# The tools: sprite-exec FILE -g EXPR and python -m curry.tools.icy print
+# The tools: sprite-exec FILE -g EXPR and python -m curry.tools.repl print
 # show(answer) per line, with bindings. No value: *** No value found! (2).
 # EvaluationError: ERROR: msg (1). Suspension: *** Evaluation suspended! (1).
 # IO () has no result line. CompileError prints its first error line (1).

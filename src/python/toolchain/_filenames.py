@@ -13,10 +13,11 @@ SUBDIR = config.intermediate_subdir()
 KNOWN_SUFFIXES = set(['.img', '.py', '.icy', '.icy.z', '.cpp', '.so', config.module_object_suffix()])
 
 class ImageProduct(str):
-  """A private image path with its original translation input."""
-  def __new__(cls, path, icyfile):
+  """An image with its generation input and the translation used to load it."""
+  def __new__(cls, path, icyfile, original_icyfile=None):
     result = super().__new__(cls, path)
     result.icyfile = icyfile
+    result.original_icyfile = original_icyfile or icyfile
     return result
 
 
@@ -150,6 +151,10 @@ def module_name(filename):
     source = curryfilename(filename)
   except ValueError:
     return os.path.splitext(os.path.basename(filename.removesuffix('.z')))[0]
+  from ._findcurry import generation_for_source
+  generation = generation_for_source(source)
+  if generation is not None:
+    return generation.name
   try:
     with open(source, encoding='utf-8') as stream:
       tokens = iter(_header_tokens(stream.read()))

@@ -197,10 +197,11 @@ class CxxCompiler(compiler.CompilerBase):
     import json
     yield '// INPUT: ' + json.dumps(input_record(
         self.interp, self.iroot.filename), sort_keys=True)
-    from ...toolchain import _interfaces
-    yield '// INTERFACES: ' + _interfaces.encode(_interfaces.object_snapshot(
-        self.iroot.imports,
-        _interfaces.search_path(self.iroot.filename or '.', self.interp.path)))
+    from ...toolchain import _interfaces, _findcurry
+    with _findcurry.resolving(self.interp):
+      interfaces = _interfaces.object_snapshot(self.iroot.imports,
+          _interfaces.search_path(self.iroot.filename or '.', self.interp.path))
+    yield '// INTERFACES: ' + _interfaces.encode(interfaces)
     for name in RUNTIME_INCLUDES:
       yield '#include "%s"' % name
     yield ''

@@ -4,21 +4,49 @@ from . import _filenames
 from ..tools.utility import make_exception
 from ..utility import curryname, filesys, formatDocstring
 import logging, os
+from contextvars import ContextVar
+from contextlib import contextmanager
+from dataclasses import dataclass
 
 __all__ = ['currentfile', 'import_path', 'imports_path', 'program_path']
 logger = logging.getLogger(__name__)
 SUBDIR = config.intermediate_subdir()
 
+def reserved_module_names():
+  from ..backends.cxx import curryrtbindings as curryrt
+  return curryrt.builtin_module_names()
+
+def is_loader_snapshot(modulename, filename):
+  """Authenticate a private source copy, including in another process."""
+  import tempfile
+  from pathlib import Path
+  try:
+    source = Path(os.path.realpath(_filenames.curryfilename(filename)))
+    relative = source.relative_to(os.path.realpath(tempfile.gettempdir()))
+    parts = relative.parts
+    if len(parts) < 3 or not parts[0].startswith('sprite-tiered-') \
+        or not parts[1].startswith('private') or not parts[1][7:].isdigit():
+      return False
+    if Path(*parts[2:]) != Path(*modulename.split('.')).with_suffix('.curry'):
+      return False
+    installed = Path(config.installed_path(
+        'curry', modulename.replace('.', os.sep) + '.curry'))
+    return _filenames.module_name(str(source)) == modulename \
+        and source.read_bytes() == installed.read_bytes()
+  except (OSError, ValueError):
+    return False
+
 def reject_library_shadow(modulename, filename, interp):
-  # Library names are reserved regardless of which modules are already
-  # loaded: the runtime registry and native implementations use those names.
-  if interp is None or modulename not in config.syslibs() \
+  if interp is None or modulename not in reserved_module_names() \
       or _installed_library_file(filename):
+    return
+  if is_loader_snapshot(modulename, filename):
     return
   libraryfile = config.installed_path(
       'curry', modulename.replace('.', os.sep) + '.curry')
   raise ModuleLookupError(
-      "Curry module %r from %r conflicts with the installed library module %r."
+      "Curry module %r from %r has the name of a module the runtime implements; "
+      "the installed module %r cannot be replaced."
       % (modulename, os.path.abspath(filename), libraryfile)
     )
 
@@ -31,8 +59,192 @@ def _installed_library_file(filename):
   path = os.path.realpath(filename)
   return path == root or path.startswith(root + os.sep)
 
+# Translation and execution share loaded names for the duration of a plan.
+_translation_interp = ContextVar('translation_interp', default=None)
+
+
+@contextmanager
+def resolving(interp):
+  token = _translation_interp.set(interp)
+  try:
+    yield
+  finally:
+    _translation_interp.reset(token)
+
+
+def with_resolution(function):
+  from functools import wraps
+  @wraps(function)
+  def wrapped(plan, *args, **kwds):
+    with resolving(getattr(plan, 'interp', plan)):
+      return function(plan, *args, **kwds)
+  return wrapped
+
+
+def loaded_source(name, interp=None):
+  from ..objects import CurryPackage
+  from ..objects.handle import getHandle
+  interp = _translation_interp.get() if interp is None else interp
+  module = getattr(interp, 'modules', {}).get(name)
+  if module is not None and not isinstance(module, CurryPackage):
+    raw = getattr(getHandle(module), 'icurry', None)
+    filename = getattr(raw, 'filename', None)
+    if filename:
+      return _filenames.sourcefilename(filename)
+  return None
+
+
+@dataclass
+class LoadedGeneration:
+  source_info: object
+  texts: dict
+  source: object # real-path identity
+  source_spelling: object # loaded source spelling, for sibling products
+  image: object
+  imports: tuple
+  name: str
+  object: object
+  digests: dict
+
+  def product_digest(self, kind):
+    stem = os.path.splitext(_filenames.icurryfilename(self.source_spelling)
+        if self.source_spelling else self.object)[0] if self.source_spelling or self.object else None
+    if kind == 'image':
+      path = self.image
+    elif kind in ('object', 'cpp', 'stamp'):
+      path = self.object or (stem + config.module_object_suffix() if stem else None)
+      if path is None:
+        return None
+      if kind == 'cpp':
+        path = os.path.splitext(path)[0] + '.cpp'
+      elif kind == 'stamp':
+        path += '.abi'
+    else:
+      path = stem + kind if stem else None
+    return self.digests.get(os.path.realpath(path)) if path else None
+
+  def acquire_object(self, path):
+    from ..backends.cxx.image import digest
+    self.object = path
+    for product in (path, os.path.splitext(path)[0] + '.cpp', path + '.abi'):
+      self.digests[os.path.realpath(product)] = digest(product)
+
+
+def loaded_generation(name, interp=None):
+  from ..objects.handle import getHandle
+  interp = _translation_interp.get() if interp is None else interp
+  module = getattr(interp, 'modules', {}).get(name)
+  from ..objects import CurryModule
+  return getattr(getHandle(module).icurry, '_loaded_generation', None) \
+      if isinstance(module, CurryModule) else None
+
+
+def generation_for_source(source, interp=None):
+  """Find a captured source by identity without reopening its header."""
+  if source is None:
+    return None
+  interp = _translation_interp.get() if interp is None else interp
+  for suffix in ('.imports', '.source', '.abi'):
+    if source.endswith(suffix):
+      source = source[:-len(suffix)]
+  source = os.path.realpath(_filenames.sourcefilename(source))
+  for name in tuple(getattr(interp, 'modules', {})):
+    generation = loaded_generation(name, interp)
+    if generation is not None and generation.source == source:
+      return generation
+  return None
+
+
+def verify_product(generation, filename, identity=None):
+  from ..backends.cxx.image import digest
+  if digest(filename) != generation.digests.get(os.path.realpath(filename if identity is None else identity)):
+    raise ValueError('the products of module %s changed since it was loaded; reload it'
+        % generation.name)
+  return filename
+
+
+def verify_loaded_product(filename, interp=None, identity=None):
+  """Check a disk input against the generation owned by this interpreter."""
+  interp = _translation_interp.get() if interp is None else interp
+  path = os.path.realpath(filename if identity is None else identity)
+  for name in tuple(getattr(interp, 'modules', {})):
+    generation = loaded_generation(name, interp)
+    if generation is None:
+      continue
+    if generation.digests.get(path) is not None:
+      verify_product(generation, filename, identity=path)
+  return filename
+
+
+def capture_generation(module, interp):
+  """Pin source provenance and interfaces before publishing a loaded module."""
+  from pathlib import Path
+  from .. import cache
+  from ..objects.handle import getHandle
+  handle = getHandle(module)
+  raw = handle.icurry
+  objectfile = handle.sofilename
+  if not raw.filename and not objectfile:
+    return
+  sourcefile = os.path.abspath(_filenames.sourcefilename(raw.filename)) if raw.filename else None
+  source = os.path.realpath(sourcefile) if sourcefile else None
+  # Source identity follows symlinks; products belong to the spelling loaded.
+  stem = Path(_filenames.icurryfilename(sourcefile) if sourcefile else objectfile).with_suffix('')
+  texts = {}
+  for suffix in ('.fint', '.icurry', '.icy.imports', '.icy.source'):
+    path = Path(str(stem) + suffix)
+    key = {'.fint': 'all.fint', '.icurry': 'all.interface'}.get(suffix)
+    embedded = raw.metadata.get(key) if key else None
+    try:
+      data = path.read_bytes()
+    except OSError:
+      data = None
+    if embedded is not None:
+      encoded = embedded.encode('utf-8')
+      # Text metadata has universal newlines; retain the matching physical
+      # spelling so later byte verification also works for CRLF products.
+      texts[suffix] = data if data is not None and \
+          data.replace(b'\r\n', b'\n') == encoded.replace(b'\r\n', b'\n') else encoded
+    elif data is not None:
+      texts[suffix] = data
+  try:
+    info = cache._sourceinfo(source) if source else None
+  except OSError:
+    info = None
+  from ..backends.cxx import image
+  provenance = getattr(raw, '_attached_image', None)
+  if provenance is None and source is not None:
+    candidate = os.path.splitext(objectfile)[0] + '.img' if objectfile else image.filename(sourcefile)
+    provenance = candidate if os.path.isfile(candidate) else None
+  products = [str(stem) + '.icy', str(stem) + '.img', provenance]
+  diskobject = objectfile or str(stem) + config.module_object_suffix()
+  products.extend((diskobject, os.path.splitext(diskobject)[0] + '.cpp', diskobject + '.abi'))
+  digests = {os.path.realpath(path): image.digest(path) for path in products if path}
+  import hashlib
+  digests.update((os.path.realpath(str(stem) + suffix), hashlib.sha256(data).hexdigest())
+      for suffix, data in texts.items())
+  imports = tuple((name, loaded_generation(name, interp)) for name in raw.imports)
+  raw._loaded_generation = LoadedGeneration(
+      info, texts, source, sourcefile, provenance, imports, raw.fullname, objectfile, digests)
+
+
+def module_path(name, search):
+  """Resolve a loaded generation first, otherwise preserve path order."""
+  source = loaded_source(name)
+  if source is None:
+    return search
+  from ._frontend import source_root
+  return [source_root(source)]
+
+
 def _modulefiles(plan, name, currypath):
   '''Files in path order, then namespace directories from the whole path.'''
+  source = loaded_source(name, plan.interp)
+  if source is not None and name not in reserved_module_names():
+    for filename in reversed(plan.filelist(source)):
+      if os.path.isfile(filename):
+        yield filename
+    return
   curryname.validateModulename(name)
   parts = name.split('.')
   package_path, local = os.sep.join(parts[:-1]), parts[-1]
@@ -98,6 +310,7 @@ def import_path(interp, currypath):
       path.append(entry)
   return path
 
+@with_resolution
 @formatDocstring(config.python_package_name())
 def currentfile(
     plan, name, currypath, is_sourcefile=False, **ignored
@@ -141,8 +354,15 @@ def currentfile(
     Curry file is returned if it exists.  If neither of those applies, the
     package directory name is returned, if it exists.
   '''
-  modulename = curryname.getModuleName(name, is_sourcefile)
+  modulename = (_filenames.module_name(name) if is_sourcefile else
+                curryname.getModuleName(name, False))
   currypath = program_path(name, currypath, is_sourcefile)
+  # ICurry provenance needs the same effective import path as images and
+  # objects, including imports by name whose imports_path is None.
+  effective = import_path(plan.interp, imports_path(currypath, is_sourcefile)) \
+      if plan.interp is not None else imports_path(currypath, is_sourcefile)
+  if effective is None and plan.interp is not None:
+    effective = plan.interp.path
   if not is_sourcefile:
     # If name is a module name, then search CURRYPATH for the source file or
     # (possibly zipped) image and set it as the name.  source file and
@@ -168,6 +388,8 @@ def currentfile(
   if not curryfile.endswith('.curry'):
     raise ModuleLookupError('expected .curry extension in %r' % curryfile)
   curryfile = os.path.abspath(curryfile)
+  if os.path.isfile(curryfile):
+    modulename = _filenames.module_name(curryfile)
   reject_library_shadow(modulename, curryfile, plan.interp)
   filelist = plan.filelist(curryfile)
   from . import _curry2icurry, _interfaces
@@ -177,7 +399,7 @@ def currentfile(
   if plan.stages[0].step is _curry2icurry.curry2icurry \
       and (source_changed or (
           os.path.isfile(curryfile) and not os.path.isfile(icyfile)
-          and not _interfaces.is_current(icyfile, currypath))):
+          and not _interfaces.is_current(icyfile, effective))):
     # Check even when tidy removed the ICurry prerequisite.
     filelist = [curryfile]
   # Force recompile, if requested.
@@ -190,7 +412,7 @@ def currentfile(
   # from it: a .cpp file of another format, or a .so file compiled against
   # other runtime headers.  The age of the runtime library does not count.
   from . import plans
-  if plan.interp is not None and plan.flags & plans.MAKE_TARGET_SOURCE \
+  if plan.interp is not None and plan.flags & plans.MAKE_ICURRY \
       and not source_changed and os.path.isfile(curryfile):
     # Refresh direct imports before judging their interfaces. Importing an
     # unchanged B must also see A's newly translated interface when A's
@@ -200,14 +422,22 @@ def currentfile(
           list(_interfaces.read(icyfile + _interfaces.SUFFIX) or {})
     except (OSError, ValueError):
       names = [] # the normal reader diagnoses a malformed ICurry file
-    plan.interp.import_(names, currypath=import_path(plan.interp,
-        imports_path(currypath, is_sourcefile)))
+    if not plan.flags & plans.MAKE_TARGET_SOURCE:
+      # An ICurry-only build must refresh replacement interfaces too, but
+      # planning a complete installed library must not load its modules.
+      search = plan.interp.path if effective is None else effective
+      names = [dep for dep in names
+          for path in list(_modulefiles(plan, dep, search))[:1]
+          if not _installed_library_file(path)]
+    if names:
+      plan.interp.import_(names, currypath=import_path(plan.interp,
+          imports_path(currypath, is_sourcefile)))
     if os.path.isfile(curryfile) and not os.path.isfile(icyfile) \
-        and not _interfaces.is_current(icyfile, currypath):
+        and not _interfaces.is_current(icyfile, effective):
       filelist = [curryfile]
-  filelist = plan.prune_stale(
-      filelist, imports_path(currypath, is_sourcefile)
-    )
+  for product in filelist:
+    verify_loaded_product(product, plan.interp)
+  filelist = plan.prune_stale(filelist, effective)
   if _curry2icurry.in_system_library(curryfile) and _curry2icurry.source_matches(
       curryfile, _filenames.icurryfilename(curryfile)):
     # pip extracts sources after .curry products and resets their times.

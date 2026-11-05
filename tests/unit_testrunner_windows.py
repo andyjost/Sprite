@@ -23,8 +23,8 @@ class TestWindowsRunner(unittest.TestCase):
           [sys.executable, '-m', 'curry', '-g', 'main'])
       self.assertEqual(cytest.tool_command(['sprite-make', '--image', 'M']),
           [sys.executable, '-m', 'curry.tools.make', '--image', 'M'])
-      self.assertEqual(cytest.tool_command(['python', '-m', 'curry.tools.icy']),
-          [sys.executable, '-m', 'curry.tools.icy'])
+      self.assertEqual(cytest.tool_command(['python', '-m', 'curry.tools.repl']),
+          [sys.executable, '-m', 'curry.tools.repl'])
     with mock.patch.object(sys, 'platform', 'linux'):
       self.assertEqual(cytest.tool_command(command), command)
 

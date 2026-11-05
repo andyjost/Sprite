@@ -39,6 +39,7 @@ Source = "https://github.com/andyjost/Sprite"
 Issues = "https://github.com/andyjost/Sprite/issues"
 
 [project.scripts]
+sprite = "curry.tools.entrypoints:repl"
 sprite-exec = "curry.tools.entrypoints:execute"
 sprite-make = "curry.tools.entrypoints:make"
 

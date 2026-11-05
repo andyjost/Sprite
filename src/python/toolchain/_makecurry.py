@@ -74,11 +74,14 @@ def makecurry(plan, name, currypath=None, **kwds):
   currypath = _findcurry.program_path(name, currypath, **kwds)
   do_tidy = kwds.pop('tidy', False)
   output = kwds.pop('output', None)
-  with ToolchainContext(tidy=do_tidy, output=output) as pipeline:
+  with _findcurry.resolving(plan.interp), \
+      ToolchainContext(tidy=do_tidy, output=output) as pipeline:
     for attempt in range(3):
       pipeline.currentfile = _findcurry.currentfile(
           plan, name, currypath, **kwds
         )
+      if os.path.isdir(pipeline.currentfile):
+        return pipeline.currentfile
       try:
         if not os.path.isdir(pipeline.currentfile):
           Maker(plan, pipeline, name, currypath, kwds).make()
@@ -187,6 +190,7 @@ class ToolchainContext(object):
     if excty is None:
       # Move the file if "output" was specified.
       if self.copy_required:
+        _findcurry.verify_loaded_product(self.currentfile)
         shutil.copy(self.currentfile, self.output)
         if self.currentfile not in self.intermediates:
           self.intermediates.append(self.currentfile)

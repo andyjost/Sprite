@@ -250,9 +250,11 @@ a busy lock leaves the private object in use and the publication to the
 holder of the lock.
 A tiered reload on POSIX uses a distinct spelling of the canonical path,
 so that ``dlopen`` opens the new file instead of returning the old mapping;
-it creates no link and no copy. Windows normalizes that spelling, so a
-second adoption under an already mapped canonical name declines with a
-logged reason and the edited module stays interpreted until the next process.
+it creates no link and no copy. Windows normalizes that spelling. An
+unchanged DLL rejoins its existing registry entry on reload. A background
+compile never publishes over a mapped canonical object: it adopts its
+new private generation instead. Attached images also retain their files;
+a replacement image uses a fresh private source generation.
 The tests cover mapped readers, collection of live and dead generations and
 read-only products. Neither a generation nor an old private ``.tiered`` copy
 may appear in a staged library or a wheel.
@@ -436,6 +438,27 @@ in the endpoint log. Storage no longer follows the process-wide identifier
 counter. The log contains the endpoints of real unions in insertion order;
 every member of a non-singleton class occurs in it, so the collector and
 invariant checker still visit all retained free variables.
+
+Loaded modules and their files
+==============================
+
+An interpreter serves a loaded module from memory until reload or reset.
+It retains the interface bytes, loaded ICurry and runtime image, source
+provenance and product digests read at load, and references to its imports.
+Loading creates no product snapshots. Optimizer summaries and import
+fingerprints use the loaded declarations and recorded digests, including
+the object digest for a source-free object.
+
+Editing or rebuilding a loaded module's files without reload or reset is
+outside the module rules; behavior in that process is undefined. The next
+reload, reset or process reads the changed files. Three guarantees still
+hold: the installation is never written, inlining uses the loaded bodies,
+and tools that need product files verify their digests against the load
+record. Inspection and saved-program reconstruction refuse changed products
+with an error naming the module and asking for reload. Background compilation
+skips a module with changed inputs, logs one INFO message and leaves it
+interpreted. Only compile jobs create files in the background compiler's
+temporary root.
 
 The module image
 ================
@@ -931,7 +954,8 @@ Reads snapshot its current pointer. ``getElapsedTime`` counts from the library
 load. ``setEnv`` changes the native environment, but does not update Python's
 ``os.environ``. An environment write error names the variable.
 ``curry.program_arguments`` and ``curry.program_name`` supply the runtime
-arguments and module name under sprite-exec and saved programs.
+arguments and program name. Under sprite-exec the name is the module name;
+a saved executable uses its current basename.
 Their Python defaults are ``sys.argv[1:]`` and ``sys.argv[0]``.
 Tool options may precede NAME or appear immediately after it.
 The first runtime argument, an unknown option, or ``--`` ends tool options.
@@ -943,6 +967,24 @@ the loaded module name. Before the first prompt it loads either the
 command-line module or ``Prelude``, so the initial name without a
 command-line module is ``Prelude``.
 
+
+Saved executable dependencies
+=============================
+
+``curry.save(module, path, main=...)`` embeds an ordered sequence of
+base64-encoded shared objects in its Python launcher, rather than only the
+main module's object. The collector traverses transitive imports before
+checking whether an installed object is usable in the saving interpreter:
+its stamp must be current and its live dependencies must all have objects.
+The sequence includes replacement and stale library modules, with dependencies
+before their users and the main module last. Each object carries its typed interfaces. At execution the
+launcher extracts and loads the objects in that order in a temporary
+directory. Only imports with usable installed objects resolve from the
+installation. No source or
+product search path from the saving session is needed. The Windows native
+launcher carries the same Python payload. Existing saved executables retain
+their original payload; save them again to include their dependencies.
+Saving without ``main`` still writes one module object for ``curry.load``.
 
 Handles and package primitives
 ------------------------------

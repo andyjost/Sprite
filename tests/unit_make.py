@@ -105,6 +105,17 @@ class TestMake(cytest.TestCase):
         self.assertTrue(os.path.exists(image_file))
         self.assertEqual(ret, image_file)
 
+  def test_explicit_namespace_directory(self):
+    with tempfile.TemporaryDirectory() as directory:
+      namespace = os.path.join(directory, 'Data')
+      os.mkdir(namespace)
+      code = "import os; os.environ['CURRYPATH'] = %r\n" % directory
+      code += "from curry.tools import make\nmake.main('sprite-make', ['--icy', 'Data'])\n"
+      child = cytest.run_in_subprocess(code, timeout=120)
+      self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
+      self.assertEqual(os.listdir(directory), ['Data'])
+      self.assertEqual(os.listdir(namespace), [])
+
   def test_convert_icy(self):
     from curry.backends.cxx import image
     with tempfile.TemporaryDirectory() as directory:

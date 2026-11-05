@@ -46,10 +46,11 @@ def import_(interp, arg, currypath=None, is_sourcefile=False):
 # Import a module or package by name.
 @import_.when(str)
 def import_(interp, name, currypath=None, is_sourcefile=False):
-  modulename = curryname.getModuleName(name, is_sourcefile)
+  modulename = (_filenames.module_name(name) if is_sourcefile else
+                curryname.getModuleName(name, False))
   if is_sourcefile:
     _findcurry.reject_library_shadow(modulename, name, interp)
-  elif modulename in config.syslibs():
+  elif modulename in _findcurry.reserved_module_names():
     path = curryname.makeCurryPath(interp.path if currypath is None else currypath)
     plan = plans.makeplan(interp, plans.MAKE_ALL)
     filename = next(_findcurry._modulefiles(plan, modulename, path), None)
@@ -111,7 +112,8 @@ class ImportEx(object):
   of a plan give the module of a program, has its imports searched as a
   source file has.
   '''
-  def __init__(self, interp, currypath):
+  def __init__(self, interp, currypath, _saved_payload=False):
+    self._saved_payload = _saved_payload
     self.plan = plans.makeplan(interp, plans.MAKE_ALL)
     self.currypath = curryname.makeCurryPath(
         interp.path if currypath is None else currypath
@@ -192,7 +194,7 @@ class ImportEx(object):
   @__call__.when(icurry.IModule)
   def __call__(self, imodule, tail=[]):
     session = self.interp._session
-    if imodule.filename:
+    if imodule.filename and not self._saved_payload:
       _findcurry.reject_library_shadow(
           imodule.fullname, imodule.filename, self.interp)
     parents = list(curryname.prefixes(imodule.fullname))[:-1]
@@ -231,6 +233,7 @@ class ImportEx(object):
           for name in getHandle(existing).icurry:
             setattr(moduleobj, name, getattr(existing, name))
         record_source(moduleobj)
+        _findcurry.capture_generation(moduleobj, self.interp)
         load.loadSymbols(self.interp, imodule, moduleobj)
         from ...objects.classes import build_classes
         build_classes(self.interp, moduleobj)
@@ -268,9 +271,6 @@ def record_source(moduleobj):
   filename = getattr(moduleobj, '.source_file', None) or h.icurry.filename
   try:
     h.source_mtime = None if not filename else os.stat(filename).st_mtime_ns
-    if filename and filename.endswith('.curry'):
-      with open(filename, encoding='utf-8') as stream:
-        h.icurry._source_text = stream.read()
   except OSError:
     h.source_mtime = None
 

@@ -213,7 +213,16 @@ with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') 
   with mock.patch.object(_system, 'pexec', pexec):
     together(writer, reader)
   assert before != toolchain.Cpp2So.product_snapshot(sofile)
-  assert toolchain.Cpp2So(interp).stamp_is_current(sofile)
+  try:
+    toolchain.Cpp2So(interp).stamp_is_current(sofile)
+  except ValueError as exc:
+    assert str(exc) == 'the products of module ThreadRecompile changed since it was loaded; reload it', str(exc)
+  else:
+    raise AssertionError('rebuilt loaded object accepted')
+  module = interp.modules['ThreadRecompile']
+  assert list(interp.eval(cytest.raw.expr(getHandle(module).symbols['goal']))) == [42]
+  curry.reset(interpret='off')
+  assert toolchain.Cpp2So(cytest.raw.interp()).stamp_is_current(sofile)
 print('ok')
 ''')
 

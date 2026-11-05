@@ -13,6 +13,13 @@ interfaces of the imports under their hierarchy roots. Then
 
 The command runs at the hierarchy root and names the source relative to
 that root, so a hierarchical source's own directory cannot shadow imports.
+Translations outside the installation search private generations newest first
+and replace installed source roots with a temporary interface-only view. The
+external translator's source-first reader also gets private source copies.
+Dependencies
+requiring private destinations are elaborated before the requested module;
+the external front end can never rebuild an installed source through that
+view. In-place installed translations keep the ordinary search path.
 
 Between the two steps the rewrite step of the routes
 (:func:`curry.toolchain.flat2icurry.rewrite_file`) rewrites ``M.fcy`` in
@@ -83,6 +90,7 @@ mode; on-disk checks distinguish the two translations.
 from .. import config
 from . import _preprocessor, _system, flat2icurry
 from ..exceptions import CompileError, CurryWarning
+from contextlib import contextmanager
 import warnings
 from ..utility import curryname
 import logging, os, re, shlex, sys, time
@@ -234,7 +242,7 @@ def written_flatcurry(before, after):
       path for path, stamp in after.items() if before.get(path) != stamp
     )
 
-def command(file_in, currypath, quiet=False):
+def command(file_in, currypath, quiet=False, search=None, library=None):
   '''
   The front-end command line for the Curry file ``file_in``.  The output
   directory is relative, so it is resolved against the hierarchy root of
@@ -259,7 +267,9 @@ def command(file_in, currypath, quiet=False):
   else:
     cmd.extend(WARNING_FLAGS)
   cmd.extend(shlex.split(config.frontend_flags()))
-  for dirname in searchdirs(file_in, currypath):
+  if library is not None:
+    cmd.extend(['-P', library])
+  for dirname in searchdirs(file_in, currypath) if search is None else search:
     cmd.extend(['-i', dirname])
   cmd.append(name[:-len('.curry')])
   return cmd
@@ -275,6 +285,65 @@ def frontend_environment():
   return env
 
 def curry2flat(file_in, currypath, quiet=False, rewrite=True):
+  """Hide installed sources unless translating in place in the installation.
+
+  Installed dependencies with outside prerequisites are elaborated first,
+  following the same destination rule as the requested module. User products
+  stay beside their source; in-place installed translations keep their path.
+  """
+  with protected_translation(file_in, currypath, quiet, rewrite) as context:
+    selected, search, library = context
+    return _run_frontend(selected, currypath, quiet, rewrite, search, library)
+
+
+@contextmanager
+def protected_translation(file_in, currypath, quiet=False, rewrite=True, external=False):
+  """Resolve only this translation's private prerequisites and interface view."""
+  from . import _destination, _findcurry
+  from ._interfaceview import interface_view, loaded_interface_view
+  original = os.path.abspath(file_in)
+  selected = _destination.select(original,
+      _destination.interfaces(original, currypath))
+  if selected == original and _findcurry._installed_library_file(selected) \
+      and _findcurry._translation_interp.get() is None:
+    yield selected, None, None
+    return
+  outdir = os.path.join('.curry', config.frontend_subdir())
+  view = interface_view(outdir, sources=True) if external else interface_view(outdir)
+  with view as library, \
+      loaded_interface_view(outdir, searchdirs(selected, currypath), sources=external) as loaded:
+    roots = []
+    def include(source):
+      root = source_root(source)
+      if root not in roots:
+        roots.append(root)
+    if selected != original:
+      include(selected)
+    def search():
+      return list(dict.fromkeys(([loaded] if loaded else []) + roots + [
+          directory for directory in searchdirs(selected, currypath)
+          if not _findcurry._installed_library_file(directory)] + [library]))
+
+    seen = {original, selected}
+    def prepare(source):
+      dependencies = []
+      _destination.interfaces(source, currypath, dependencies)
+      for dependency in dependencies:
+        if dependency in seen:
+          continue
+        seen.add(dependency)
+        prepare(dependency)
+        products = _destination.interfaces(dependency, currypath)
+        if _destination.needs_private(dependency, products):
+          copy = _destination.select(dependency, products)
+          include(copy)
+          _run_frontend(copy, currypath, quiet, rewrite, search(), library)
+    prepare(original)
+    yield selected, search(), library
+
+
+def _run_frontend(file_in, currypath, quiet=False, rewrite=True,
+                  search=None, library=None):
   '''
   Runs the front end on ``file_in``.  Returns the name of the FlatCurry file.
   A failure of the front end raises ``CompileError`` with its messages; the
@@ -292,11 +361,14 @@ def curry2flat(file_in, currypath, quiet=False, rewrite=True):
   reason = _preprocessor.missing(file_in)
   if reason:
     raise CompileError(reason)
-  cmd = command(file_in, currypath, quiet)
+  cmd = command(file_in, currypath, quiet, search, library)
   if logger.isEnabledFor(logging.DEBUG):
     logger.debug('Command: %s', ' '.join(cmd))
   moduledir = source_root(file_in)
-  dirs = flatcurry_dirs(file_in, currypath)
+  roots = searchdirs(file_in, currypath) if search is None else search
+  dirs = (flatcurry_dirs(file_in, currypath) if search is None else
+          [os.path.join(directory, '.curry', config.frontend_subdir())
+           for directory in roots])
   before = _flatcurry_stamps(dirs)
   started = time.monotonic()
   stdout, stderr = _system.pexec(
@@ -313,13 +385,13 @@ def curry2flat(file_in, currypath, quiet=False, rewrite=True):
   if not os.path.isfile(fcyfile):
     raise CompileError('the front end did not write %s' % fcyfile)
   if rewrite:
-    optimize_flatcurry(fcyfile, dirs)
+    optimize_flatcurry(fcyfile, roots)
     own = os.path.realpath(fcyfile)
     for written in written_flatcurry(before, _flatcurry_stamps(dirs)):
       if os.path.realpath(written) == own:
         continue
       try:
-        optimize_flatcurry(written, dirs)
+        optimize_flatcurry(written, roots)
       except Exception as err:
         logger.warning(
             'cannot rewrite %s, which the front end wrote for an import of '
@@ -403,5 +475,9 @@ def curry2icurry(file_in, file_out, currypath, quiet=False):
   Converts the Curry file ``file_in`` to the ICurry file ``file_out``: the
   front end, the rewrite step over its FlatCurry files, and the translation.
   '''
-  fcyfile = curry2flat(file_in, currypath, quiet)
-  flat2icy(fcyfile, file_out, searchdirs(file_in, currypath))
+  with protected_translation(file_in, currypath, quiet) as context:
+    selected, search, library = context
+    fcyfile = _run_frontend(selected, currypath, quiet,
+                            search=search, library=library)
+    roots = searchdirs(selected, currypath) if search is None else search
+    flat2icy(fcyfile, file_out, roots)

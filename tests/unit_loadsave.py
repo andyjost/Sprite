@@ -54,7 +54,16 @@ cppfile = os.path.join(
 curry._interpreter_.save(M, cppfile, module_main=False)
 saved = toolchain.Cpp2So(cytest.raw.interp())(cppfile, curry.path)
 print(os.path.splitext(saved)[1])
-M2 = curry._interpreter_.load(saved)
+if curry.flags['interpret'] == 'off':
+  try:
+    curry._interpreter_.load(saved)
+  except ValueError as exc:
+    assert str(exc) == 'the products of module SaveLoadFresh changed since it was loaded; reload it', str(exc)
+  else:
+    raise AssertionError('replaced loaded object accepted')
+  M2 = M
+else:
+  M2 = curry._interpreter_.load(saved)
 print(M2 is M, [str(v) for v in curry.eval(M2.main)])
 curry.reset()
 M3 = curry._interpreter_.load(saved)
@@ -106,7 +115,7 @@ print('SaveLoadFresh' in curry.modules, [str(v) for v in curry.eval(M3.main)])
         "check=True, capture_output=True, text=True)\n"
         "saved = os.path.splitext(cppfile)[0] + config.module_object_suffix()"
       )
-    code = code[:code.index('M2 = curry._interpreter_.load(saved)')] + r'''
+    code = code[:code.index("if curry.flags['interpret'] == 'off':")] + r'''
 from curry.backends.cxx import curryrtbindings as curryrt
 try:
   curry._interpreter_.load(saved)
@@ -519,3 +528,34 @@ assert getattr(curry._interpreter_.modules[parent], local) is module
       curry.save(module, program, main=module.main)
       run = subprocess.run([program], check=True, capture_output=True, text=True)
       self.assertEqual(run.stdout, 'Just 5\n')
+
+
+class TestRelocatedProgram(cytest.TestCase):
+  @cytest.skipUnlessObjectsLoad('a saved program loads bundled objects')
+  def test_public_save_carries_transitive_imports(self):
+    from pathlib import Path
+    with tempfile.TemporaryDirectory() as directory:
+      root = Path(directory)
+      source, binary, run = (root / name for name in ('source', 'bin', 'run'))
+      for path in (source, binary, run):
+        path.mkdir()
+      (source / 'Leaf.curry').write_text(
+          'module Leaf where\nanswer :: Int\nanswer = 42\n')
+      (source / 'Helper.curry').write_text(
+          'module Helper where\nimport Leaf\nvalue :: Int\nvalue = answer\n')
+      (source / 'Main.curry').write_text(
+          'module Main where\nimport Helper\nmain :: Int\nmain = value\n')
+      curry.path.insert(0, str(source))
+      self.addCleanup(curry.path.remove, str(source))
+      module = curry.import_(source / 'Main.curry')
+      program = source / 'saved'
+      curry.save(module, program, main='main')
+      moved = binary / 'moved'
+      shutil.move(program, moved)
+      shutil.rmtree(source)
+      env = dict(os.environ)
+      env.pop('CURRYPATH', None)
+      result = subprocess.run([str(moved)], cwd=run, env=env,
+          capture_output=True, text=True, timeout=TIMEOUT)
+      self.assertEqual(result.returncode, 0, result.stderr)
+      self.assertEqual(result.stdout, '42\n')

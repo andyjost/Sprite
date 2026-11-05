@@ -11,14 +11,19 @@ logger = logging.getLogger(__name__)
 def loadicurry(filename):
   """Read the translation record into the Python ICurry model."""
   filename = _filenames.icurryfilename(filename)
+  source = _filenames.sourcefilename(filename)
+  generation = _findcurry.generation_for_source(source)
+  if generation is not None:
+    _findcurry.verify_product(generation, filename)
   try:
     module = readcurry.load(filename)
   except (AttributeError, TypeError) as exc:
     raise ValueError('invalid ICurry text: %s' % filename) from exc
-  module.filename = _filenames.sourcefilename(filename)
+  module.filename = source
   return module
 
 
+@_findcurry.with_resolution
 @formatDocstring(config.python_package_name())
 def loadcurry(plan, name, currypath=None, **kwds):
   """Build and load a module, attaching interpreted code from its image."""
@@ -27,6 +32,7 @@ def loadcurry(plan, name, currypath=None, **kwds):
   imagepath = _findcurry.import_path(plan.interp, _findcurry.imports_path(
       _findcurry.program_path(name, search, **kwds), **kwds))
   candidate = _findcurry.currentfile(plan, name, currypath, **kwds)
+  effective = plan.interp.path if imagepath is None else imagepath
   if plan.interp.flags['interpret'] != 'off' and not os.path.isdir(candidate) \
       and not candidate.endswith(config.module_object_suffix()):
     icyfile = _filenames.icurryfilename(candidate)
@@ -44,5 +50,8 @@ def loadcurry(plan, name, currypath=None, **kwds):
     package.filename = filename
     return package
   if filename.endswith(('.img', '.icy', '.cpp')):
-    return image.load(plan.interp, _filenames.icurryfilename(candidate), imagepath)
+    translation = (filename.original_icyfile
+        if isinstance(filename, _filenames.ImageProduct)
+        else _filenames.icurryfilename(filename))
+    return image.load(plan.interp, translation, imagepath)
   return plan.interp.load(filename, from_plan=True)

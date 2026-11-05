@@ -821,7 +821,7 @@ jobs:
       - name: Install system packages
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends swi-prolog-nox g++ make curl
+          sudo apt-get install -y --no-install-recommends swi-prolog-nox g++ make curl sqlite3
       - name: Restore the Curry toolchain
         id: toolchain
         uses: actions/cache@v4
@@ -849,7 +849,11 @@ jobs:
           path: object-root/docs/html
       - name: Run containers through the Curry Package Manager
         run: |
-          export PATH="$PWD/install/bin:$HOME/pakcs-$PAKCS_VERSION/bin:$PATH"
+          pakcs_home="$HOME/pakcs-$PAKCS_VERSION"
+          export HOME="$RUNNER_TEMP/sprite-cpm-home"
+          mkdir -p "$HOME"
+          export LC_ALL=C.UTF-8
+          export PATH="$PWD/install/bin:$pakcs_home/bin:$PATH"
           export PYTHONPATH="$PWD/install/python${PYTHONPATH:+:$PYTHONPATH}"
           if [ ! -f "$HOME/.cpmrc" ]; then
             cat > "$HOME/.cpmrc" <<'CPMRC'
@@ -857,13 +861,15 @@ jobs:
           PACKAGETARFILESURL=https://cpm.curry-lang.org/PACKAGES
           CPMRC
           fi
-          # CPM 3.3.0's index reader recurses without the sqlite3 command.
+          # CPM needs both sqlite3 and the overlay's patched repository DB.
           command -v sqlite3
           # SWI-Prolog 9 inherits the saved state's 1 GB stack limit.
-          # Raise it in the launch headers without rebuilding the cache.
+          # Bound it below runner memory, including cached launch headers.
+          limit_stack() {
+            sed -i "/^exec / { s/--stack_limit=[^ ]*//g; s/ -g 'set_prolog_flag(stack_limit,[0-9]*)'//g; s/ -x / -g 'set_prolog_flag(stack_limit,4294967296)' -x /; }" "$@"
+          }
           for state in src/pakcs currytools/cpm/src/CPM.Main currytools/optimize/BindingOpt; do
-            header="$HOME/pakcs-$PAKCS_VERSION/$state"
-            sed -i "/^exec / { /set_prolog_flag(stack_limit,/! s/ -x / -g 'set_prolog_flag(stack_limit,34359738368)' -x /; }" "$header"
+            limit_stack "$pakcs_home/$state"
           done
           project=$(mktemp -d)
           cd "$project"
@@ -872,9 +878,46 @@ jobs:
           {"name":"sprite-cpm-smoke","version":"0.0.1","author":"Sprite","synopsis":"Sprite package smoke test","dependencies":{"containers":">= 3.0.0, < 4.0.0"}}
           JSON
           timeout 600 cypm update
-          timeout 600 cypm install
-          SPRITE_CPM_PATH=0 timeout 600 cypm exec "python -c 'import curry; M = curry.import_(\"Data.Map\"); print(curry.eval(M.size(M.empty)).one())'"
+          timeout 1800 cypm -d CURRYBIN="$pakcs_home/bin/pakcs" install currypp
+          # PAKCS generates currypp with its own default stack options.
+          limit_stack "$HOME/.cpm/bin/currypp"
+          export PATH="$HOME/.cpm/bin:$PATH"
+          python "$GITHUB_WORKSPACE/scripts/cpm-test-overlay.py" "$HOME/.cpm/index" "$HOME/sprite-index"
+          test -f "$HOME/sprite-index/REPOSITORY_CACHE.db"
+          export CPM_TEST_HOME="$HOME"
+          export SPRITE_DISABLE_SYSLIB_CHECKS=1
+          timeout 1800 cypm -d REPOSITORYPATH="$HOME/sprite-index" -d CURRYBIN="$GITHUB_WORKSPACE/install/bin/sprite" checkout currycheck -o "$HOME/currycheck-download"
+          python "$GITHUB_WORKSPACE/scripts/cpm-test-overlay.py" "$HOME/.cpm/index" "$HOME/sprite-index" --packages "$HOME/.cpm/packages"
+          timeout 1800 cypm -d REPOSITORYPATH="$HOME/sprite-index" -d CURRYBIN="$GITHUB_WORKSPACE/install/bin/sprite" install currycheck > "$HOME/currycheck-install.log" 2>&1 || { status=$?; cat "$HOME/currycheck-install.log"; exit "$status"; }
+          cat "$HOME/currycheck-install.log"
+          timeout 600 cypm -d REPOSITORYPATH="$HOME/sprite-index" -d CURRYBIN="$GITHUB_WORKSPACE/install/bin/sprite" install
+          SPRITE_CPM_PATH=0 timeout 600 cypm -d REPOSITORYPATH="$HOME/sprite-index" -d CURRYBIN="$GITHUB_WORKSPACE/install/bin/sprite" exec "python -c 'import curry; M = curry.import_(\"Data.Map\"); print(curry.eval(M.size(M.empty)).one())'"
           env -u CURRYPATH python -c 'import curry; M = curry.import_("Data.Map"); print(curry.eval(M.size(M.empty)).one())'
+          cd "$GITHUB_WORKSPACE/tests"
+          test -x "$CPM_TEST_HOME/.cpm/bin/curry-check"
+          command -v sqlite3
+          (
+            trap 'exit 0' TERM
+            while :; do
+              ps -eo pid,ppid,rss,etimes,args --sort=-rss | head -11 | cut -c 1-240 || true
+              sleep 2
+            done
+          ) &
+          sampler=$!
+          stop_sampler() {
+            kill "$sampler" 2>/dev/null || true
+            wait "$sampler" 2>/dev/null || true
+          }
+          trap stop_sampler EXIT
+          status=0
+          export SPRITE_TEST_CPM_PACKAGES="$HOME/.cpm/apps_sprite_0.9.0/currycheck/.cpm/packages"
+          ./run_tests -j 1 unit_cpm_repl.py unit_readshowterm.py || status=$?
+          stop_sampler
+          trap - EXIT
+          if [ "$status" -ne 0 ]; then
+            cat .cache/runner/cxx/unit_cpm_repl.py.log || true
+          fi
+          exit "$status"
 
   deploy-docs:
     name: deploy docs

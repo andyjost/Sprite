@@ -1010,7 +1010,8 @@ class TestExprType(cytest.TestCase):
     self.assertEqual(sorted(exprtype.synonyms_of(interp, 'Prelude')), ['DET', 'FilePath', 'ReadS', 'ShowS', 'String', 'Success'])
     path = interp.sigtable.interface_filename(MODULE)
     self.assertEqual(exprtype.icurry_filename(path), path[:-5] + '.icurry')
-    self.assertTrue(os.path.isfile(exprtype.icurry_filename(path)))
+    from curry.toolchain._findcurry import loaded_generation
+    self.assertTrue(loaded_generation(MODULE, interp).texts['.icurry'])
     self.assertEqual(exprtype.synonyms_of(interp, 'Data.Maybe'), {})
     # exprtype on an expression, with a synonym.
     self.assertEqual(values((1, 2), exprtype='Pair Int'), ['(1, 2)'])

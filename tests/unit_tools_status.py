@@ -18,7 +18,7 @@ class TestToolsStatus(cytest.TestCase):
     if tool == 'exec':
       command = [config.sprite_exec(), source, '-g', goal]
     else:
-      command = [sys.executable, '-m', 'curry.tools.icy',
+      command = [sys.executable, '-m', 'curry.tools.repl',
           ':load', source, ':eval', goal, ':quit']
     return self.child(command)
 
@@ -59,7 +59,7 @@ class TestToolsStatus(cytest.TestCase):
   def test_answers_precede_errors_on_a_merged_pipe(self):
     goal = '1 ? error "boom" :: Int'
     for command in ([config.sprite_exec(), TOOLS, '-g', goal],
-        [sys.executable, '-m', 'curry.tools.icy', ':load', TOOLS,
+        [sys.executable, '-m', 'curry.tools.repl', ':load', TOOLS,
             ':eval', goal, ':quit']):
       with self.subTest(command=command[0]):
         proc = subprocess.run(command, stdout=subprocess.PIPE,
@@ -79,13 +79,13 @@ class TestToolsStatus(cytest.TestCase):
 
   def test_help_and_string_spacing(self):
     for command in ([config.sprite_exec(), '--help'],
-        [sys.executable, '-m', 'curry.tools.icy', '--help']):
+        [sys.executable, '-m', 'curry.tools.repl', '--help']):
       proc = self.child(command)
       self.assertEqual(proc.returncode, 0, proc.stderr)
       helptext = ' '.join(proc.stdout.split())
       self.assertIn('No value found!', helptext)
       self.assertIn('Evaluation suspended!', helptext)
-    proc = self.child([sys.executable, '-m', 'curry.tools.icy'],
+    proc = self.child([sys.executable, '-m', 'curry.tools.repl'],
         ':eva putStrLn "a   b"\n:quit\n')
     self.check(proc, 0, 'Prelude> a   b\nPrelude> ')
 
@@ -110,7 +110,7 @@ class TestToolsStatus(cytest.TestCase):
           self.assertNotIn(directory, proc.stderr)
 
   def test_prompt_keeps_session_after_error(self):
-    proc = self.child([sys.executable, '-m', 'curry.tools.icy'],
+    proc = self.child([sys.executable, '-m', 'curry.tools.repl'],
         ':eval error "boom" :: Int\n:type 1\n:eval 42\n:quit\n')
     self.check(proc, 0, 'Prelude> Prelude> 1 :: Num a => a\n'
         'Prelude> 42\nPrelude> ', 'ERROR: boom\n')
@@ -120,22 +120,22 @@ class TestToolsStatus(cytest.TestCase):
       , ('x == (1 :: Int) where x free', 1, '*** Evaluation suspended!\n')
       ]:
       with self.subTest(goal=goal):
-        proc = self.child([sys.executable, '-m', 'curry.tools.icy'],
+        proc = self.child([sys.executable, '-m', 'curry.tools.repl'],
             goal + '\n:quit\n')
         self.assertEqual(proc.returncode, status)
         self.assertEqual(proc.stderr, err)
 
   def test_flags_and_reload(self):
-    proc = self.child([sys.executable, '-m', 'curry.tools.icy',
+    proc = self.child([sys.executable, '-m', 'curry.tools.repl',
         ':set', 'interpret', 'new', ':load', TOOLS, ':set', 'inline_budget', '0',
         ':set', 'rotation', 'steps:200', ':set', '+checker',
         ':reload', ':eval', 'main', ':quit'])
     self.check(proc, 0, '1\n2\n')
-    proc = self.child([sys.executable, '-m', 'curry.tools.icy',
+    proc = self.child([sys.executable, '-m', 'curry.tools.repl',
         ':set', 'bogus', '1', ':quit'])
     self.check(proc, 1, '', "ERROR: 'bogus' is not a flag; the flags are "
         + ', '.join(curry.flags) + '\n')
-    proc = self.child([sys.executable, '-m', 'curry.tools.icy',
+    proc = self.child([sys.executable, '-m', 'curry.tools.repl',
         ':set', 'inline_budget', 'bad', ':quit'])
     self.check(proc, 1, '', "ERROR: 'bad' is not a value for flag "
         "'inline_budget'; expected an integer\n")
@@ -147,8 +147,7 @@ class TestToolsStatus(cytest.TestCase):
         with open(source, 'w') as stream:
           stream.write('module ReloadTool where\nvalue :: Int\n' + body + '\n')
       write('value = 1')
-      proc = subprocess.Popen([sys.executable, '-m', 'curry.tools.icy',
-          ':set', 'interpret', 'new', ':load', source],
+      proc = subprocess.Popen([sys.executable, '-m', 'curry.tools.repl'],
           stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
       def prompt():
         output = b''
@@ -161,7 +160,10 @@ class TestToolsStatus(cytest.TestCase):
             output += part
         return output.decode()
       try:
-        self.assertEqual(prompt(), 'ReloadTool> ')
+        self.assertEqual(proc.stdout.read(len(b'Prelude> ')), b'Prelude> ')
+        proc.stdin.write((':set interpret new\n:load ' + source + '\n').encode())
+        proc.stdin.flush()
+        self.assertEqual(prompt(), 'Prelude> ReloadTool> ')
         write('value = 2')
         proc.stdin.write(b':reload\n')
         proc.stdin.flush()
@@ -199,7 +201,7 @@ class TestToolsStatus(cytest.TestCase):
       self.assertNotIn('Traceback', proc.stderr)
 
   def test_type_uses_typeof(self):
-    proc = self.child([sys.executable, '-m', 'curry.tools.icy',
+    proc = self.child([sys.executable, '-m', 'curry.tools.repl',
         ':type', '1+2', ':quit'])
     self.check(proc, 0, '1+2 :: ' + curry.typeof(curry.parse('1+2')) + '\n')
 
@@ -221,7 +223,7 @@ class TestToolsStatus(cytest.TestCase):
           self.assertEqual(answers, oracle.stdout)
     oracle = self.child([os.path.join(ROOT, 'oracle_type'), 'Tools', 'coin'], cwd=BOUNDARY)
     self.assertEqual(oracle.returncode, 0, oracle.stderr)
-    proc = self.child([sys.executable, '-m', 'curry.tools.icy',
+    proc = self.child([sys.executable, '-m', 'curry.tools.repl',
         ':load', source, ':type', 'coin', ':quit'])
     self.check(proc, 0, 'coin :: ' + oracle.stdout)
 

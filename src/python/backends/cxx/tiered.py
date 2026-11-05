@@ -21,18 +21,6 @@ evaluation: the scheduler applies a finished job at its periodic safepoint
 (RuntimeState::check_interrupts), and Interpreter.eval applies the finished
 jobs before an evaluation (poll).
 
-The flags.  The child compiles under the inline budget of the interpreter,
-so the code it swaps in is the code the interpreter ran.  The budget shapes
-the generated code, and the ABI stamp of an object does not record it, so a
-compile beside the source under a budget other than the one the environment
-names would leave an object that every later process of that tree takes for
-current (issue #116).  Such a process compiles a copy of the source in a
-directory of its own (_foreign_flags, _private_copy): the generated file and
-the object land there, the product cache leaves them out
-(_productcache.excluded), and they go with the process.  An import compiled
-that way is found by the compile of its importer through the search path of
-the child, before the original.
-
 The binding.  The code of a compiled object reads every info table and data
 type it names through a slot of the object, a static pointer the load fills
 (the binding in curryrt/dynload.hpp): a symbol of the module takes the table
@@ -85,10 +73,9 @@ Curry library (config.syslibs) are not compiled either: their objects come
 with the installation (make stage), and the swap maps the object of such an
 import for its importers (above), so a library module an interpreter runs
 (interpret:all, or a stale object) runs compiled once an importer swaps.  A
-private copy of a library source would be refused by the namesake check of
-the child (issue #168), and the copy on the search path of the children
-that followed it shadowed the library for them, so every compile of the
-process failed.
+library source in a dependency view must pass the loader-snapshot
+namesake check (issue #168), which authenticates the declared name and
+installed source bytes. A dependency view belongs to one job.
 
 The check of the swap.  The child compiles the source as it is when the
 child runs.  An edit of the source between the import and the compile would
@@ -105,25 +92,17 @@ object loaded over the tables the interpreter made stays with them.  The
 loader waits for any pending compile and checks the registered file before
 opening the object.  prepare_adoption checks the source before the load.
 
-The products.  The child compiles a private copy of the module, made in a
-directory of the process with the ICurry file, the interface files and the
-image of the import beside it (_private_copy), so nothing is written under
-the source while the compile runs: a search path entry that goes meanwhile,
-the temporary directory of a test, say, never finds a half-written product
-(issue #173).  The object lands in the private directory and the swap loads
-it from there.  Before it opens the object, the swap publishes the
-generated file, the ABI stamp and the object beside the source
-(publish_products in curryrt/tiered.cpp), each under a temporary name and
-renamed into place, when the source and its ICurry file are still there and
-the file is the one of the import, and opens the published object, so the
-module is loaded from the file beside its source, as before, and the next
-process loads it; else it opens the private object.  The swap runs on the
-thread that evaluates, at a safepoint, so the files beside a source change
-on that thread alone.  Under foreign flags (below) nothing is published.
-Since the child compiles the ICurry of the import, an edit of the source
-after the import no longer reaches the swap: the module swaps to the code
-the import read.  The check of the swap (below) stays for an ICurry file
-that another import or process wrote again.
+The products. Before a job is submitted, _private_copy verifies disk inputs
+against the loaded generation, including its imports. A mismatch skips the
+job with one INFO message. The child compiles in its job directory, whose
+first search root is a verified view of every loaded import in the captured closure. Products are
+hard-linked where possible and copied otherwise. Unloaded names retain
+ordinary path resolution. Before publication or adoption, the native swap
+checks every dependency fingerprint in the child ABI stamps against that
+closure. A mismatch leaves the module interpreted with one INFO message.
+The swap publishes the generated file, object and ABI stamp beside an outside
+source only when its ICurry digest still matches; otherwise it uses the
+private object. Foreign optimizer flags always keep products private.
 
 The flags.  An interpreter whose optimizer flags differ from the ones a
 child reads from the environment (the inline budget, _foreign_flags) gets
@@ -151,7 +130,7 @@ from ...utility.locking import native_metadata
 from ..generic import compiler as generic
 from . import curryrtbindings as curryrt
 from ... import common, config
-import atexit, itertools, logging, os, shutil, sys, tempfile, time, weakref, warnings
+import atexit, json, itertools, logging, os, shutil, sys, tempfile, time, weakref, warnings
 from ...exceptions import CurryWarning
 
 logger = logging.getLogger(__name__)
@@ -265,44 +244,101 @@ def _foreign_flags(interp):
 @native_metadata
 def _private_copy(imodule):
   '''
-  Copies the source of ``imodule`` into a directory of the process, with
-  its current ICurry file, interface files and image beside it, in the
-  layout of a search path entry.  Returns the copy and the search
-  directories of the child: the private directories made before this one,
-  the newest first, so an import compiled this way is found with its
-  object, and the copy of the live module before an older copy of the same
-  name, then the root of the original, so the other imports are found in
-  place.  The child
-  compiles the copy, so its generated file and its object land in the
-  private directory (see the module docstring).
+  Verify the loaded generation and its imports, then copy disk inputs into
+  a compile-job directory. Return the private source and dependency search
+  directories. Importing a module itself creates no files here.
   '''
-  filename = os.path.abspath(imodule.filename)
+  generation = getattr(imodule, '_loaded_generation', None)
+  filename = os.path.abspath(generation.source_spelling
+      if generation is not None and generation.source_spelling else imodule.filename)
   relpath = imodule.fullname.replace('.', os.sep) + '.curry'
   if filename.endswith(os.sep + relpath):
     root = filename[:-len(relpath) - 1]
   else:
     root, relpath = os.path.split(filename)
+  pending = [generation] if generation is not None else []
+  seen = set()
+  closure = []
+  from ...toolchain._findcurry import verify_product
+  from .image import digest
+  while pending:
+    item = pending.pop()
+    if id(item) in seen:
+      continue
+    seen.add(id(item))
+    closure.append(item)
+    if item.source:
+      stem = _filenames.icurryfilename(item.source_spelling)[:-4]
+      verify_product(item, stem + '.icy')
+      if item.source_info is not None and digest(item.source) != item.source_info.digest:
+        raise ValueError('the products of module %s changed since it was loaded; reload it' % item.name)
+      for suffix, data in item.texts.items():
+        try:
+          with open(stem + suffix, 'rb') as stream:
+            current = stream.read()
+        except OSError:
+          current = None
+        if current != data:
+          raise ValueError('the products of module %s changed since it was loaded; reload it' % item.name)
+    if item.image:
+      verify_product(item, item.image)
+    if item.object:
+      verify_product(item, item.object)
+      verify_product(item, os.path.splitext(item.object)[0] + '.cpp')
+      verify_product(item, item.object + '.abi')
+    pending.extend(dep for _, dep in item.imports if dep is not None)
   directory = os.path.join(_tmpdir(), 'private%d' % next(_state.counter))
   copy = os.path.join(directory, relpath)
   os.makedirs(os.path.dirname(copy), exist_ok=True)
-  # A module without a source file (one built by hand from its ICurry) gets
-  # its products alone; the child then fails as it did on the original.
   if os.path.isfile(filename):
     shutil.copy2(filename, copy)
+    os.chmod(copy, 0o644)
   stem = _filenames.icurryfilename(filename)[:-len('.icy')]
-  products = [
-      stem + suffix
-      for suffix in ('.icy', '.fint', '.icurry', '.icy.imports', '.icy.source')
-    ]
-  products.append(_filenames.replacesuffix(filename, '.img'))
+  products = [(generation.image if generation is not None and generation.image else stem + suffix)
+      if suffix == '.img' else stem + suffix
+      for suffix in ('.icy', '.fint', '.icurry', '.icy.imports', '.icy.source', '.img')]
   productdir = os.path.dirname(_filenames.icurryfilename(copy))
   os.makedirs(productdir, exist_ok=True)
   for product in products:
     if os.path.isfile(product):
-      shutil.copy2(
-          product, os.path.join(productdir, os.path.basename(product))
-        )
-  searchdirs = list(reversed(_state.private)) + [root]
+      destination = os.path.join(productdir, os.path.basename(stem) + '.img'
+          if product.endswith('.img') else os.path.basename(product))
+      shutil.copy2(product, destination)
+      os.chmod(destination, 0o644)
+  # Each job owns its resolver view. Never search another job's target
+  # before a captured loaded dependency.
+  for item in closure:
+    if item is generation:
+      continue
+    target = os.path.join(directory, *item.name.split('.')) + '.curry'
+    os.makedirs(os.path.dirname(target), exist_ok=True)
+    if item.source and os.path.isfile(item.source):
+      shutil.copy2(item.source, target)
+      os.chmod(target, 0o644)
+    stem = _filenames.icurryfilename(item.source_spelling)[:-4] if item.source else None
+    output = _filenames.icurryfilename(target)[:-4]
+    os.makedirs(os.path.dirname(output), exist_ok=True)
+    for suffix in ('.icy', '.fint', '.icurry', '.icy.imports', '.icy.source', '.img',
+                   '.cpp', config.module_object_suffix(), config.module_object_suffix() + '.abi'):
+      if suffix in ('.cpp', config.module_object_suffix(), config.module_object_suffix() + '.abi') \
+          and not item.object:
+        continue # only reuse objects actually loaded and verified above
+      if suffix == '.img':
+        product = item.image
+      elif suffix == config.module_object_suffix() and item.object:
+        product = item.object
+      elif suffix == config.module_object_suffix() + '.abi' and item.object:
+        product = item.object + '.abi'
+      elif suffix == '.cpp' and item.object:
+        product = os.path.splitext(item.object)[0] + '.cpp'
+      else:
+        product = stem + suffix if stem else None
+      if product and os.path.isfile(product):
+        try:
+          os.link(product, output + suffix)
+        except OSError:
+          shutil.copyfile(product, output + suffix)
+  searchdirs = [directory, root]
   _state.private.append(directory)
   return copy, searchdirs
 
@@ -407,6 +443,8 @@ def module_loaded(interp, moduleobj, currypath):
     start = time.monotonic()
     wait(interp=interp)
     if getHandle(moduleobj).backend_handle.shlib is None:
+      if getattr(_state.records.get(moduleobj.__name__), 'dependency_mismatch', False):
+        return False
       from ...exceptions import CompileError
       raise CompileError('cxx eager: module %s compile failed' % moduleobj.__name__)
     n = _state.records[moduleobj.__name__].functions
@@ -515,7 +553,14 @@ def submit(interp, moduleobj, currypath, hot=False):
   # products"): nothing is written under the source while it runs.  The
   # digest below is still the one of the ICurry file beside the original:
   # the copy is of this moment.
-  source, searchdirs = _private_copy(imodule)
+  try:
+    source, searchdirs = _private_copy(imodule)
+  except ValueError as exc:
+    key = ('changed-products', name)
+    if key not in _state.warned:
+      _state.warned.add(key)
+      logger.info('%s; skipping background compilation', exc)
+    return False
   currypath = searchdirs + list(
       currypath if currypath is not None else interp.path
     )
@@ -539,9 +584,38 @@ def submit(interp, moduleobj, currypath, hot=False):
   if logger.isEnabledFor(logging.DEBUG):
     logger.debug('Compiling %s in the background: %s', name, ' '.join(argv))
   dispatch = curryrt.cxx_arm if hot else curryrt.tiered_submit
+  from ...toolchain import _interfaces, _findcurry
+  expected = []
+  with _findcurry.resolving(interp):
+    pending = [(getattr(imodule, '_loaded_generation', None), sofile)]
+    seen = set()
+    while pending:
+      generation, objectfile = pending.pop()
+      if generation is None or id(generation) in seen:
+        continue
+      seen.add(id(generation))
+      fingerprints = _interfaces.object_snapshot(
+          [depname for depname, _ in generation.imports], currypath)
+      expected.extend(objectfile + '.abi' + '\n' + json.dumps(key) + ': ' + json.dumps(value)
+          for key, value in sorted(fingerprints.items()))
+      for depname, dep in generation.imports:
+        if dep is not None and dep.source:
+          # The first search directory is this job's view.
+          dep_source = os.path.join(searchdirs[0], *depname.split('.')) + '.curry'
+          pending.append((dep, _filenames.replacesuffix(
+              _filenames.icurryfilename(dep_source), config.module_object_suffix())))
+  imports = []
+  for depname, objectfile, icyfile, digest, publish in _import_objects(interp, imodule):
+    # A cold import can be compiled by this child before its own job runs.
+    # Adoption must use the object produced in this job's dependency view.
+    dep_source = os.path.join(searchdirs[0], *depname.split('.')) + '.curry'
+    if os.path.isfile(dep_source):
+      objectfile = _filenames.replacesuffix(
+          _filenames.icurryfilename(dep_source), config.module_object_suffix())
+    imports.append((depname, objectfile, icyfile, digest, publish))
   dispatch(
       name, argv, envp, logfile, sofile, record.publish or '', steps
-    , record.icyfile, record.digest, _import_objects(interp, imodule)
+    , record.icyfile, record.digest, imports, expected
     )
   _state.pending[name] = sofile
   _state.modules[name] = weakref.ref(moduleobj)
@@ -572,6 +646,9 @@ def _refresh(name, interp=None):
     shlib = h.backend_handle.shlib
     if shlib is not None and h.icurry.metadata.get('cxx.shlib') is None:
       h.icurry.update_metadata({'cxx.shlib': shlib})
+      generation = getattr(h.icurry, '_loaded_generation', None)
+      if generation is not None:
+        generation.acquire_object(shlib.sofilename())
     # The record names the object the module runs from now, published or
     # private, for the swap of its importers.
     if shlib is not None and record is not None and record.module() is moduleobj:
@@ -593,7 +670,8 @@ def poll(interp=None):
     _state.pending.pop(name, None)
     if not result['ok']:
       _state.modules.pop(name, None)
-      if hot and not result['error'].startswith('the object is mapped under this name'):
+      if hot and not result['error'].startswith(('the object is mapped under this name',
+          'the compiled dependency fingerprints')):
         output = result['output'].strip()
         logger.info('cxx hot: module %s compile failed: %s', name,
             (output or result['error']).splitlines()[0])
@@ -614,6 +692,10 @@ def poll(interp=None):
         logger.info('cxx hot: module %s compiled in %.2f s, swapped',
             name, result['seconds'])
       _refresh(name, interp)
+    elif result['error'].startswith('the compiled dependency fingerprints'):
+      if record is not None:
+        record.dependency_mismatch = True
+      logger.info('module %s: skipping background adoption (%s)', name, result['error'])
     elif result['error'] == 'the module is no longer loaded':
       logger.info('module %s: background compile not applied (%s)', name, result['error'])
     elif result['error'].startswith('the object is mapped under this name'):

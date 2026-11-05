@@ -55,8 +55,11 @@ reproducers pass.
   `builder.py` as the typed construction behind `curry.term` and the
   calls of a symbol over it, and `serialize.py` as the printer of a
   description as Curry text.
-  `src/python/tools/icy/` is the REPL: `python -m curry.tools.icy`, with
-  `:load`, `:reload`, `:eval`, `:type`, `:set` and `:quit`.
+  `src/python/tools/repl/` is the REPL: `python -m curry.tools.repl`, with
+  `:load`, `:reload`, `:eval`, `:type`, `:set`, `:save` and `:quit`.
+  Private `bin/curry`, `bin/cleancurry` and `bin/sprite-frontend`
+  launchers serve CurryCheck;
+  `scripts/cpm-test-overlay.py` makes a test-only CPM index copy.
 - `src/curryrt/`: the C++ runtime library.
 - `curry/`: the Curry library. `curry/lib/` holds a copy of the library of
   the pinned PAKCS, Sprite's own `Control.SetFunctions`, the license of the
@@ -143,6 +146,8 @@ reproducers pass.
 - The Curry path adds local CPM project and installed-package source
   directories after `CURRYPATH` and before the installation at import;
   `SPRITE_CPM_PATH=0` disables discovery.
+  Modules follow path order and keep loaded names; only runtime builtin names
+  are reserved, and stale importers are rebuilt for replaced library modules.
 - Primitives register by qualified Curry name through
   `Module::register_primitive` before module loading. The image writer and C++
   emitter share this registry. Standard C++ implements portable operations;
@@ -242,7 +247,7 @@ reproducers pass.
 - `make -C docs html` builds the documentation into `object-root/docs/html`.
   It needs a staged install: the Reference pages are generated from the
   installed package, and the command-line pages from the installed tools.
-  `docs/source/REPL.rst` describes the REPL (`python -m curry.tools.icy`).
+  `docs/source/REPL.rst` describes the REPL (`python -m curry.tools.repl`).
 - `make stage CMAKE_ARGS=-DWITH_CCACHE=ccache` enables compiler caching.
   `JOBS=auto` is the default; `make stage JOBS=1` is serial. `make -jN stage`
   overrides the count for one run. CMake `GC=wdgc` (default) or `mps`,

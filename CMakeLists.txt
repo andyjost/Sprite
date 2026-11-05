@@ -433,6 +433,9 @@ if(SKBUILD)
   install(FILES extern/pybind11/LICENSE DESTINATION curry/_sprite/licenses RENAME pybind11-LICENSE)
   install(DIRECTORY "${image}/python/curry/" DESTINATION curry
     PATTERN __pycache__ EXCLUDE)
+  install(PROGRAMS "${image}/bin/curry" "${image}/bin/cleancurry"
+    "${image}/bin/sprite-frontend"
+    DESTINATION curry/_sprite/bin)
   foreach(dir lib include sysconfig curry)
     install(DIRECTORY "${image}/${dir}" DESTINATION curry/_sprite
       PATTERN "*.gch" EXCLUDE PATTERN "*.tiered" EXCLUDE

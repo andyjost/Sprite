@@ -105,6 +105,192 @@ assert tiered._state.private == [parent]
     self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
 
 
+class TestLoadedDependencyView(cytest.TestCase):
+  def test_adoption_refuses_wrong_dependency_stamp(self):
+    code = r"""
+import curry, logging, os, sys, tempfile
+from curry.backends.cxx import tiered, curryrtbindings as curryrt
+from cytest.logging import capture_log
+curry.reset(interpret='all', jit='off')
+module = curry.compile('answer :: Int\nanswer = 1\n', name='StampMismatch')
+with tempfile.TemporaryDirectory() as root:
+  obj = os.path.join(root, 'unused' + curry.config.module_object_suffix())
+  stamp = obj + '.abi'
+  with open(stamp, 'w') as stream:
+    stream.write('abi\ninstallation\n{"imports": {"Prelude": "wrong"}}\n')
+  tiered.curryrt.tiered_submit('StampMismatch', [sys.executable, '-c', 'pass'],
+      tiered._environment(curry._interpreter_), os.path.join(root, 'job.log'),
+      obj, '', [], '', '', [], [stamp + '\n"Prelude": "expected"'])
+  assert curryrt.tiered_wait(30)
+  with capture_log('curry.backends.cxx.tiered') as log:
+    results = tiered.poll(curry._interpreter_)
+  assert len(results) == 1, results
+  assert not results[0]['ok'], results
+  assert 'fingerprints differ' in results[0]['error'], results
+  assert curryrt.icurry_is_interpreted(module.answer.info)
+  assert len(log.data[logging.INFO]) == 1, log.data
+  assert not log.data[logging.WARNING], log.data
+tiered.finish()
+"""
+    child = cytest.run_in_subprocess(code, timeout=120, address_space=3 << 30)
+    self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
+
+  def test_probe_view_storage(self):
+    code = r"""
+import curry, os, stat, tempfile
+from curry.backends.cxx import tiered
+from curry.objects.handle import getHandle
+curry.reset(interpret='new', jit='off')
+with tempfile.TemporaryDirectory() as root:
+  source = os.path.join(root, 'StorageProbe.curry')
+  with open(source, 'w') as stream:
+    stream.write('module StorageProbe where\nanswer :: Int\nanswer = 1\n')
+  module = curry.import_(source)
+  copied, roots = tiered._private_copy(getHandle(module).icurry)
+  files = [os.stat(os.path.join(directory, name))
+      for directory, _, names in os.walk(roots[0]) for name in names]
+  linked = [item for item in files if item.st_nlink > 1]
+  prelude = getHandle(curry.modules['Prelude']).icurry._loaded_generation.source
+  product = curry.toolchain.icurryfilename(prelude)
+  try:
+    os.link(product, os.path.join(root, 'link-probe'))
+  except OSError as exc:
+    print('Probe view link attempt: errno %d' % exc.errno, flush=True)
+  else:
+    print('Probe view link attempt: supported', flush=True)
+  with tempfile.TemporaryDirectory(dir='.') as build_root:
+    original = os.path.join(build_root, 'original')
+    with open(original, 'wb') as stream:
+      stream.write(b'link probe')
+    try:
+      os.link(original, os.path.join(build_root, 'linked'))
+    except OSError as exc:
+      print('Build file system link attempt: errno %d' % exc.errno, flush=True)
+    else:
+      print('Build file system link attempt: supported', flush=True)
+  print('Probe view: %d files, %d logical bytes, %d linked files, %d copied bytes' %
+      (len(files), sum(item.st_size for item in files), len(linked),
+       sum(item.st_size for item in files if item.st_nlink == 1)), flush=True)
+tiered.finish()
+"""
+    child = cytest.run_in_subprocess(code, timeout=120, address_space=3 << 30)
+    self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
+    print(child.stdout.strip())
+
+  def test_source_symlink_compiles_and_saves(self):
+    for mode in ('eager', 'hot'):
+      with self.subTest(mode=mode), tempfile.TemporaryDirectory() as work:
+        source = os.path.join(work, 'source')
+        alias = os.path.join(work, 'alias')
+        os.mkdir(source)
+        os.mkdir(alias)
+        real = os.path.join(source, 'FreshAlias.curry')
+        link = os.path.join(alias, 'FreshAlias.curry')
+        with open(real, 'w') as stream:
+          stream.write('module FreshAlias where\nf :: Int -> Int\nf x = x + 1\n')
+        try:
+          os.symlink(real, link)
+        except (OSError, NotImplementedError) as exc:
+          self.skipTest('source-file symlinks unavailable: %s' % exc)
+        with open(os.path.join(alias, 'AliasImporter.curry'), 'w') as stream:
+          stream.write('module AliasImporter where\nimport FreshAlias\n'
+                       'main :: Int\nmain = f 41\n')
+        code = r"""
+import curry, os, subprocess
+from curry.backends.cxx import tiered, curryrtbindings as curryrt, image
+from curry.objects.handle import getHandle
+from curry.toolchain import _findcurry, _filenames
+from curry.interpreter import Interpreter
+root = %r
+os.environ['SPRITE_CACHE_FILE'] = ''
+os.environ['SPRITE_JIT_THRESHOLD'] = '1'
+flags = dict(interpret='all', jit=%r, jit_backend='cxx')
+curry.reset(**flags)
+interp = curry._interpreter_
+alias = os.path.join(root, 'alias', 'FreshAlias.curry')
+real = os.path.join(root, 'source', 'FreshAlias.curry')
+leaf = curry.import_(alias)
+generation = _findcurry.loaded_generation('FreshAlias', interp)
+assert generation.source == os.path.realpath(real)
+assert not os.path.exists(_filenames.icurryfilename(real))
+assert interp.eval(leaf.f(41)).one() == 42
+assert tiered.wait(120, interp=interp)
+assert not curryrt.icurry_is_interpreted(leaf.f.info)
+# A second interpreter owns a separate record for the same real source.
+other = Interpreter(flags=flags)
+second = other.import_(real, is_sourcefile=True)
+second_generation = _findcurry.loaded_generation('FreshAlias', other)
+assert second_generation is not generation
+assert second_generation.source == generation.source
+assert other.eval(second.f(41)).one() == 42
+assert tiered.wait(120, interp=other)
+assert not curryrt.icurry_is_interpreted(leaf.f.info)
+assert not curryrt.icurry_is_interpreted(second.f.info)
+assert generation.source_spelling == alias
+assert second_generation.source_spelling == real
+assert generation.product_digest('.icy') == image.digest(_filenames.icurryfilename(alias))
+module = interp.import_(os.path.join(root, 'alias', 'AliasImporter.curry'), is_sourcefile=True)
+# Inspect the compile job's dependency view, then exercise actual compilation.
+copy, roots = tiered._private_copy(getHandle(module).icurry)
+view = _filenames.icurryfilename(os.path.join(roots[0], 'FreshAlias.curry'))
+for suffix in ('.icy', '.fint', '.icurry', '.icy.imports', '.icy.source'):
+  original = _filenames.icurryfilename(alias)[:-4] + suffix
+  with open(view[:-4] + suffix, 'rb') as stream:
+    with open(original, 'rb') as expected:
+      assert stream.read() == expected.read(), suffix
+assert interp.eval(module.main).one() == 42
+assert tiered.wait(120, interp=interp)
+assert not curryrt.icurry_is_interpreted(module.main.info)
+program = os.path.join(root, 'saved.exe')
+curry.save(module, program, main='main')
+run = subprocess.run([program], capture_output=True, text=True, timeout=120)
+assert run.returncode == 0, run.stdout + run.stderr
+assert run.stdout == '42\n', run.stdout
+assert _findcurry.loaded_generation('FreshAlias', interp) is generation
+assert _findcurry.loaded_generation('FreshAlias', other) is second_generation
+tiered.finish()
+""" % (work, mode)
+        child = cytest.run_in_subprocess(code, timeout=360, address_space=3 << 30)
+        self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
+
+  def test_reordered_path_keeps_loaded_leaf(self):
+    with tempfile.TemporaryDirectory() as work:
+      for answer in (1, 2):
+        directory = os.path.join(work, str(answer))
+        os.mkdir(directory)
+        source = os.path.join(directory, 'Leaf.curry')
+        with open(source, 'w') as stream:
+          stream.write('module Leaf where\nanswer :: Int\nanswer = %d\n' % answer)
+        code = "import curry; curry.reset(interpret='off', jit='off'); curry.import_(%r)" % source
+        child = cytest.run_in_subprocess(code, timeout=180, address_space=3 << 30)
+        self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
+      probe = os.path.join(work, 'Probe.curry')
+      with open(probe, 'w') as stream:
+        stream.write('module Probe where\nimport Leaf\ngoal :: (Int,Int)\ngoal = (answer,answer)\n')
+      for mode in ('eager', 'hot'):
+        code = r"""
+import curry, os
+from curry.backends.cxx import tiered, curryrtbindings as curryrt
+from curry.objects.handle import getHandle
+root = %r
+os.environ['SPRITE_JIT_THRESHOLD'] = '1'
+curry.reset(interpret='new', jit=%r, jit_backend='cxx')
+curry.path.insert(0, os.path.join(root, '1'))
+leaf = curry.import_('Leaf')
+assert curry.eval(leaf.answer).one() == 1
+curry.path.insert(0, os.path.join(root, '2'))
+probe = curry.import_(os.path.join(root, 'Probe.curry'))
+assert curry.show(curry.eval(probe.goal).one()) == '(1,1)'
+assert tiered.wait(120, interp=curry._interpreter_)
+assert not curryrt.icurry_is_interpreted(probe.goal.info)
+assert curry.show(curry.eval(probe.goal).one()) == '(1,1)'
+assert curry.eval(leaf.answer).one() == 1
+tiered.finish()
+""" % (work, mode)
+        child = cytest.run_in_subprocess(code, timeout=240, address_space=3 << 30)
+        self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
+
+
 class TieredTestCase(cytest.TestCase):
   '''A temporary source directory with one fresh module per import.'''
   counter = itertools.count()
@@ -440,9 +626,8 @@ class TestSwap(TieredTestCase):
   @cytest.hardreset
   def test_edited_module_swaps_to_its_new_code(self):
     # After an edit that keeps the shape of the module, a reload imports
-    # the new source. POSIX swaps to the new object; Windows keeps the
-    # new code interpreted because the first incarnation stays mapped
-    # under the canonical name.
+    # the new source. A loaded canonical object keeps its file; the new
+    # compile is adopted from its private generation.
     text = 'module %%(name)s where\nbump :: Int -> Int\nbump x = x + %d\n'
     name = self.write_module(text % 1)
     M = self.import_module(name)
@@ -462,14 +647,8 @@ class TestSwap(TieredTestCase):
     with capture_log('curry.backends.cxx.tiered') as log:
       self.wait()
     after = tiered.status()
-    windows = sys.platform == 'win32'
-    if windows:
-      self.assertIn('the object is mapped under this name in this process',
-                    str(log.data[logging.WARNING]))
-      self.assertIn('was not adopted', str(log.data[logging.WARNING]))
-      self.assertNotIn('compile failed', str(log.data))
-    self.assertEqual(after['swapped_modules'], before['swapped_modules'] + (not windows))
-    self.assertEqual(curryrt.icurry_is_interpreted(M.bump.info), windows)
+    self.assertEqual(after['swapped_modules'], before['swapped_modules'] + 1)
+    self.assertFalse(curryrt.icurry_is_interpreted(M.bump.info))
     self.assertEqual(self.py(M.bump, 1), 3)
     self.assertEqual(M.bump.info.address, address)
 
@@ -797,6 +976,31 @@ class TestPolicy(TieredTestCase):
     self.assertEqual(code, M.area.getimpl())
 
   @cytest.hardreset
+  def test_original_cpp_after_private_adoption(self):
+    name = self.write_module(BUDGET_MODULE)
+    env = dict(os.environ, CURRYPATH=self.tmpdir,
+        SPRITE_INTERPRETER_FLAGS='backend:cxx,inline_budget:4')
+    result = subprocess.run([config.installed_path('bin', 'sprite-make'), '--so', name],
+        env=env, capture_output=True, text=True, timeout=120)
+    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+    original = os.path.splitext(self.sofile(name))[0] + '.cpp'
+    code = """
+import curry, os
+from curry.backends.cxx import tiered
+from curry.backends.cxx.toolchain import Cpp2So
+from curry.objects.handle import getHandle
+curry.reset(interpret='all', jit='eager', jit_backend='cxx', inline_budget=0)
+curry.path.insert(0, %r)
+module = curry.import_(%r)
+tiered.wait(120)
+tiered.poll(curry._interpreter_)
+assert os.path.realpath(getHandle(module).sofilename) != os.path.realpath(%r)
+assert Cpp2So(curry._interpreter_).format_version(%r) is not None
+""" % (self.tmpdir, name, self.sofile(name), original)
+    child = cytest.run_in_subprocess(code, timeout=240, address_space=3 << 30)
+    self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
+
+  @cytest.hardreset
   def test_foreign_budget_compiles_a_private_copy(self):
     '''
     A process whose inline budget is not the environment's compiles a
@@ -856,15 +1060,16 @@ class TestPolicy(TieredTestCase):
     self.assertEqual(self.py(N.viaCall), 3)
     self.assertEqual(steps() - n0, direct)
 
-  def test_private_copies_newest_first(self):
+  def test_private_copies_have_independent_views(self):
     '''
-    The search path of a child lists the private directories newest first,
-    so the copy of the live module shadows an older copy of the same name
-    (a reload after an edit that kept the shape of the module), then the
-    root of the original.
+    Each child searches its own view, then the original root.
     '''
     import types
     root = tempfile.mkdtemp(dir=self.tmpdir)
+    if os.name == 'posix':
+      alias = root + '-alias'
+      os.symlink(root, alias)
+      root = alias
     source = os.path.join(root, 'PrivateOrder.curry')
     with open(source, 'w') as stream:
       stream.write('f :: Int\nf = 1\n')
@@ -881,9 +1086,9 @@ class TestPolicy(TieredTestCase):
     self.assertEqual(os.path.dirname(copy1), dir1)
     self.assertEqual(os.path.dirname(copy3), dir3)
     self.assertTrue(os.path.isfile(copy3))
-    self.assertEqual(dirs1, list(reversed(before)) + [root])
-    self.assertEqual(dirs2, [dir1] + list(reversed(before)) + [root])
-    self.assertEqual(dirs3, [dir2, dir1] + list(reversed(before)) + [root])
+    self.assertEqual(dirs1, [dir1, root])
+    self.assertEqual(dirs2, [dir2, root])
+    self.assertEqual(dirs3, [dir3, root])
 
   def test_sprite_make_compiles(self):
     # An explicit compile writes the object under the flag.
@@ -1012,9 +1217,13 @@ curry._interpreter_.save(M, %(name)r + '.cpp', module_main=False)
 # as a session at the keyboard may run it.
 subprocess.run(
     [%(make)r, '--so', %(name)r + '.curry'], check=True
-  , env=dict(os.environ, CURRYPATH='.')
+  , env=dict(os.environ, CURRYPATH='.'), capture_output=True, text=True
   )
-M2 = curry._interpreter_.load(os.path.join('.curry', %(subdir)r, %(name)r + curry.config.module_object_suffix()))
+try:
+  M2 = curry._interpreter_.load(os.path.join('.curry', %(subdir)r, %(name)r + curry.config.module_object_suffix()))
+except ValueError as exc:
+  assert str(exc) == 'the products of module %%s changed since it was loaded; reload it' %% %(name)r, str(exc)
+  M2 = M
 print(M2 is M)
 print(next(curry.eval((M.bump)(1))))
 print('exiting normally')

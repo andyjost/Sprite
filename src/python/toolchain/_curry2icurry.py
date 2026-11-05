@@ -1,3 +1,4 @@
+from . import _findcurry
 import threading
 from ..utility.locking import synchronized
 _rewrite_lock = threading.RLock()
@@ -32,6 +33,8 @@ def curry2icurry(curryfile, currypath, **kwds):
     The ICurry file name.
   '''
   return Curry2ICurryConverter(**kwds).convert(curryfile, currypath)
+
+curry2icurry.manages_product_lock = True
 
 # The spelling, in a FlatCurry or ICurry text, of the constraint the binding
 # optimization writes, and of the Boolean equalities it replaces: the class
@@ -303,6 +306,9 @@ def source_digest(filename):
 
 def source_matches(curryfile, icyfile):
   """Whether the product records exactly the current Curry source text."""
+  generation = _findcurry.generation_for_source(curryfile)
+  if generation is not None:
+    return True
   try:
     with open(icyfile + '.source', encoding='ascii') as stream:
       recorded = stream.read().strip()
@@ -331,6 +337,8 @@ def icurry_is_stale(filename, currypath=None):
   search path ``currypath`` selects the imported interfaces recorded in
   ``M.icy.imports``; a missing record or a changed interface is stale too.
   '''
+  if _findcurry.generation_for_source(filename) is not None:
+    return False
   if not filename.endswith('.icy'):
     return False
   try:
@@ -412,6 +420,14 @@ class Curry2ICurryConverter(object):
 
   @_system.updateCheck
   def convert(self, file_in, currypath):
+    from . import _destination
+    file_in = _destination.select(file_in,
+        _destination.interfaces(file_in, currypath))
+    from . import _productlock
+    with _productlock.locked(file_in):
+      return self._convert(file_in, currypath)
+
+  def _convert(self, file_in, currypath):
     digest = source_digest(file_in)
     currypath = curryname.makeCurryPath(currypath)
     # Both translators read the interfaces selected by the front end,
@@ -452,10 +468,16 @@ class Curry2ICurryConverter(object):
         try:
           with filesys.remove_file_on_error(file_out):
             if self.tool == 'icurry':
-              _frontend.curry2flat(file_in, currypath, self.quiet)
-              if logger.isEnabledFor(logging.DEBUG):
-                logger.debug('Command: %s', ' '.join(cmd))
-              _system.pexec(cmd, cwd=_frontend.source_root(file_in))
+              with _frontend.protected_translation(
+                  file_in, currypath, self.quiet, external=True) as (selected, search, library):
+                _frontend._run_frontend(selected, currypath, self.quiet,
+                                        search=search, library=library)
+                protected = search or _frontend.searchdirs(selected, currypath)
+                with _system.bindCurryPath(protected):
+                  if logger.isEnabledFor(logging.DEBUG):
+                    logger.debug('Command: %s', ' '.join(cmd))
+                  _system.pexec(cmd, cwd=_frontend.source_root(selected),
+                                env=_frontend.frontend_environment())
             else:
               _frontend.curry2icurry(file_in, file_out, currypath, self.quiet)
             if logger.isEnabledFor(logging.INFO):

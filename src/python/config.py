@@ -418,17 +418,7 @@ def cpm_path(root):
       dirs = spec.get('sourceDirs', ['src'])
       if not isinstance(dirs, list) or not all(isinstance(d, str) for d in dirs):
         raise ValueError('sourceDirs must be a list of strings')
-      paths = []
-      for source in dirs:
-        path = os.path.abspath(os.path.join(directory, source))
-        for module in syslibs():
-          if os.path.isfile(os.path.join(path, module.replace('.', os.sep) + '.curry')):
-            logger.warning('package %s provides %s, which the installation supplies',
-                           spec.get('name', os.path.basename(directory)), module)
-            break
-        else:
-          paths.append(path)
-      return paths
+      return [os.path.abspath(os.path.join(directory, source)) for source in dirs]
     except (OSError, ValueError, AttributeError) as err:
       logger.warning('Cannot read CPM package %s: %s', directory, err)
       return []
@@ -493,12 +483,6 @@ def verify_syslibs():
     if not found or not any(found[-1].startswith(p) for p in syspath):
       message = ['System library %r was not found in the CURRYPATH' % name,
                  'The CURRYPATH is %r' % os.pathsep.join(cypath)]
-    elif not any(found[0].startswith(p) for p in syspath):
-      message = [
-          'System library %r is shadowed by a file from the CURRYPATH.' % name,
-          'The CURRYPATH is %r' % os.pathsep.join(cypath),
-          'The system %r is %r' % (name, found[-1]),
-          '%r was found at %r' % (name, found[0])]
     else:
       continue
     message.append('Set SPRITE_DISABLE_SYSLIB_CHECKS to ignore')

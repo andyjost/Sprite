@@ -107,6 +107,10 @@ def _record_fields(module):
   from ..typecheck.sigtable import find_interface
   icy = getattr(module, '.icurry')
   text = icy.metadata.get('all.interface')
+  generation = getattr(icy, '_loaded_generation', None)
+  if generation is not None:
+    data = generation.texts.get('.icurry')
+    text = data.decode('utf-8') if data is not None else ''
   if text is None:
     path = getattr(module, '.interface_file', None)
     if path is None and icy.filename is not None:

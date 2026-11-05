@@ -370,6 +370,16 @@
         "tests": 14
       }
     },
+    "unit_cpm_repl.py": {
+      "cxx": {
+        "duration_s": 5.5,
+        "failures": 0,
+        "measured_on_cores": 24,
+        "measured_on_mem_gb": 123,
+        "peak_rss_mb": 434,
+        "tests": 1
+      }
+    },
     "unit_curry2icurry.py": {
       "cxx": {
         "duration_s": 15.0,

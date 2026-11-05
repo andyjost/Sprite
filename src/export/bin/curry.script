@@ -1,0 +1,14 @@
+#!/usr/bin/env python3
+"""Private launcher for tools that use Curry.Compiler.Distribution.installDir."""
+from pathlib import Path
+import os
+import sys
+
+prefix = Path(__file__).resolve().parent.parent
+python = prefix / 'tools/python'
+if python.is_file() and python.resolve() != Path(sys.executable).resolve():
+  os.execv(str(python.resolve()), [str(python.resolve()), str(Path(__file__).resolve()), *sys.argv[1:]])
+sys.path.insert(0, str(prefix / 'python' if (prefix / 'python').is_dir()
+                       else prefix.parent.parent))
+from curry.tools.repl.__main__ import main
+main(sys.argv[1:])

@@ -516,7 +516,7 @@ class TestPrograms(cytest.TestCase):
     for command in commands:
       args.extend(command.split())
     return self.run_child(
-        [sys.executable, '-m', 'curry.tools.icy'] + args + [':quit'], status=status
+        [sys.executable, '-m', 'curry.tools.repl'] + args + [':quit'], status=status
       )
 
   def test_repl_eval_and_type(self):
@@ -544,7 +544,7 @@ class TestPrograms(cytest.TestCase):
     '''
     env = dict(os.environ, SPRITE_GC_STRESS='1')
     proc = self.run_child(
-        [sys.executable, '-m', 'curry.tools.icy', ':load', LAST_FILE, ':eval', 'last (replicate 8000 True)', ':quit']
+        [sys.executable, '-m', 'curry.tools.repl', ':load', LAST_FILE, ':eval', 'last (replicate 8000 True)', ':quit']
       , env=env, timeout=STRESS_TIMEOUT
       )
     self.assertEqual(proc.stdout, 'True\n')
@@ -608,7 +608,7 @@ class TestReplSession(cytest.TestCase):
   '''
 
   def setUp(self):
-    from curry.tools.icy import commands, repl
+    from curry.tools.repl import commands, repl
     self.commands, self.repl_module = commands, repl
     path = curry.path
     self.addCleanup(path.__setitem__, slice(None), list(path))

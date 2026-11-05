@@ -163,7 +163,7 @@ class Main(object):
       # are kept.
       curry.reset(**{'backend': args.backend})
     if args.NAME is None:
-      from .tools.icy.__main__ import main as repl
+      from .tools.repl.__main__ import main as repl
       repl([])
       return
     else:
@@ -171,7 +171,8 @@ class Main(object):
           args.NAME, path=curry.path
         )
       curry.program_arguments = args.program_arguments
-      curry.program_name = curry.info(module).name
+      curry.program_name = (self.program_name if isinstance(self, SavedMain)
+                            else curry.info(module).name)
       if args.goal is not None:
         # A saved program may carry the scheme without an interface.
         try:
@@ -224,6 +225,11 @@ class Main(object):
 def main(program_name, argv=None):
   '''Main program for Curry.'''
   argv = sys.argv[1:] if argv is None else argv
+  if argv and (argv[0].startswith(':') or argv[0] in (
+      '--compiler-name', '--numeric-version', '--base-version',
+      '--nocypm', '--noreadline', '-q')):
+    from .tools.repl.__main__ import main as repl
+    return repl(argv)
   mainobj = Main(program_name)
   mainobj(argv)
 

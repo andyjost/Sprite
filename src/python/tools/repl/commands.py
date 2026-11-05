@@ -1,7 +1,7 @@
 from ..evaluation import evaluate
 from . import options
 from .resolve import resolve
-import importlib, os, sys
+import importlib, logging, os, shlex, sys
 curry = importlib.import_module(__package__[:__package__.find('.')])
 
 __all__ = ['COMMANDS', 'eval', 'load']
@@ -78,6 +78,44 @@ def cmdType(repl):
 def cmdSet(repl):
   '''Executes a :set command.  May update ``repl.options``.'''
   assert repl.command == ':set'
+  args = list(repl.args)
+  # CPM puts the verbosity and the package's compiler options in one :set.
+  if args and args[0] in ('v0', 'v1', 'v2', 'v3', 'v4'):
+    repl.verbosity = int(args.pop(0)[1:])
+    logging.getLogger('curry').setLevel(
+        logging.ERROR if repl.verbosity == 0 else logging.WARNING)
+    if not args:
+      return
+  if args and args[0] in ('+time', '-time'):
+    repl.pakcs_options['time'] = args.pop(0) == '+time'
+    if args:
+      raise ValueError('Unexpected arguments to :set time')
+    return
+  if args and args[0] in ('parser', 'rts', 'path', 'args'):
+    name = args.pop(0)
+    if not args:
+      raise ValueError('Missing value for :set ' + name)
+    value = ' '.join(args)
+    if name == 'path':
+      if len(args) == 1 and not value.startswith(('"', "'")):
+        path = value
+      else:
+        paths = shlex.split(value)
+        if len(paths) != 1:
+          raise ValueError(':set path expects one search path')
+        path = paths[0]
+      curry.path[:0] = path.split(os.pathsep)
+    elif name == 'args':
+      curry.program_arguments = shlex.split(value)
+    elif name == 'parser' and value != '-Wnone':
+      raise ValueError('Unsupported parser options: ' + value)
+    elif name == 'rts' and value != '-T':
+      raise ValueError('Unsupported runtime options: ' + value)
+    if name == 'parser':
+      os.environ['SPRITE_FRONTEND_WARNINGS'] = '0'
+    repl.pakcs_options[name] = value
+    return
+  repl.args = args
   try:
     name,value = repl.args
   except ValueError:
@@ -121,6 +159,24 @@ def cmdSet(repl):
       raise ValueError('Invalid command.  Type ":set" for help.')
   repl.options[name] = value
 
+def cmdSave(repl):
+  """Save an executable named after the loaded module in the current directory."""
+  if repl.loaded is None:
+    raise ValueError('No module loaded')
+  expression = ' '.join(repl.args) if repl.args else 'main'
+  module = repl.module
+  goal = expression
+  try:
+    module[expression]
+  except curry.exceptions.SymbolLookupError:
+    module = curry.compile('spriteSavedMain = ' + expression,
+        imports=imports(repl))
+    goal = 'spriteSavedMain'
+  filename = repl.loaded_name
+  curry.save(module, filename, main=goal)
+  os.chmod(filename, os.stat(filename).st_mode | 0o111)
+
+
 def cmdQuit(repl):
   '''Executes the :quit command.'''
   assert repl.command == ':quit'
@@ -132,6 +188,7 @@ COMMANDS = {
   , ':eval' : cmdEval
   , ':type' : cmdType
   , ':set'  : cmdSet
+  , ':save' : cmdSave
   , ':quit' : cmdQuit
   }
 

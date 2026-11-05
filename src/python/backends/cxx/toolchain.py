@@ -426,6 +426,7 @@ FORMAT_PAT = re.compile(r'// FORMAT: (\d+)')
 
 def format_version(file_in):
   '''The format stamp of a generated file.  A file without one is format 1.'''
+  _findcurry.verify_loaded_product(file_in)
   with open(file_in, 'r') as stream:
     for line in itertools.islice(stream, 16):
       m = FORMAT_PAT.match(line)
@@ -434,6 +435,7 @@ def format_version(file_in):
   return 1
 
 def source_interfaces(file_in):
+  _findcurry.verify_loaded_product(file_in)
   with open(file_in, encoding='utf-8') as stream:
     return _source_interfaces(itertools.islice(stream, 16))
 
@@ -454,15 +456,20 @@ def registered_names(source):
 
 def input_record(interp, source):
   from ...toolchain._frontend import ROUTE_VERSION
+  generation = _findcurry.generation_for_source(source, interp) if source else None
   try:
-    with open(_filenames.icurryfilename(source) + '.source', encoding='ascii') as stream:
-      recorded = stream.read().strip()
+    if generation is not None:
+      recorded = generation.texts.get('.icy.source', b'').decode('ascii').strip() or None
+    else:
+      with open(_filenames.icurryfilename(source) + '.source', encoding='ascii') as stream:
+        recorded = stream.read().strip()
   except (OSError, ValueError, AttributeError):
     recorded = None
   return dict(source=recorded, registry=registered_names(source),
       route=ROUTE_VERSION, budget=interp.flags['inline_budget'])
 
 def source_record(filename):
+  _findcurry.verify_loaded_product(filename)
   try:
     with open(filename, encoding='utf-8') as stream:
       for line in itertools.islice(stream, 16):
@@ -491,6 +498,7 @@ def source_is_stale(file_in, currypath=None, interp=None):
   Whether generated C++ has another format or imported interface/body
   provenance, including a file written before that provenance was recorded.
   '''
+  _findcurry.verify_loaded_product(file_in, interp)
   return not input_current(source_record(file_in), file_in, interp) or \
       format_version(file_in) != compiler.FORMAT_VERSION or not \
       _interfaces.objects_current(source_interfaces(file_in),
@@ -513,6 +521,7 @@ class ICurry2Cpp(ICurry2TargetSource):
     return self.interp.flags['interpret'] == 'new' \
         and filename.endswith(('.img',))
 
+  @_findcurry.with_resolution
   def is_stale(self, filename, currypath=None):
     '''
     Tells whether a .cpp file this step wrote is unusable (source_is_stale).
@@ -777,6 +786,7 @@ class Cpp2So(object):
       digests.add(object_digest('debug'))
     return digests
 
+  @_findcurry.with_resolution
   def is_stale(self, filename, currypath=None):
     '''
     Tells whether a cached file of this step is unusable.  The plan then
@@ -808,6 +818,7 @@ class Cpp2So(object):
           or not self.stamp_is_current(filename, currypath)
     return source_is_stale(filename, import_search_path(self.interp, filename, currypath), self.interp)
 
+  @_findcurry.with_resolution
   def stale_reason(self, sofile, currypath=None):
     '''Explain an interpreted import without changing the plan's decisions.'''
     source = _filenames.curryfilename(sofile)
@@ -827,6 +838,7 @@ class Cpp2So(object):
       return "an import's interface"
     return 'the ABI stamp'
 
+  @_findcurry.with_resolution
   def stamp_is_current(self, sofile, currypath=None):
     '''
     Tells whether the ABI stamp of ``sofile`` holds a digest this step
@@ -836,6 +848,8 @@ class Cpp2So(object):
     only the runtime digest comparison is skipped; import provenance stays
     mandatory, including the new stamp format.
     '''
+    _findcurry.verify_loaded_product(sofile, self.interp)
+    _findcurry.verify_loaded_product(self.stampfile(sofile), self.interp)
     accepted = self.accepted_digests()
     digest, path, recorded, record = self._read_stamp_records(sofile)
     if not input_current(record, sofile, self.interp):
@@ -886,6 +900,8 @@ class Cpp2So(object):
     '''
     from . import loader
     cppfile = _filenames.replacesuffix(sofile, '.cpp')
+    _findcurry.verify_loaded_product(cppfile, self.interp)
+    _findcurry.verify_loaded_product(sofile, self.interp)
     try:
       if os.path.isfile(cppfile):
         imports = self._importedModules(cppfile)
@@ -912,6 +928,7 @@ class Cpp2So(object):
 
   @classmethod
   def _read_stamp_records(cls, sofile):
+    _findcurry.verify_loaded_product(cls.stampfile(sofile))
     try:
       with open(cls.stampfile(sofile), encoding='utf-8') as stream:
         lines = stream.read().splitlines()
@@ -929,6 +946,7 @@ class Cpp2So(object):
     path of the installation.  A missing line is None; so is each of a
     missing stamp.
     '''
+    _findcurry.verify_loaded_product(cls.stampfile(sofile))
     try:
       with open(cls.stampfile(sofile), 'r') as stream:
         lines = stream.read().splitlines()
@@ -945,6 +963,7 @@ class Cpp2So(object):
 
   @classmethod
   def read_import_stamp(cls, sofile):
+    _findcurry.verify_loaded_product(cls.stampfile(sofile))
     try:
       with open(cls.stampfile(sofile), encoding='utf-8') as stream:
         lines = stream.read().splitlines()
@@ -984,6 +1003,7 @@ class Cpp2So(object):
 
   def format_version(self, file_in):
     '''The format stamp of a generated file (format_version).'''
+    _findcurry.verify_loaded_product(file_in, self.interp)
     return format_version(file_in)
 
   MODULE_PAT = re.compile(r'// MODULE: (\S+)')
@@ -993,6 +1013,7 @@ class Cpp2So(object):
     comment in its header ("// MODULE: N"; compiler.vEmitHeader).  The
     SONAME of the object is formed from it (soname).
     '''
+    _findcurry.verify_loaded_product(file_in, self.interp)
     with open(file_in, 'r') as stream:
       for line in itertools.islice(stream, 16):
         m = self.MODULE_PAT.match(line)
@@ -1009,6 +1030,7 @@ class Cpp2So(object):
     specified .cpp file.  This information is stored in a comment near the top
     of the file.
     '''
+    _findcurry.verify_loaded_product(file_in, self.interp)
     with open(file_in, 'r') as stream:
       for line in stream:
         m = re.match(self.IMPORT_PAT, line)
@@ -1040,6 +1062,7 @@ class Cpp2So(object):
       raise exceptions.PrerequisiteError(
           'No .so filename for module %r' % h.fullname
         )
+    _findcurry.verify_loaded_product(sofilename, self.interp)
     return sofilename
 
   def _object_on_disk(self, modulename, currypath):
@@ -1052,6 +1075,9 @@ class Cpp2So(object):
     'all' (extend_plan_skeleton), so the object is found by its name beside
     the current product, not through the plan.
     '''
+    generation = _findcurry.loaded_generation(modulename, self.interp)
+    if generation is not None and generation.object:
+      return _findcurry.verify_product(generation, generation.object)
     plan = plans.makeplan(self.interp, plans.MAKE_ALL)
     if currypath is None:
       # A module given by name: its imports are searched on the path of
@@ -1071,8 +1097,20 @@ class Cpp2So(object):
         _filenames.icurryfilename(curryfile), config.module_object_suffix()
       )
     if os.path.isfile(sofile) and self.stamp_is_current(sofile):
+      _findcurry.verify_loaded_product(sofile, self.interp)
+      if generation is not None and generation.product_digest('object') is None:
+        generation.acquire_object(sofile)
       return sofile
     return None
+
+  def _object_provenance(self, name):
+    """Destination identity of a link input, independent of its snapshot."""
+    h = getHandle(self.interp.modules[name])
+    if h.sofilename is not None:
+      return h.sofilename
+    generation = getattr(h.icurry, '_loaded_generation', None)
+    source = generation.source_spelling if generation is not None else h.icurry.filename
+    return _filenames.replacesuffix(source, config.module_object_suffix()) if source else None
 
   def _dependencies(self, file_in, currypath=None):
     '''
@@ -1215,8 +1253,27 @@ class Cpp2So(object):
     yield '-o'
     yield file_out
 
+  @_findcurry.with_resolution
   @_system.updateCheck
   def __call__(self, file_in, currypath, **ignored):
+    from ...toolchain import _destination
+    file_in = _destination.canonical(file_in)
+    _findcurry.verify_loaded_product(file_in, self.interp)
+    names = self._importedModules(file_in)
+    self.interp.import_(names,
+        currypath=_findcurry.import_path(self.interp,
+            _findcurry.imports_path(currypath, **ignored)))
+    imports = _findcurry.imports_path(currypath, **ignored)
+    products = _destination.images(self.interp, names)
+    if not IS_WINDOWS:
+      for name in names:
+        self._sofilename(name, imports)
+        products.append(self._object_provenance(name))
+    selected = _destination.select(file_in, products)
+    if selected != file_in:
+      # Regenerate C++ from the selected translation before compiling it.
+      file_in = ICurry2Cpp(self.interp)(
+          _filenames.icurryfilename(selected), currypath, **ignored)
     # The imports of a program given as a file are searched on its path;
     # those of a module given by name on the path of the interpreter.
     imports = _findcurry.imports_path(currypath, **ignored)
@@ -1260,6 +1317,7 @@ class Cpp2So(object):
         )
     # Imports/native materialization must finish before taking the product
     # lock. Pin the input bytes too: another producer can replace the name.
+    _findcurry.verify_loaded_product(file_in, self.interp)
     with open(file_in, 'rb') as stream:
       source = stream.read()
     provenance = _source_interfaces(source.decode('utf-8').splitlines()[:16])
@@ -1296,6 +1354,7 @@ class Cpp2So(object):
           raise exceptions.CompileError(
               'cannot publish %r: %s' % (file_out, error)) from None
         self.write_stamp(file_out, provenance, source_record(cpp))
+        _findcurry.verify_loaded_product(file_in)
         with open(file_in, 'rb') as stream:
           if stream.read() == source:
             self.store(file_in, file_out, currypath)
@@ -1357,6 +1416,7 @@ class Cpp2So(object):
       , 'frontend ' + cache.frontend_digest()
       ]
 
+  @_findcurry.with_resolution
   def product_key(self, filename, currypath):
     '''
     The key of the product cache for the module of ``filename``, a file of
@@ -1377,6 +1437,7 @@ class Cpp2So(object):
                 _interfaces.search_path(curryfile, currypath)))]
       )
 
+  @_findcurry.with_resolution
   def restore(self, file_in, currypath, **kwds):
     '''
     Places the cached products of the module of ``file_in``, a current image
@@ -1397,6 +1458,7 @@ class Cpp2So(object):
     ``is_sourcefile`` tells whether the imports are searched on it
     (_findcurry.imports_path).
     '''
+    _findcurry.verify_loaded_product(file_in, self.interp)
     if not file_in.endswith(('.img', '.cpp')):
       return None
     if not _productcache.enabled() or config.force_recompile_cxx():
@@ -1404,6 +1466,21 @@ class Cpp2So(object):
     if self.interp.flags['interpret'] == 'new':
       return None
     if _productcache.excluded(_filenames.curryfilename(file_in)):
+      return None
+    from ...toolchain import _destination
+    names = _interfaces.imports(_filenames.icurryfilename(file_in))
+    self.interp.import_(names,
+        currypath=_findcurry.import_path(self.interp,
+            _findcurry.imports_path(currypath, **kwds)))
+    products = _destination.images(self.interp, names)
+    if not IS_WINDOWS:
+      try:
+        for name in names:
+          self._sofilename(name, _findcurry.imports_path(currypath, **kwds))
+          products.append(self._object_provenance(name))
+      except exceptions.PrerequisiteError:
+        return None
+    if _destination.needs_private(file_in, products):
       return None
     digest = self.digest()
     if digest is None:
@@ -1452,6 +1529,7 @@ class Cpp2So(object):
       return None
     return sofile
 
+  @_findcurry.with_resolution
   def store(self, cppfile, sofile, currypath):
     '''
     Stores the products of a compile in the product cache: the generated

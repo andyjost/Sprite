@@ -19,14 +19,24 @@ def search_path(filename, currypath=()):
     filename = _filenames.curryfilename(filename)
   except ValueError:
     pass
+  from ._findcurry import _installed_library_file
+  if _installed_library_file(filename):
+    from ..utility import curryname
+    return curryname.makeCurryPath(list(currypath or ()) +
+                                  config.system_curry_path().split(os.pathsep))
   return _frontend.searchdirs(filename, currypath or ())
 
 def interface_file(name, searchdirs, frontend=False):
   '''Prefer the versioned copies that travel with ICurry, as typing does.'''
+  from ._findcurry import loaded_generation
+  generation = loaded_generation(name)
+  if generation is not None:
+    return generation.name + '.fint' if '.fint' in generation.texts else None
   subdirs = [config.intermediate_subdir(), config.frontend_subdir()]
-  if frontend:
+  from ._findcurry import loaded_source, module_path
+  if frontend and loaded_source(name) is None:
     subdirs.reverse()
-  finder = InterfaceFinder(searchdirs, subdirs)
+  finder = InterfaceFinder(module_path(name, searchdirs), subdirs)
   try:
     return finder.filename(name)
   except Flat2ICurryError:
@@ -34,7 +44,12 @@ def interface_file(name, searchdirs, frontend=False):
 
 def digest(name, searchdirs, frontend=False):
   '''SHA-256 of the two labelled interface texts; None if neither exists.'''
-  filename = interface_file(name, searchdirs, frontend)
+  from ._findcurry import loaded_generation
+  generation = loaded_generation(name)
+  if generation is not None and not any(
+      suffix in generation.texts for suffix in cache.INTERFACE_SUFFIXES):
+    return None
+  filename = interface_file(name, searchdirs, frontend) if generation is None else name + '.fint'
   if filename is None:
     return None
   stem = os.path.splitext(filename)[0]
@@ -45,8 +60,14 @@ def digest(name, searchdirs, frontend=False):
       path = filename if suffix == '.fint' else stem + suffix
       if path.endswith('.fcy'):
         result.update(b'FlatCurry fallback\0')
-      with open(path, 'rb') as stream:
-        result.update(b'present\0' + stream.read().replace(b'\r\n', b'\n'))
+      if generation is not None:
+        data = generation.texts.get(suffix)
+        if data is None:
+          raise FileNotFoundError(path)
+      else:
+        with open(path, 'rb') as stream:
+          data = stream.read()
+      result.update(b'present\0' + data.replace(b'\r\n', b'\n'))
     except FileNotFoundError:
       result.update(b'missing')
     result.update(b'\0')
@@ -54,6 +75,10 @@ def digest(name, searchdirs, frontend=False):
 
 def imports(icyfile):
   '''Read only the ICurry header, without parsing bodies or importing code.'''
+  from ._findcurry import generation_for_source
+  generation = generation_for_source(icyfile)
+  if generation is not None:
+    return [name for name, _ in generation.imports]
   with open(icyfile, encoding='utf-8') as stream:
     text = stream.read()
   match = _HEADER.match(text)
@@ -80,6 +105,11 @@ def decode(text):
   return None
 
 def read(filename):
+  from ._findcurry import generation_for_source
+  generation = generation_for_source(filename)
+  if generation is not None:
+    text = generation.texts.get('.icy.imports')
+    return decode(text.decode('utf-8')) if text is not None else None
   try:
     with open(filename, encoding='utf-8') as stream:
       return decode(stream.read())
@@ -114,21 +144,32 @@ def object_snapshot(names, searchdirs):
   result = {}
   for name in sorted(set(names)):
     value = hashlib.sha256((digest(name, searchdirs) or 'missing').encode('ascii'))
-    parts = name.split('.')
-    for directory in searchdirs:
-      stem = os.path.join(directory, *parts[:-1], '.curry',
-          config.intermediate_subdir(), parts[-1])
-      found = False
-      for suffix in ('.img',):
-        try:
-          with open(stem + suffix, 'rb') as stream:
-            value.update(suffix.encode('ascii') + b'\0' + stream.read())
-          found = True
-          break
-        except FileNotFoundError:
-          pass
-      if found:
+    from ._findcurry import module_path, loaded_generation, loaded_source, _translation_interp
+    generation = loaded_generation(name)
+    source = loaded_source(name)
+    if generation is not None:
+      from ..backends.cxx import image
+      value.update(image.generation_digest(generation).encode('ascii'))
+      result[name] = value.hexdigest()
+      continue
+    elif source is not None:
+      from ..backends.cxx import image
+      paths = [image._path(_translation_interp.get(), source)]
+    else:
+      parts = name.split('.')
+      paths = [os.path.join(directory, *parts[:-1], '.curry',
+          config.intermediate_subdir(), parts[-1] + suffix)
+          for suffix in ('.img', '.icy')
+          for directory in module_path(name, searchdirs)]
+    for path in paths:
+      if path is None:
+        continue
+      try:
+        with open(path, 'rb') as stream:
+          value.update(hashlib.sha256(stream.read()).hexdigest().encode('ascii'))
         break
+      except FileNotFoundError:
+        pass
     result[name] = value.hexdigest()
   return result
 

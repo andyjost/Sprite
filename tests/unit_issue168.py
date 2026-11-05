@@ -1,4 +1,4 @@
-'''Issue #168: a module can share a namespace, but not a library name.'''
+'''Issue #168: module namespaces and library replacements.'''
 import cytest # from ./lib; must be first
 from curry import config
 from curry.toolchain import _filenames
@@ -37,52 +37,56 @@ class TestIssue168(cytest.TestCase):
                 str(childfile))).parent.parent, root / 'A/.curry')
 
   def test_library_namesakes(self):
-    original_path = list(curry.path)
-    with tempfile.TemporaryDirectory() as work:
-      for name in ('Prelude', 'Data.List'):
-        root = pathlib.Path(work) / name.replace('.', '_')
-        source = root / (name.replace('.', '/') + '.curry')
-        source.parent.mkdir(parents=True, exist_ok=True)
-        source.write_text('module %s where\nuserValue :: Bool\n'
-                          'userValue = True\n' % name)
-        installed = pathlib.Path(config.installed_path(
-            'curry', name.replace('.', '/') + '.curry'))
-        for interpret in ('off', 'new'):
-          for loaded in (False, True):
-            with self.subTest(name=name, interpret=interpret, loaded=loaded):
-              curry.path[:] = original_path
-              curry.reset(interpret=interpret)
-              library = curry.import_(name) if loaded else None
-              curry.path.insert(0, str(root))
-              for target in (name, source):
-                with self.subTest(target=str(target)):
-                  with self.assertRaises(ImportError) as caught:
-                    curry.import_(target)
-                  message = str(caught.exception)
-                  self.assertIn(name, message)
-                  self.assertIn(repr(str(source))[1:-1], message)
-                  self.assertIn(repr(str(installed))[1:-1], message)
-              curry.path[:] = original_path
-              restored = curry.import_(name)
-              if loaded:
-                self.assertIs(restored, library)
-              self.assertEqual(pathlib.Path(restored.__file__), installed)
+    for name in ('Prelude', 'Data.List'):
+      for mode in ('off', 'new'):
+        for loaded in (False, True):
+          with self.subTest(name=name, interpret=mode, loaded=loaded):
+            code = r'''
+import curry
+from curry import config
+from curry.toolchain import _filenames
+from pathlib import Path
+import os, tempfile
+curry.reset(interpret=%r, jit='off')
+name = %r
+with tempfile.TemporaryDirectory(ignore_cleanup_errors=os.name == 'nt') as work:
+  source = Path(work) / (name.replace('.', '/') + '.curry')
+  source.parent.mkdir(parents=True, exist_ok=True)
+  source.write_text('module %%s where\nuserValue :: Bool\nuserValue = True\n' %% name)
+  installed = Path(config.installed_path('curry', name.replace('.', '/') + '.curry'))
+  library = curry.import_(name) if %r else None
+  curry.path.insert(0, work)
+  for target in (name, source):
+    if name == 'Prelude':
+      try:
+        curry.import_(target)
+      except ImportError as exc:
+        assert 'runtime implements' in str(exc)
+        assert repr(str(source))[1:-1] in str(exc)
+        assert repr(str(installed))[1:-1] in str(exc)
+      else:
+        raise AssertionError('reserved module accepted')
+    else:
+      module = curry.import_(target)
+      if library is not None:
+        assert module is library
+      else:
+        assert list(curry.eval(module.userValue)) == [True]
+        assert Path(_filenames.icurryfilename(str(source))).exists()
+''' % (mode, name, loaded)
+            child = cytest.run_in_subprocess(code, timeout=60, address_space=2 << 30)
+            self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
 
   def test_loaded_library_with_product_only_namesake(self):
-    with tempfile.TemporaryDirectory() as work:
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=os.name == 'nt') as work:
       curry.reset(interpret='new')
-      curry.import_('Data.List')
+      library = curry.import_('Data.List')
       source = pathlib.Path(work) / 'Data/List.curry'
       product = pathlib.Path(_filenames.replacesuffix(str(source), '.img'))
       product.parent.mkdir(parents=True)
       product.write_bytes(zlib.compress(b'{}'))
       curry.path.insert(0, work)
-      with self.assertRaises(ImportError) as caught:
-        curry.import_('Data.List')
-      self.assertIn(repr(str(source))[1:-1], str(caught.exception))
-      self.assertIn(repr(str(pathlib.Path(config.installed_path(
-          'curry', 'Data/List.curry'))))[1:-1],
-                    str(caught.exception))
+      self.assertIs(curry.import_('Data.List'), library)
 
 
 if __name__ == '__main__':

@@ -489,8 +489,10 @@ class Interface:
 
   @classmethod
   @synchronized(_cache_lock)
-  def load(cls, path):
+  def load(cls, path, data=None):
     '''Reads an interface.  Files are cached by name, size, and time.'''
+    if data is not None:
+      return cls(path, data=data)
     st = os.stat(path)
     key = (path, st.st_size, st.st_mtime_ns)
     iface = cls._loaded.get(key)
@@ -853,21 +855,25 @@ class SignatureTable:
     handle = getHandle(module)
     if handle.is_package:
       return None
+    generation = getattr(handle.icurry, '_loaded_generation', None)
     embedded = getattr(module, '.interface_file', None)
-    if embedded is not None:
+    if embedded is not None and generation is None:
       return Interface.load(embedded)
     filename = handle.icurry.filename
-    if filename is None:
+    if filename is None and generation is None:
       logger.debug('module %s has no source file', module.__name__)
       return None
-    path = find_interface(filename, handle.fullname)
+    if generation is None:
+      path = find_interface(filename, handle.fullname)
+    else:
+      path = handle.fullname + '.fint' if '.fint' in generation.texts else None
     if path is None:
       logger.debug(
           'no FlatCurry interface for module %s; tried %s'
-        , module.__name__, ', '.join(interface_candidates(filename, handle.fullname))
+        , module.__name__, ', '.join(interface_candidates(filename, handle.fullname) if filename else ())
         )
       return None
-    iface = Interface.load(path)
+    iface = Interface.load(path, generation.texts['.fint'] if generation is not None else None)
     logger.debug('module %s has its interface at %s', module.__name__, path)
     if handle.fullname == PRELUDE:
       self.check_frontend(iface)
