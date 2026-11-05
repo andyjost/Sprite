@@ -456,13 +456,14 @@ def registered_names(source):
 
 def input_record(interp, source):
   from ...toolchain._frontend import ROUTE_VERSION
+  from ...toolchain._curry2icurry import receipt_source
   generation = _findcurry.generation_for_source(source, interp) if source else None
   try:
     if generation is not None:
-      recorded = generation.texts.get('.icy.source', b'').decode('ascii').strip() or None
+      recorded = receipt_source(generation.texts.get('.icy.source', b'').decode('ascii')) or None
     else:
       with open(_filenames.icurryfilename(source) + '.source', encoding='ascii') as stream:
-        recorded = stream.read().strip()
+        recorded = receipt_source(stream.read())
   except (OSError, ValueError, AttributeError):
     recorded = None
   return dict(source=recorded, registry=registered_names(source),
@@ -479,7 +480,7 @@ def source_record(filename):
     pass
   return None
 
-def input_current(record, filename, interp=None):
+def input_current(record, filename, interp=None, registry=None):
   try:
     source = _filenames.curryfilename(filename)
   except ValueError:
@@ -489,7 +490,7 @@ def input_current(record, filename, interp=None):
   from ...toolchain._frontend import ROUTE_VERSION
   from . import image
   digest = image.digest(source)
-  return record.get('registry') == registered_names(source) \
+  return record.get('registry') == (registered_names(source) if registry is None else registry) \
       and record.get('route') == ROUTE_VERSION \
       and (digest is None or record.get('source') == digest)
 
@@ -541,24 +542,16 @@ class PrecompiledHeader(object):
   '''
   The precompiled form of curryrt/curryrt.hpp.
 
-  The files live in <root>/curryrt/curryrt.hpp.gch/.  The root is the installed
-  include directory unless SPRITE_CXX_PCH_ROOT says otherwise (see
-  config.cxx_pch_root).  g++ accepts a directory of that name in place of one
-  file and uses the member that matches its options.  So each flavor (the
-  optimized build, the debug build, custom CXXFLAGS) gets its own member,
-  named after the optimization flags and a hash of the compiler and the full
-  flag list.  clang on macOS writes a member of its own format with the same
-  command and takes it by name with -include-pch (Cpp2So._pchflags); the
-  directory and the members serve both the same.
+  The files live in <root>/curryrt/curryrt.hpp.gch/. The root is the installed
+  include directory unless SPRITE_CXX_PCH_ROOT says otherwise. Each member
+  names the compiler, flags and the digest of the header closure. GCC uses
+  -include to select this exact member through its .gch sibling, and clang
+  uses -include-pch. An older member with matching compiler options cannot
+  substitute for the selected content generation.
 
-  A member is stale when it is older than any header, its sources.  The
-  comparison uses modification times: make stage links the installed headers
-  to the sources, and make install copies a header only when the source is
-  newer, so a build that changes no header keeps the member.  A stale member
-  of another flavor is removed when a flavor prepares its own (see
-  remove_stale_members): g++ never compares a member with the headers, and
-  it takes the first member of the directory whose options agree with the
-  compilation.
+  A member is stale when its headers changed or are newer. Old members may
+  be removed after preparing a current member; their ages are only cleanup
+  hints and never establish the selected member's content identity.
   When the directory cannot be written or the build fails, the toolchain logs
   one warning per root and compiles without the header.  The generated code
   is the same either way.
@@ -572,6 +565,10 @@ class PrecompiledHeader(object):
     self.root = root
     self.cxx = cxx
     self.cxxflags = list(cxxflags)
+    try:
+      self.content = self.header_digest()
+    except OSError:
+      self.content = None
     self.directory = os.path.join(root, self.HEADER + '.gch')
     self.filename = os.path.join(self.directory, self.flavor + '.gch')
 
@@ -583,7 +580,7 @@ class PrecompiledHeader(object):
       stamp = str(os.path.getmtime(exe))
     except OSError:
       stamp = ''
-    key = '\0'.join([exe, stamp] + self.cxxflags)
+    key = '\0'.join([exe, stamp, self.content or 'unreadable'] + self.cxxflags)
     digest = hashlib.sha1(key.encode('utf-8')).hexdigest()[:12]
     level = ''.join(
         flag[1:] for flag in self.cxxflags
@@ -600,6 +597,17 @@ class PrecompiledHeader(object):
     '''
     return runtime_headers()
 
+  @classmethod
+  def header_digest(cls):
+    result = hashlib.sha256()
+    for path in cls.header_files():
+      result.update(os.path.relpath(path, config.installed_path('include')).encode('utf-8'))
+      result.update(b'\0')
+      with open(path, 'rb') as stream:
+        result.update(stream.read())
+      result.update(b'\0')
+    return result.hexdigest()
+
   def is_current(self):
     '''
     True when the member exists and no header is newer.  False when a
@@ -609,7 +617,8 @@ class PrecompiledHeader(object):
     '''
     try:
       stamp = os.path.getmtime(self.filename)
-      return all(os.path.getmtime(f) <= stamp for f in self.header_files())
+      return self.content == self.header_digest() and all(
+          os.path.getmtime(f) <= stamp for f in self.header_files())
     except OSError:
       return False
 
@@ -631,7 +640,7 @@ class PrecompiledHeader(object):
         self._failed.add(self.root)
       if not warn:
         return False
-      logger.warning(
+      _productlock.log(logger, logging.WARNING,
           'cannot build the precompiled header %r (%s); generated code is '
           'compiled without it.  Set SPRITE_CXX_PCH_ROOT to a writable '
           'directory, or to the empty string to silence this warning.'
@@ -664,7 +673,7 @@ class PrecompiledHeader(object):
         continue
       try:
         if os.path.getmtime(path) < newest:
-          logger.info('Removing the stale precompiled header %r', path)
+          _productlock.log(logger, logging.INFO, 'Removing the stale precompiled header %r', path)
           os.unlink(path)
       except OSError:
         pass
@@ -679,9 +688,9 @@ class PrecompiledHeader(object):
         prefix='.%s-' % os.path.basename(self.filename), suffix='.tmp')
     os.close(fd)
     cmd = [self.cxx, '-x', 'c++-header'] + self.cxxflags + [header, '-o', tmp]
-    logger.info('Precompiling %r', self.filename)
+    _productlock.log(logger, logging.INFO, 'Precompiling %r', self.filename)
     if logger.isEnabledFor(logging.DEBUG):
-      logger.debug('Command: %s', ' '.join(cmd))
+      _productlock.log(logger, logging.DEBUG, 'Command: %s', ' '.join(cmd))
     with filesys.remove_file_on_error(tmp):
       _system.pexec(cmd)
       os.replace(tmp, self.filename)
@@ -839,7 +848,7 @@ class Cpp2So(object):
     return 'the ABI stamp'
 
   @_findcurry.with_resolution
-  def stamp_is_current(self, sofile, currypath=None, check_source=True):
+  def stamp_is_current(self, sofile, currypath=None, check_source=True, registry=None):
     '''
     Tells whether the ABI stamp of ``sofile`` holds a digest this step
     accepts and names this installation.  The paths are compared as real
@@ -854,10 +863,10 @@ class Cpp2So(object):
     _findcurry.verify_loaded_product(self.stampfile(sofile), self.interp)
     accepted = self.accepted_digests()
     digest, path, recorded, record = self._read_stamp_records(sofile)
-    if check_source and not input_current(record, sofile, self.interp):
+    if check_source and not input_current(record, sofile, self.interp, registry):
       return False
     if (accepted and digest not in accepted) or path is None:
-      logger.debug('ABI stamp %s: digest=%r accepted=%r installation=%r',
+      _productlock.log(logger, logging.DEBUG, 'ABI stamp %s: digest=%r accepted=%r installation=%r',
           sofile, digest, accepted, path)
       return False
     # Wheels cannot rewrite text resources at pip install time. Their
@@ -867,13 +876,13 @@ class Cpp2So(object):
     if not os.path.isabs(path):
       path = os.path.join(os.path.dirname(sofile), path)
     if os.path.realpath(path) != installation_path():
-      logger.debug('ABI stamp %s: installation=%r expected=%r',
+      _productlock.log(logger, logging.DEBUG, 'ABI stamp %s: installation=%r expected=%r',
           sofile, path, installation_path())
       return False
     search = import_search_path(self.interp, sofile, currypath)
     current = _interfaces.objects_current(recorded, search)
     if not current and logger.isEnabledFor(logging.DEBUG):
-      logger.debug('ABI stamp %s: recorded imports=%r current imports=%r',
+      _productlock.log(logger, logging.DEBUG, 'ABI stamp %s: recorded imports=%r current imports=%r',
           sofile, recorded, None if recorded is None else
           _interfaces.object_snapshot(recorded, search))
     return current
@@ -910,13 +919,13 @@ class Cpp2So(object):
       else:
         imports = loader.needed_modules(sofile)
     except (exceptions.PrerequisiteError, OSError, ValueError) as exc:
-      logger.debug('The imports of %r cannot be read (%s)', sofile, exc)
+      _productlock.log(logger, logging.DEBUG, 'The imports of %r cannot be read (%s)', sofile, exc)
       return False
     currypath = _findcurry.import_path(self.interp, currypath)
     for modulename in imports:
       module = self.interp.import_(modulename, currypath=currypath)
       if getHandle(module).sofilename is None:
-        logger.debug(
+        _productlock.log(logger, logging.DEBUG,
             'The object %r is not loaded: its import %s has no object'
           , sofile, modulename
           )
@@ -936,7 +945,8 @@ class Cpp2So(object):
         lines = stream.read().splitlines()
       digest, path = (lines + ['', ''])[:2]
       imports = _interfaces.decode(lines[2]) if len(lines) == 3 else None
-      record = json.loads(lines[2]).get('input') if len(lines) == 3 else None
+      details = json.loads(lines[2]) if len(lines) == 3 else {}
+      record = details.get('input')
       return digest.strip() or None, path.strip() or None, imports, record
     except (OSError, ValueError, IndexError, AttributeError):
       return None, None, None, None
@@ -1187,21 +1197,42 @@ class Cpp2So(object):
 
   def _pchflags(self):
     '''
-    Prepares the precompiled header and yields the flags that let the
-    compiler use it.  g++ searches the directory form beside the header by
-    itself, so it needs the include flag of the root alone, and only when
-    the root is not the installed include directory.  clang on macOS does
-    not search the directory form; it takes the member with -include-pch,
-    and it skips the include of the same header in the generated code.
+    Prepares the precompiled header and selects its exact content generation.
+    GCC searches for the .gch sibling of the forced include spelling; clang
+    accepts the member directly with -include-pch.
     '''
     header = self._header()
     if header is None or not header.prepare():
+      # GCC stops considering implicit PCH siblings after the first C++
+      # tokens. A textual standard header prevents fallback from selecting
+      # an old installed curryrt.hpp.gch member automatically.
+      yield '-include'
+      yield 'cstddef'
       return
     if IS_DARWIN:
       yield '-include-pch'
       yield header.filename
-    elif header.root != config.installed_path('include'):
-      yield '-I%s' % header.root
+    else:
+      # Name the one content generation directly. GCC accepts its .gch
+      # sibling even without a textual header at this spelling.
+      yield '-include'
+      yield header.filename[:-len('.gch')]
+      if header.root != config.installed_path('include'):
+        yield '-I%s' % header.root
+
+  @staticmethod
+  def _missing_pch_fallback(cmd):
+    for index, flag in enumerate(cmd[:-1]):
+      path = cmd[index + 1]
+      if flag == '-include-pch':
+        member = path
+      elif flag == '-include' and os.path.dirname(path).endswith('.gch'):
+        member = path + '.gch'
+      else:
+        continue
+      if not os.path.exists(member):
+        return cmd[:index] + ['-include', 'cstddef'] + cmd[index + 2:]
+    return None
 
   def _compileCommand(self, file_in, file_out, currypath=None):
     cxx = config.cxx_tool()
@@ -1341,6 +1372,13 @@ class Cpp2So(object):
     try:
       cache.write_file(cpp, source)
       cmd = list(self._compileCommand(cpp, tmp, imports))
+      try:
+        curryfile = _filenames.curryfilename(file_in)
+      except ValueError:
+        curryfile = None # An explicitly saved object has no source product tree.
+      registry = registered_names(curryfile)
+      facts = self.product_facts(curryfile, registry) if curryfile else None
+      compile_env = msvc.environment()
       with _productlock.locked(file_in) as waited:
         # A producer that published while we prepared or waited wins, even
         # during a forced rebuild.  The stamp is checked without an import.
@@ -1350,14 +1388,22 @@ class Cpp2So(object):
         # its text (issue #138; unit_issue138.py under interpret:off).
         another_won = before != self.product_snapshot(file_out)
         if another_won and os.path.isfile(file_out) \
-            and self.stamp_is_current(file_out):
+            and self.stamp_is_current(file_out, registry=registry):
           return file_out
-        logger.info('Compiling %r', file_out)
+        _productlock.log(logger, logging.INFO, 'Compiling %r', file_out)
         if logger.isEnabledFor(logging.DEBUG):
-          logger.debug('Command: %s', ' '.join(cmd))
+          _productlock.log(logger, logging.DEBUG, 'Command: %s', ' '.join(cmd))
         compile_start = time.monotonic()
-        _system.pexec(cmd, env=msvc.environment())
-        logger.info('Compiled %r in %.3f s', file_out, time.monotonic() - compile_start)
+        try:
+          _system.pexec(cmd, env=compile_env)
+        except exceptions.CompileError:
+          # Shared-root cleanup can remove the exact PCH after preparation.
+          # Retry once with textual headers, disabling implicit PCH selection.
+          fallback = self._missing_pch_fallback(cmd)
+          if fallback is None:
+            raise
+          _system.pexec(fallback, env=compile_env)
+        _productlock.log(logger, logging.INFO, 'Compiled %r in %.3f s', file_out, time.monotonic() - compile_start)
         # Invalidate the old stamp only for publication. Never unlink the
         # live object while a reader may open it; rename the complete one.
         self.remove_stamp(file_out)
@@ -1371,7 +1417,7 @@ class Cpp2So(object):
         _findcurry.verify_loaded_product(file_in)
         with open(file_in, 'rb') as stream:
           if stream.read() == source:
-            self.store(file_in, file_out, currypath)
+            self.store(file_in, file_out, currypath, registry=registry, facts=facts)
       return file_out
     finally:
       for path in (tmp, cpp, tmp + '.obj', tmp + '.lib', tmp + '.exp', tmp + '.pdb'):
@@ -1401,7 +1447,7 @@ class Cpp2So(object):
 
   PRODUCT_SUFFIXES = ('.cpp', config.module_object_suffix())
 
-  def product_facts(self, curryfile):
+  def product_facts(self, curryfile, registry=None):
     '''
     The facts, as strings, that decide the generated code and the object of
     a module beyond its source chain: the key of the product cache digests
@@ -1422,7 +1468,7 @@ class Cpp2So(object):
     flags = self.interp.flags
     return [
         'format %d' % compiler.FORMAT_VERSION
-      , 'registry ' + json.dumps(registered_names(curryfile))
+      , 'registry ' + json.dumps(registered_names(curryfile) if registry is None else registry)
       , 'generator ' + generator_digest()
       , 'optimizers ' + ' '.join(key for key, _ in optimize.default_optimizers)
       , 'inline_budget %d' % flags['inline_budget']
@@ -1431,7 +1477,7 @@ class Cpp2So(object):
       ]
 
   @_findcurry.with_resolution
-  def product_key(self, filename, currypath):
+  def product_key(self, filename, currypath, registry=None, facts=None):
     '''
     The key of the product cache for the module of ``filename``, a file of
     its chain (see _productcache.product_key), or None when the module has
@@ -1445,7 +1491,7 @@ class Cpp2So(object):
     if os.path.basename(curryfile) != 'Prelude.curry':
       names.add('Prelude')
     return _productcache.product_key(
-        curryfile, currypath, self.product_facts(curryfile) + [
+        curryfile, currypath, (self.product_facts(curryfile, registry) if facts is None else facts) + [
             _interfaces.encode(_interfaces.object_snapshot(
                 names,
                 _interfaces.search_path(curryfile, currypath)))]
@@ -1506,7 +1552,7 @@ class Cpp2So(object):
     try:
       key = self.product_key(file_in, currypath)
     except OSError as exc:
-      logger.debug('No product cache key for %r (%s)', file_in, exc)
+      _productlock.log(logger, logging.DEBUG, 'No product cache key for %r (%s)', file_in, exc)
       return None
     if key is None:
       return None
@@ -1516,13 +1562,13 @@ class Cpp2So(object):
       ]
     if _productcache.lookup(digest, key, names) is None:
       if logger.isEnabledFor(logging.INFO):
-        logger.info('module %s: product cache miss', _filenames.logging_module_name(file_in))
+        _productlock.log(logger, logging.INFO, 'module %s: product cache miss', _filenames.logging_module_name(file_in))
       return None
     with _makecurry.compile_clock, _productlock.locked(file_in):
       try:
         placed = _productcache.restore(digest, key, directory, names)
       except OSError as exc:
-        logger.warning(
+        _productlock.log(logger, logging.WARNING,
             'cannot restore %r from the product cache (%s); it is compiled'
           , sofile, exc
           )
@@ -1530,9 +1576,9 @@ class Cpp2So(object):
       if placed is None:
         return None
       self.write_stamp(sofile)
-    logger.info('Restored %r from the product cache', sofile)
+    _productlock.log(logger, logging.INFO, 'Restored %r from the product cache', sofile)
     if logger.isEnabledFor(logging.INFO):
-      logger.info('module %s: product cache hit (%s)',
+      _productlock.log(logger, logging.INFO, 'module %s: product cache hit (%s)',
           _filenames.logging_module_name(file_in), key)
     before = self.product_snapshot(sofile)
     if self.import_lacks_an_object(
@@ -1544,7 +1590,7 @@ class Cpp2So(object):
     return sofile
 
   @_findcurry.with_resolution
-  def store(self, cppfile, sofile, currypath):
+  def store(self, cppfile, sofile, currypath, registry=None, facts=None):
     '''
     Stores the products of a compile in the product cache: the generated
     file, the object and its stamp.  Nothing when the cache is off.  A
@@ -1558,7 +1604,7 @@ class Cpp2So(object):
     if digest is None:
       return
     try:
-      key = self.product_key(cppfile, currypath)
+      key = self.product_key(cppfile, currypath, registry=registry, facts=facts)
       if key is None:
         return
       _productcache.store(digest, key, [cppfile, sofile, self.stampfile(sofile)])
@@ -1567,7 +1613,7 @@ class Cpp2So(object):
         warn = 'store' not in self._warned
         self._warned.add('store')
       if warn:
-        logger.warning(
+        _productlock.log(logger, logging.WARNING,
             'cannot store %r in the product cache at %r (%s); set '
             'SPRITE_PRODUCT_CACHE to a writable directory, or to the empty '
             'string to turn the cache off'
@@ -1575,7 +1621,7 @@ class Cpp2So(object):
           )
       return
     if logger.isEnabledFor(logging.INFO):
-      logger.info('module %s: product cache stored', _filenames.logging_module_name(cppfile))
+      _productlock.log(logger, logging.INFO, 'module %s: product cache stored', _filenames.logging_module_name(cppfile))
 
   # The warnings this process logged once about the cache.
   _warned = set()

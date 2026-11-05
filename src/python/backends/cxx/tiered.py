@@ -260,6 +260,7 @@ def _private_copy(imodule):
   seen = set()
   closure = []
   from ...toolchain._findcurry import verify_product, record_loader_input
+  from ...toolchain import _curry2icurry
   from .image import digest
   while pending:
     item = pending.pop()
@@ -307,6 +308,16 @@ def _private_copy(imodule):
           if product.endswith('.img') else os.path.basename(product))
       shutil.copy2(product, destination)
       os.chmod(destination, 0o644)
+  if _curry2icurry.in_system_library(filename) and \
+      _curry2icurry.source_matches(filename, _filenames.icurryfilename(filename)):
+    # A job snapshot is outside the installation. Give copied pins a local
+    # completion manifest without changing their installation-owned receipt.
+    try:
+      _curry2icurry.write_source_receipt(_filenames.icurryfilename(copy),
+          generation.source_info.digest if generation is not None and
+          generation.source_info is not None else _curry2icurry.source_digest(filename))
+    except FileNotFoundError:
+      _curry2icurry.invalidate_receipt(_filenames.icurryfilename(copy))
   # Each job owns its resolver view. Never search another job's target
   # before a captured loaded dependency.
   for item in closure:
@@ -345,6 +356,11 @@ def _private_copy(imodule):
           os.link(product, output + suffix)
         except OSError:
           shutil.copyfile(product, output + suffix)
+    if item.source_info is not None and _curry2icurry.in_system_library(item.source_spelling):
+      try:
+        _curry2icurry.write_source_receipt(output + '.icy', item.source_info.digest)
+      except FileNotFoundError:
+        _curry2icurry.invalidate_receipt(output + '.icy')
   searchdirs = [directory, root]
   return copy, searchdirs
 

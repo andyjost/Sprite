@@ -11,6 +11,19 @@ Unreleased
   provenance under the loaded-module boundary. Saved objects retain their
   signed bytes with dependency side records; direct rewrites, external
   translation and relative preprocessor paths keep their resolution scope.
+- Validate reusable products by content and publish complete generations:
+  protect cache and JIT mappings, ICurry receipts, image inputs, exported
+  files, precompiled headers and tiered adoption; require publication locks.
+- Move symbol construction and image runtime snapshots before cache/product
+  locking; defer JIT compilation, resolution, cache indexing and publication
+  logs, the product-lock helper's own diagnostics, and C++ object compiler,
+  stamp and product-cache logs until their enclosing locks release. Collect
+  abandoned results and streams without heap waits, save counts in the native
+  value pull, and apply posted LLVM steps under the heap gate.
+
+  Still open: front-end conversion and the ICurry cache log under a product
+  lock (#194); property bindings do not apply their heap guards (#195); the
+  ``icurry_is_jit`` race with native step/aux writers (#196).
 
 - Serve loaded modules from memory until reload or reset, without product
   snapshots; product-file readers verify the digests recorded at load.
@@ -104,7 +117,7 @@ Unreleased
   fills the library's cache in one job (``SPRITE_STAGE_JIT_CACHE=0`` skips
   the fill of a stage).
 - The LLVM cache uses smaller module-local symbols and per-function zlib
-  payloads (``SPRTJIT4``). Cached calls can resolve between hot optimizer
+  payloads (``SPRTJIT5``). Cached calls can resolve between hot optimizer
   batches; pinned cache files close after resolution or image detach.
 - LLVM JIT batches persist as relocatable ``.jit`` objects beside module
   images, resolve on first use on a warm start and use

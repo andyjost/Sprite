@@ -363,9 +363,9 @@ class TestJobs(cytest.TestCase):
           'module Src where\nimport Data.Maybe\nimport qualified Data.List as L\n'
           '-- import Not.Here\nmain = 1\n'
         )
-    # The scan is lenient (see curry.cache): a declaration in a comment counts.
+    # The shared header tokenizer ignores declarations inside comments.
     self.assertEqual(
-        make.imports_of(src), ['Prelude', 'Data.Maybe', 'Data.List', 'Not.Here']
+        make.imports_of(src), ['Prelude', 'Data.Maybe', 'Data.List']
       )
     prelude = os.path.join(self.tmpdir, 'Prelude.curry')
     with open(prelude, 'w') as stream:
@@ -589,11 +589,11 @@ class TestJobs(cytest.TestCase):
         make.main('sprite-make', ['--so', '--jobs', '2', b])
     self.assertEqual(len(builds), 1)
     self.assertTrue(os.path.isfile(self.product(b)))
-    # With the header disabled nothing is built and nothing is yielded.
+    # A textual standard header blocks implicit PCH selection when disabled.
     with binding(os.environ, 'SPRITE_CXX_PCH_ROOT', ''):
       step = cxx_toolchain.Cpp2So(cytest.raw.interp())
       self.assertFalse(step.prepare_header())
-      self.assertEqual(list(step._pchflags()), [])
+      self.assertEqual(list(step._pchflags()), ['-include', 'cstddef'])
 
 
 
@@ -698,22 +698,19 @@ class TestProductLock(cytest.TestCase):
       if not child.stdin.closed:
         child.stdin.close()
 
-  def test_no_lock_in_an_unwritable_directory(self):
-    # Nothing can be compiled into the directory; the steps say so, and
-    # the lock neither fails nor makes the directory.
+  def test_lock_refused_in_an_unwritable_directory(self):
+    # Exclusion cannot be established, so publication must not begin.
     if os.geteuid() == 0:
       self.skipTest('root writes anywhere')
     os.chmod(self.tmpdir, 0o500)
     self.addCleanup(os.chmod, self.tmpdir, 0o700)
-    with _productlock.locked(self.curryfile) as waited:
-      self.assertFalse(waited)
+    with self.assertRaises(OSError):
+      with _productlock.locked(self.curryfile):
+        self.fail('publication entered without a lock')
     self.assertFalse(os.path.exists(os.path.join(self.tmpdir, '.curry')))
 
-  def test_no_lock_without_flock(self):
-    # A file system that refuses flock (ENOLCK, a network file system
-    # without a lock service): no lock, and the compile runs unlocked, as
-    # before the lock.  Before, the error ended the compile at its first
-    # step (here the image of an ICurry file, which needs no front end).
+  def test_lock_refused_without_flock(self):
+    # An unavailable process lock refuses publication even in a writable tree.
     subdir = os.path.join(self.tmpdir, SUBDIR)
     os.makedirs(subdir)
     shutil.copy(
@@ -724,16 +721,17 @@ class TestProductLock(cytest.TestCase):
     lock = os.path.join(subdir, 'hello.lock')
     error = OSError(errno.ENOLCK, 'No locks available')
     with mock.patch.object(_productlock.fcntl, 'flock', side_effect=error):
-      with _productlock.locked(self.curryfile) as waited:
-        self.assertFalse(waited)
-        self.assertTrue(os.path.isfile(self.lock))
-        self.assertNotIn(self.lock, getattr(_productlock._local, 'held', {}))
+      with self.assertRaises(OSError):
+        with _productlock.locked(self.curryfile):
+          self.fail('publication entered without exclusion')
+      self.assertTrue(os.path.isfile(self.lock))
+      self.assertNotIn(self.lock, getattr(_productlock._local, 'held', {}))
       plan = plans.makeplan(
           cytest.raw.interp(), plans.MAKE_ICURRY | plans.MAKE_IMAGE
         )
-      product = toolchain.makecurry(plan, 'hello', [self.tmpdir])
-    self.assertEqual(product, os.path.join(subdir, 'hello.img'))
-    self.assertTrue(os.path.isfile(product))
+      with self.assertRaises(OSError):
+        toolchain.makecurry(plan, 'hello', [self.tmpdir])
+    self.assertFalse(os.path.exists(os.path.join(subdir, 'hello.img')))
     self.assertTrue(os.path.isfile(lock))
     self.assertFalse(self.held())
 

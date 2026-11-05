@@ -359,6 +359,42 @@ class TestCondaRecipe(cytest.TestCase):
       self.assertFalse(flat.exists())
       self.assertFalse(icy.exists())
 
+  def test_overlay_converter_completion_receipt(self):
+    from curry import toolchain
+    spec = importlib.util.spec_from_file_location('sprite_overlay',
+        os.path.join(ROOT, 'scripts', 'overlay.py'))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    with tempfile.TemporaryDirectory() as directory:
+      root = Path(directory)
+      source = root / 'tests/OverlayReceipt.curry'
+      source.parent.mkdir()
+      source.write_text('module OverlayReceipt where\nanswer = True\n')
+      icy = Path(toolchain.curry2icurry(str(source), curry.path))
+      receipt = Path(str(icy) + '.source')
+      self.assertEqual(json.loads(receipt.read_text())['version'], 1)
+      products = [(str(p.relative_to(root)), p)
+          for p in icy.parent.iterdir() if p.suffix != '.lock']
+      archive = root / 'tests/overlay' / ('overlay-' + config.frontend_subdir() + '.tgz')
+      archive.parent.mkdir()
+      module.write_archive(archive, products)
+      with mock.patch.object(module, 'git', return_value=''):
+        module.prune(root, config.frontend_subdir())
+      self.assertTrue(icy.exists())
+      for _, path in products:
+        path.unlink()
+      with mock.patch.object(module, 'ROOT', root), \
+           mock.patch.object(module, 'git', return_value=''), \
+           mock.patch('sys.argv', ['overlay.py', 'overlay', '--root', str(root),
+                                   '--prefix', config.prefix()]):
+        module.main()
+      self.assertTrue(icy.exists())
+      self.assertTrue(receipt.exists())
+      # A manifest must validate products as well as the source.
+      icy.write_text('corrupt')
+      module.prune_receipts(root, config.frontend_subdir())
+      self.assertFalse(icy.exists())
+
   def test_overlay_preserves_recorded_source_provenance(self):
     """An older product cannot acquire the packing commit's newer source."""
     spec = importlib.util.spec_from_file_location('sprite_overlay',

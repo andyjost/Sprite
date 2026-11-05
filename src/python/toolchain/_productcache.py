@@ -54,8 +54,8 @@ cache root and a thread-owned lock in this process. Lookup is a snapshot;
 restore rechecks it while holding that lock, so pruning cannot unpin its
 source files during placement.
 
-The modification times of restored files retain pipeline order for other
-readers. The C++ plan selects by pipeline order after validating source,
+Restoration leaves cached modification times unchanged. The C++ plan
+selects by pipeline order after validating source,
 route and budget receipts (``_findcurry.currentfile``). Images are derived
 separately from their own content receipts.
 
@@ -72,7 +72,7 @@ any time.
 from .. import cache, config
 from . import _productlock
 from ..utility import filesys
-import functools, hashlib, logging, os, shutil, tempfile, time, threading, uuid
+import functools, hashlib, json, logging, os, shutil, tempfile, time, threading, uuid
 
 logger = logging.getLogger(__name__)
 
@@ -88,7 +88,14 @@ __all__ = [
 # Format 3 dropped the real paths of the installation and of the source
 # directory from the facts (the products name no path since format 13 of
 # the generated code), so two trees share an entry.
-KEY_FORMAT = 4
+KEY_FORMAT = 5
+
+MANIFEST = 'manifest.json'
+
+def _receipt(path):
+  with open(path, 'rb') as stream:
+    data = stream.read()
+  return [len(data), hashlib.sha256(data).hexdigest()]
 
 # The suffixes of the files a store and a restore may hard-link.  The others
 # are copied: the emitter writes a generated file in place, and a link would
@@ -282,6 +289,16 @@ def lookup(digest, key, names, cache_root=None):
   if cache_root is None:
     return None
   directory = entry_dir(digest, key, cache_root)
+  try:
+    with open(os.path.join(directory, MANIFEST), encoding='ascii') as stream:
+      manifest = json.load(stream)
+    if manifest['version'] != 1:
+      return None
+    for name in names:
+      if manifest['files'][name] != _receipt(os.path.join(directory, name)):
+        return None
+  except (OSError, ValueError, KeyError, TypeError):
+    return None
   found = {}
   for name in names:
     path = os.path.join(directory, name)
@@ -315,13 +332,13 @@ def _place(source, target, link, publish=False):
       except OSError as exc:
         # A file system that refuses the link (a link limit, a policy): a
         # copy serves as well.
-        logger.debug('cannot link %r to %r (%s); copied', source, tmp, exc)
+        _productlock.log(logger, logging.DEBUG, 'cannot link %r to %r (%s); copied', source, tmp, exc)
       else:
         linked = True
     if not linked:
-      shutil.copyfile(source, tmp)
-      shutil.copymode(source, tmp)
-    if publish and target.endswith(config.module_object_suffix()):
+      shutil.copy2(source, tmp)
+    if publish and (target.endswith(config.module_object_suffix()) or
+        source.endswith(config.module_object_suffix())):
       from ..backends.cxx import curryrtbindings
       try:
         curryrtbindings.publish_object(tmp, target)
@@ -367,13 +384,19 @@ def store(digest, key, files, cache_root=None):
           path, os.path.join(tmpdir, os.path.basename(path))
         , link=path.endswith(LINK_SUFFIXES)
         )
+    manifest = dict(version=1, files={name: _receipt(os.path.join(tmpdir, name))
+        for name in os.listdir(tmpdir)})
+    cache.write_file(os.path.join(tmpdir, MANIFEST), json.dumps(manifest, sort_keys=True))
+    if os.path.isdir(directory) and lookup(digest, key,
+        list(manifest['files']), cache_root) is None:
+      shutil.rmtree(directory)
     try:
       os.rename(tmpdir, directory)
     except OSError as exc:
       if not os.path.isdir(directory):
         raise
       # The other writer won; its entry has the same key.
-      logger.debug('The product cache entry %r was stored by another process (%s)', directory, exc)
+      _productlock.log(logger, logging.DEBUG, 'The product cache entry %r was stored by another process (%s)', directory, exc)
       shutil.rmtree(tmpdir, ignore_errors=True)
   except BaseException:
     shutil.rmtree(tmpdir, ignore_errors=True)
@@ -386,46 +409,37 @@ def store(digest, key, files, cache_root=None):
 def restore(digest, key, directory, names, cache_root=None):
   '''
   Places the files ``names`` of the entry under ``digest`` and ``key`` into
-  ``directory``, in that order, each newer than the one before it and all
-  newer than any file in the directory with the same stem and another
-  suffix, so the last one is the newest file of its module.  Returns the
+  ``directory``, in pipeline order, without changing cached timestamps. Returns the
   paths placed, by name, or None when the entry is missing.  Raises OSError
   when a file cannot be placed.
   '''
+  cache_root = cache_root or root()
+  if cache_root is None:
+    return None
+  entry = entry_dir(digest, key, cache_root)
+  for name in names:
+    from ._findcurry import verify_loaded_product
+    verify_loaded_product(os.path.join(directory, name))
+    candidate = os.path.join(entry, name)
+    if os.path.isfile(candidate):
+      verify_loaded_product(candidate, identity=os.path.join(directory, name))
   found = lookup(digest, key, names, cache_root)
   if found is None:
     return None
   placed = {}
   for name in names:
-    from ._findcurry import verify_loaded_product
-    verify_loaded_product(os.path.join(directory, name))
-    verify_loaded_product(found[name], identity=os.path.join(directory, name))
+    if name.endswith(config.module_object_suffix()):
+      try:
+        os.unlink(os.path.join(directory, name) + '.abi')
+      except FileNotFoundError:
+        pass
   for name in names:
     _place(found[name], os.path.join(directory, name),
            link=name.endswith(LINK_SUFFIXES), publish=True)
     placed[name] = os.path.join(directory, name)
-  _order(directory, [placed[name] for name in names])
   with _counts_lock:
     counts['restored'] += 1
   return placed
-
-def _order(directory, files):
-  '''
-  Sets the modification times of ``files``, in order, later than now and
-  than every other file of the directory that shares a stem with the first
-  of them (the image and the ICurry of the module), one millisecond apart.
-  '''
-  stem = os.path.basename(files[0]).split('.')[0]
-  latest = time.time_ns()
-  for name in os.listdir(directory):
-    if name.split('.')[0] == stem:
-      try:
-        latest = max(latest, os.stat(os.path.join(directory, name)).st_mtime_ns)
-      except OSError:
-        pass
-  for path in files:
-    latest += 1000000
-    os.utime(path, ns=(latest, latest))
 
 @_cache_locked
 def prune(keep, cache_root=None, max_age=3600):
@@ -463,14 +477,14 @@ def prune(keep, cache_root=None, max_age=3600):
               continue
             shutil.rmtree(subpath)
           except OSError as exc:
-            logger.warning('cannot remove %r from the product cache (%s)', subpath, exc)
+            _productlock.log(logger, logging.WARNING, 'cannot remove %r from the product cache (%s)', subpath, exc)
           else:
             temporaries += 1
       continue
     try:
       shutil.rmtree(path)
     except OSError as exc:
-      logger.warning('cannot remove %r from the product cache (%s)', path, exc)
+      _productlock.log(logger, logging.WARNING, 'cannot remove %r from the product cache (%s)', path, exc)
     else:
       digests += 1
   return digests, temporaries

@@ -67,8 +67,12 @@ def compile(info, name):
   the JIT cannot run; any other error is a bug of the emitter.
   '''
   jit = _get()
-  with _lock:
-    jit.compile_batch([(info, name)])
+  messages = []
+  try:
+    with _lock:
+      jit.compile_batch([(info, name)], messages=messages)
+  finally:
+    _emit_messages(messages)
 
 def enqueue(info, name):
   '''
@@ -170,11 +174,20 @@ def _hot_loop():
       logger.exception('The hot tier of the JIT failed; the functions stay interpreted')
 
 
-def _compile_groups(jit, items, post=False):
-  with _group_lock:
-    _compile_groups_locked(jit, items, post)
+def _emit_messages(messages):
+  from ...toolchain import _productlock
+  _productlock.emit_messages(messages, logger)
 
-def _compile_groups_locked(jit, items, post):
+
+def _compile_groups(jit, items, post=False):
+  messages = []
+  try:
+    with _group_lock:
+      _compile_groups_locked(jit, items, post, messages)
+  finally:
+    _emit_messages(messages)
+
+def _compile_groups_locked(jit, items, post, messages):
   # Group and publish by image, but let a waiting resolver enter between
   # optimizer batches. No binding here may acquire the heap under _lock.
   with _lock:
@@ -194,9 +207,9 @@ def _compile_groups_locked(jit, items, post):
         if post and not _hot_enabled:
           for context in dirty:
             if context.dirty:
-              context.store()
+              context.store(messages=messages)
           return
-        context = jit.compile_batch(group[offset:offset + 32], post=post, store=False)
+        context = jit.compile_batch(group[offset:offset + 32], post=post, store=False, messages=messages)
         if context is not None:
           dirty.add(context)
       # Give a resolver waiting for the GIL a chance to take the lock.
@@ -205,7 +218,7 @@ def _compile_groups_locked(jit, items, post):
     with _lock:
       for context in dirty:
         if context.dirty:
-          context.store()
+          context.store(messages=messages)
 
 
 def statistics():
@@ -310,13 +323,15 @@ class _JIT(object):
     self.seconds = 0.0
     curryrt.icurry_set_cache_hook(_resolve_cached)
 
-  def compile_batch(self, items, post=False, store=True):
+  def compile_batch(self, items, post=False, store=True, messages=None):
     '''
     Optimizes ``items`` together, emits one object per function and swaps their
     steps; with ``post`` the swaps are posted for a scheduler to apply at
     its safepoint (the thread of the hot tier), else set at once (the
     thread that loads a module, with no evaluation of its own running).
     '''
+    if messages is None:
+      messages = []
     if post and not _hot_enabled:
       return
     if not items:
@@ -329,7 +344,7 @@ class _JIT(object):
       if curryrt.icurry_is_jit(info):
         continue
       if context is not None and name in context.cached:
-        address = context.resolve(name)
+        address = context.resolve(name, messages=messages)
         if address:
           swap(info, address)
         else:
@@ -432,15 +447,15 @@ class _JIT(object):
         swapped += 1
     self.functions += swapped
     if context is not None and store and context.dirty:
-      context.store()
+      context.store(messages=messages)
     self.batches += 1
     end = time.perf_counter()
     self.seconds += end - start
-    logger.debug(
+    messages.append((logging.DEBUG,
         'JIT batch %s: %d functions, %.1f ms (IR %.1f, link %.1f, optimize %.1f, code %.1f)'
-      , batch.name, len(symbols), 1000 * (end - start), 1000 * (t_ir - start)
-      , 1000 * (t_link - t_ir), 1000 * (t_opt - t_link), 1000 * (end - t_opt)
-      )
+      , (batch.name, len(symbols), 1000 * (end - start), 1000 * (t_ir - start)
+      , 1000 * (t_link - t_ir), 1000 * (t_opt - t_link), 1000 * (end - t_opt))
+      ))
 
     return context
 
@@ -457,8 +472,8 @@ class _JIT(object):
 # A single envelope keeps the small index and the native object in one atomic
 # publication. No address or path is serialized. Objects are trusted local code,
 # like the generated shared objects beside them.
-_CACHE_MAGIC = b'SPRTJIT4'
-_CACHE_PREFIX = struct.Struct('<8sI')
+_CACHE_MAGIC = b'SPRTJIT5'
+_CACHE_PREFIX = struct.Struct('<8sI32s')
 
 
 def _abi_digest():
@@ -643,10 +658,13 @@ class _IndexedObjects:
 def _read_cache(path, key, check_identity=True):
   stream = _open_cache(path)
   try:
-    magic, size = _CACHE_PREFIX.unpack(stream.read(_CACHE_PREFIX.size))
+    magic, size, checksum = _CACHE_PREFIX.unpack(stream.read(_CACHE_PREFIX.size))
     if magic != _CACHE_MAGIC or size > 16 * 1024 * 1024:
       raise ValueError('invalid JIT cache header')
-    index = json.loads(stream.read(size))
+    encoded = stream.read(size)
+    if hashlib.sha256(encoded).digest() != checksum:
+      raise ValueError('corrupt JIT index')
+    index = json.loads(encoded)
     st = os.fstat(stream.fileno())
     if index['key'] != key:
       raise ValueError('stale JIT object')
@@ -670,19 +688,24 @@ def _read_cache(path, key, check_identity=True):
 
 def _resolve_cached(address):
   jit = _jit
-  with _lock:
-    context = jit.modules.get(address)
-    if context is None or curryrt.icurry_is_jit(context.items[jit.names[address]]):
-      return 0
-    name = jit.names[address]
-    if name in context.failed:
-      return 0
-    try:
-      return context.resolve(name)
-    except Exception as exc:
-      context.failed.add(name)
-      logger.warning('jit cache: function %s stays interpreted: %s', name, exc)
-      return 0
+  messages = []
+  try:
+    with _lock:
+      context = jit.modules.get(address)
+      if context is None or curryrt.icurry_is_jit(context.items[jit.names[address]]):
+        return 0
+      name = jit.names[address]
+      if name in context.failed:
+        return 0
+      try:
+        return context.resolve(name, messages=messages)
+      except Exception as exc:
+        context.failed.add(name)
+        messages.append((logging.WARNING,
+            'jit cache: function %s stays interpreted: %s', (name, exc)))
+        return 0
+  finally:
+    _emit_messages(messages)
 
 
 class _CachedModule:
@@ -725,7 +748,9 @@ class _CachedModule:
       self.cached[name] = pair
     return pair
 
-  def resolve(self, name):
+  def resolve(self, name, messages=None):
+    if messages is None:
+      messages = []
     if name in self.failed:
       return 0
     start = time.perf_counter()
@@ -733,9 +758,13 @@ class _CachedModule:
       if name not in self.resolved:
         records, obj = self.object_for(name)
         _, symbol, constants = records[0]
+        if symbol != self.symbols[name] or len(set(constants)) != len(constants):
+          raise ValueError('invalid JIT function mapping')
         bc = curryrt.icurry_bytecode(self.items[name])
         if bc is None:
           raise ValueError('cached function has no bytecode')
+        if any(type(k) is not int or k < 0 or k >= len(bc['consts']) for k in constants):
+          raise ValueError('invalid JIT constant slot')
         addresses = {_constant_symbol(symbol, k): bc['consts'][k] for k in constants}
         native = _object_bytes(obj)
         library = 'cached%d' % self.jit.serial
@@ -747,12 +776,12 @@ class _CachedModule:
       if name not in self.counted:
         self.counted.add(name)
         self.jit.linked += 1
-      logger.info('jit cache: module %s, resolved %s, %.3f ms', self.name,
-          name, 1000 * (time.perf_counter() - start))
+      messages.append((logging.INFO, 'jit cache: module %s, resolved %s, %.3f ms',
+          (self.name, name, 1000 * (time.perf_counter() - start))))
       return tracker[symbol]
     except (OSError, ValueError, KeyError, TypeError, IndexError, RuntimeError) as exc:
       self.failed.add(name)
-      logger.warning('jit cache: function %s stays interpreted: %s', name, exc)
+      messages.append((logging.WARNING, 'jit cache: function %s stays interpreted: %s', (name, exc)))
       return 0
 
   def release(self, name):
@@ -770,7 +799,9 @@ class _CachedModule:
       if fallback is not None:
         fallback.index.release(fallback.entry)
 
-  def load(self, jit):
+  def load(self, jit, messages=None):
+    if messages is None:
+      messages = []
     # Reuse the index and linked code across resets. Unresolved objects
     # retain their pinned generation and are verified at materialization.
     objects = jit.object_generations.get(self.key)
@@ -792,7 +823,7 @@ class _CachedModule:
               else:
                 objects.append((records, obj))
         except (OSError, ValueError, KeyError, TypeError, IndexError, struct.error) as exc:
-          logger.debug('jit cache: module %s: %s', self.name, exc)
+          messages.append((logging.DEBUG, 'jit cache: module %s: %s', (self.name, exc)))
           if path == self.private:
             # A merge may replace local and remove private between our reads.
             # Retry local once to pick up the objects that moved there.
@@ -805,7 +836,7 @@ class _CachedModule:
                 objects.close()
               objects = found
     if objects is None:
-      logger.info('jit cache: module %s, miss', self.name)
+      messages.append((logging.INFO, 'jit cache: module %s, miss', (self.name,)))
       return False
     self.objects = objects
     if isinstance(objects, _IndexedObjects):
@@ -818,10 +849,12 @@ class _CachedModule:
       name, symbol, _ = records[0]
       self.resolved[name] = (tracker, symbol)
     jit.object_generations[self.key] = objects
-    logger.info('jit cache: module %s, indexed %d functions', self.name, len(self.cached))
+    messages.append((logging.INFO, 'jit cache: module %s, indexed %d functions', (self.name, len(self.cached))))
     return True
 
-  def store(self):
+  def store(self, messages=None):
+    if messages is None:
+      messages = []
     from ...toolchain import _productlock
     from . import image
     # New code replaces a failed cached object of the same function. Drop
@@ -834,7 +867,7 @@ class _CachedModule:
       try:
         objects.append((records, _object_bytes(obj)))
       except (OSError, ValueError) as exc:
-        logger.debug('jit cache: module %s drops %s: %s', self.name, records[0][0], exc)
+        messages.append((logging.DEBUG, 'jit cache: module %s drops %s: %s', (self.name, records[0][0], exc)))
     if self.index is not None:
       self.index.close()
     self.objects = objects
@@ -858,12 +891,12 @@ class _CachedModule:
         lockpath = (os.path.join(directory, 'cache.py') if path == self.private
             else os.path.splitext(path)[0] + '.py')
         with contextlib.ExitStack() as locks:
-          locks.enter_context(_productlock.locked(lockpath))
+          locks.enter_context(_productlock.locked(lockpath, messages=messages))
           # Local writers take the private lock second, so a fallback writer
           # cannot publish between our merge and removal of that generation.
           if path == self.local and self.private:
             locks.enter_context(_productlock.locked(
-                os.path.join(os.path.dirname(self.private), 'cache.py')))
+                os.path.join(os.path.dirname(self.private), 'cache.py'), messages=messages))
           # A process must never overwrite a slot belonging to another image.
           if path == self.local and image.read(self.path) != self.header:
             continue
@@ -903,7 +936,8 @@ class _CachedModule:
             if size == index['size']:
               break
             index['size'] = size
-          data = _CACHE_PREFIX.pack(_CACHE_MAGIC, len(encoded)) + encoded + payload
+          data = _CACHE_PREFIX.pack(_CACHE_MAGIC, len(encoded),
+              hashlib.sha256(encoded).digest()) + encoded + payload
           # Writers in this directory use the same module lock. Only remove
           # temporaries whose creating process has gone away.
           for entry in os.scandir(directory):
@@ -937,10 +971,10 @@ class _CachedModule:
             for entry in os.scandir(directory):
               if entry.name.endswith('.jit') and entry.path != path:
                 os.unlink(entry.path)
-        logger.info('jit cache: module %s, stored %d functions', self.name, len(objects))
+        messages.append((logging.INFO, 'jit cache: module %s, stored %d functions', (self.name, len(objects))))
         return
       except (OSError, ValueError) as exc:
-        logger.debug('jit cache: cannot store module %s: %s', self.name, exc)
+        messages.append((logging.DEBUG, 'jit cache: cannot store module %s: %s', (self.name, exc)))
       finally:
         if tmp is not None:
           os.unlink(tmp)
@@ -949,22 +983,26 @@ class _CachedModule:
 def attach_cache(path, header, items):
   '''Register an image and its cache index without reading native bytes.'''
   jit = _get()
-  with _lock:
-    context = _CachedModule(jit, path, header, items)
-    for info, name in items:
-      jit.modules[curryrt.icurry_address(info)] = context
-      jit.names[curryrt.icurry_address(info)] = name
-    context.load(jit)
-    # A replaced image generation no longer owns any attached steps.
-    old = jit.module_keys.get(context.name)
-    key = context.key if context.objects else None
-    if old is not None and old != key:
-      for tracker, _ in jit.generations.pop(old, []):
-        tracker.close()
-      detached = jit.object_generations.pop(old, None)
-      if isinstance(detached, _IndexedObjects):
-        detached.close()
-    jit.module_keys[context.name] = key
+  messages = []
+  try:
+    with _lock:
+      context = _CachedModule(jit, path, header, items)
+      for info, name in items:
+        jit.modules[curryrt.icurry_address(info)] = context
+        jit.names[curryrt.icurry_address(info)] = name
+      context.load(jit, messages=messages)
+      # A replaced image generation no longer owns any attached steps.
+      old = jit.module_keys.get(context.name)
+      key = context.key if context.objects else None
+      if old is not None and old != key:
+        for tracker, _ in jit.generations.pop(old, []):
+          tracker.close()
+        detached = jit.object_generations.pop(old, None)
+        if isinstance(detached, _IndexedObjects):
+          detached.close()
+      jit.module_keys[context.name] = key
+  finally:
+    _emit_messages(messages)
   # Installing entries takes the heap lock. Never wait for the heap while
   # holding the JIT lock: an evaluation may be waiting in a resolver.
   if context.cached:

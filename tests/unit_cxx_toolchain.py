@@ -233,6 +233,26 @@ class TestPrecompiledHeader(ToolchainTestCase):
     member, = self.members()
     self.assertIn('! ' + os.path.join(self.gch_dir, member), proc.stderr.splitlines())
 
+  def test_removed_member_falls_back_at_compiler_launch(self):
+    self.compile_module(1)
+    member, = self.members()
+    selected = os.path.join(self.gch_dir, member)
+    execute = toolchain._system.pexec
+    commands = []
+    def remove_before_launch(cmd, **kwds):
+      if '-shared' in cmd:
+        commands.append(cmd)
+        if len(commands) == 1:
+          self.assertIn(selected[:-len('.gch')], cmd)
+          os.unlink(selected)
+      return execute(cmd, **kwds)
+    with mock.patch.object(toolchain._system, 'pexec', side_effect=remove_before_launch):
+      self.compile_module(42)
+    self.assertEqual(len(commands), 2)
+    self.assertNotIn(selected[:-len('.gch')], commands[1])
+    self.assertIn('cstddef', commands[1])
+    self.assertFalse(os.path.exists(selected))
+
   def test_stale_member_is_rebuilt(self):
     '''
     A member older than a header is built again.  The age of libcurryrt.so does

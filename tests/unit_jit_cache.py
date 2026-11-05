@@ -195,7 +195,7 @@ print(json.dumps(dict(ok=True)))
     self.child('eager')
     path = self.object()
     with path.open('rb') as stream:
-      _, size = llvmjit._CACHE_PREFIX.unpack(stream.read(llvmjit._CACHE_PREFIX.size))
+      _, size, _ = llvmjit._CACHE_PREFIX.unpack(stream.read(llvmjit._CACHE_PREFIX.size))
       index = json.loads(stream.read(size))
     objects = llvmjit._read_cache(path, index['key'])
     symbols = [records[0][1] for records, _ in objects]
@@ -306,10 +306,10 @@ print(json.dumps(dict(ok=True)))
 M = curry.import_(source)
 context = llvmjit._jit.modules[M.fib.info.address]
 original = context.resolve
-def unexpected(name):
+def unexpected(name, **kwargs):
   if name == 'Cached.fib':
     raise AttributeError('unexpected hook failure')
-  return original(name)
+  return original(name, **kwargs)
 with mock.patch.object(context, 'resolve', side_effect=unexpected) as resolve, mock.patch.object(llvmjit.logger, 'warning') as warning:
   for _ in range(2):
     assert [str(x) for x in curry.eval(M.fib(12))] == ['144']
@@ -541,7 +541,7 @@ print(json.dumps(dict(ok=True)))
     path = self.object()
     stamp = path.stat().st_mtime_ns
     with path.open('r+b') as stream:
-      _, size = llvmjit._CACHE_PREFIX.unpack(stream.read(llvmjit._CACHE_PREFIX.size))
+      _, size, _ = llvmjit._CACHE_PREFIX.unpack(stream.read(llvmjit._CACHE_PREFIX.size))
       entries = json.loads(stream.read(size))['objects']
       self.assertEqual(entries[0]['functions'][0][0], 'Cached.fib')
       offset = stream.tell()
@@ -640,7 +640,7 @@ print(json.dumps(dict(ok=True)))
       if header['size'] == size:
         break
       header['size'] = size
-    data = llvmjit._CACHE_PREFIX.pack(llvmjit._CACHE_MAGIC, len(encoded)) + encoded + payload
+    data = llvmjit._CACHE_PREFIX.pack(llvmjit._CACHE_MAGIC, len(encoded), hashlib.sha256(encoded).digest()) + encoded + payload
     # Keep the entire envelope inside a buffered reader's initial prefetch.
     self.assertLess(len(data), 4096)
     for pread in (getattr(os, 'pread', None), None):
@@ -714,7 +714,7 @@ print(json.dumps(dict(ok=True, wait_ms=elapsed * 1000)))
     with mock.patch.object(llvmjit.curryrt, 'icurry_address', return_value=1):
       llvmjit._compile_groups(jit, [(1, 'M.f')] * 64)
     self.assertEqual(jit.compile_batch.call_count, 2)
-    context.store.assert_called_once_with()
+    context.store.assert_called_once_with(messages=[])
 
   def test_shutdown_publishes_completed_sub_batch(self):
     self.child('off')
@@ -768,8 +768,8 @@ print(json.dumps(dict(ok=True)))
     jit.compile_batch.side_effect = compiled
     with mock.patch.object(llvmjit.curryrt, 'icurry_address', return_value=1):
       llvmjit._compile_groups(jit, [(1, 'M.f')] * 64)
-    old.store.assert_called_once_with()
-    new.store.assert_called_once_with()
+    old.store.assert_called_once_with(messages=[])
+    new.store.assert_called_once_with(messages=[])
 
   def test_failure_before_read_preserves_object(self):
     self.child('eager')
@@ -956,7 +956,7 @@ print(json.dumps(dict(ok=True)))
   def test_short_symbols_are_unique(self):
     self.child('eager')
     with self.object().open('rb') as stream:
-      _, size = llvmjit._CACHE_PREFIX.unpack(stream.read(llvmjit._CACHE_PREFIX.size))
+      _, size, _ = llvmjit._CACHE_PREFIX.unpack(stream.read(llvmjit._CACHE_PREFIX.size))
       index = json.loads(stream.read(size))
     symbols = [entry['functions'][0][1] for entry in index['objects']]
     self.assertEqual(len(set(symbols)), len(symbols))
@@ -1075,7 +1075,7 @@ assert rt.icurry_is_jit(M.message.info)
         stderr=subprocess.PIPE, text=True))
     self.assertTrue(self.child()['jitted'])
     with self.object().open('rb') as stream:
-      _, size = llvmjit._CACHE_PREFIX.unpack(stream.read(llvmjit._CACHE_PREFIX.size))
+      _, size, _ = llvmjit._CACHE_PREFIX.unpack(stream.read(llvmjit._CACHE_PREFIX.size))
       index = json.loads(stream.read(size))
     self.assertEqual([len(o['functions']) for o in index['objects']], [1, 1, 1])
     self.assertFalse(orphan.exists())

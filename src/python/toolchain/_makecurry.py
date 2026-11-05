@@ -1,7 +1,7 @@
 from .. import config, exceptions
-from . import plans, _filenames, _findcurry, _productlock, _frontend
+from . import plans, _filenames, _findcurry, _productlock, _frontend, _productcache
 from ..utility import formatDocstring
-import importlib.util, logging, os, shutil, sys, time, threading
+import contextlib, importlib.util, logging, os, shutil, sys, time, threading
 
 __all__ = ['compile_seconds', 'makecurry']
 logger = logging.getLogger(__name__)
@@ -201,7 +201,17 @@ class ToolchainContext(object):
       # Move the file if "output" was specified.
       if self.copy_required:
         _findcurry.verify_loaded_product(self.currentfile)
-        shutil.copy(self.currentfile, self.output)
+        try:
+          _filenames.curryfilename(self.output)
+          canonical = self.output.endswith(config.module_object_suffix())
+        except ValueError:
+          canonical = False
+        with _productlock.locked(self.output) if canonical else contextlib.nullcontext():
+          if canonical:
+            from ..backends.cxx.toolchain import Cpp2So
+            Cpp2So.remove_stamp(self.output)
+          _productcache._place(self.currentfile, os.path.abspath(self.output),
+              link=False, publish=True)
         if self.currentfile not in self.intermediates:
           self.intermediates.append(self.currentfile)
     if self.tidy:

@@ -260,6 +260,7 @@ def stream(interp, action):
     rts = interp.backend.create_evaluation_rts(interp, expr)
     del expr
     events = interp._evaluation_totals.track(rts, rts.generate_events())
+    abandoned = False
     try:
       for output, value in _live_values(interp, session, events):
         if output:
@@ -267,12 +268,18 @@ def stream(interp, action):
           yield convert(item, typeexpr=_yield_type(interp, printer))
         else:
           return convert(value, typeexpr=typeexpr)
+    except GeneratorExit:
+      abandoned = True
+      raise
     finally:
       try:
         events.close()
       finally:
-        # A retained exception can keep these frames and the state alive.
-        # Release its queue independently of the Python object's lifetime.
-        rts.close()
-        interp.backend.after_evaluation(interp)
+        if not abandoned:
+          # Retained errors must not keep a live evaluation queue.
+          rts.close()
+          interp.backend.after_evaluation(interp)
+        # Generator closure can run under a JIT lock. The native holder
+        # disposes without waiting; backend polling resumes at ordinary use.
+        events = rts = None
   return Stream(run())
