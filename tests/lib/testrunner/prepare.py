@@ -239,14 +239,17 @@ PREPROCESSOR_FAILURE = re.compile(
     r'|needs the preprocessor (?P<named>\S+), which is not on PATH'
   )
 
-# The lines of the report of the front end on a preprocessor it could not
-# run, as sprite-make copies them into the log: the command it ran, an empty
-# line, "Error:", and the exit of the preprocessor; the "not found" line of
-# the shell names the tool, which must be one the job lacks.
-FRONTEND_FAILURE_LINE = re.compile(
-    r'^\S+: (while running .*:|Error:|Preprocessor exited with exit code \d+)$'
-    r'|^\S+:\s*$'
-  )
+# The report of the front end on a preprocessor it could not run, as
+# sprite-make copies it into the log: a header that names the command of the
+# front end, the "not found" line of the shell with the tool's name, an empty
+# line, "Error:", and the exit of the preprocessor.  A block is accepted
+# whole, when its "not found" line names a tool the job lacks, or not at all
+# (other_lines); a header, a blank report, an "Error:" or an exit line on its
+# own is another failure.
+FRONTEND_HEADER = re.compile(r'^\S+: while running \S*frontend\b.*:$')
+FRONTEND_BLANK = re.compile(r'^\S+:$')
+FRONTEND_ERROR = re.compile(r'^\S+: Error:$')
+FRONTEND_EXIT = re.compile(r'^\S+: Preprocessor exited with exit code \d+$')
 NOT_FOUND_LINE = re.compile(r'(?P<tool>[^\s/:]+): not found$')
 
 def _unprefixed(line):
@@ -487,26 +490,48 @@ class PrepareJob(Job):
     '''
     The non-blank lines of the log ``text`` that are none of these: a
     refusal (a key of ``refusals``, with or without the program prefix), a
-    count line of sprite-make (CACHE_LINE, REWRITE_LINE), or a line of the
-    report of the front end on a preprocessor in ``tools`` that it could
-    not run (FRONTEND_FAILURE_LINE, NOT_FOUND_LINE).  A job turns from a
-    failure into skipped modules only when this list is empty, so no other
-    failure hides behind a refusal.
+    count line of sprite-make (CACHE_LINE, REWRITE_LINE), or a line of a
+    whole report of the front end on a preprocessor in ``tools`` that it
+    could not run (FRONTEND_HEADER to FRONTEND_EXIT, with the "not found"
+    line of that tool inside).  A job turns from a failure into skipped
+    modules only when this list is empty, so no other failure hides behind
+    a refusal.  Trailing blanks of a line are ignored.
     '''
     others = []
-    for line in text.splitlines():
-      line = line.rstrip('\r')
-      if not line.strip():
+    block = None
+    attributed = False
+    for raw in text.splitlines():
+      line = raw.rstrip()
+      if not line:
         continue
+      if block is not None:
+        match = NOT_FOUND_LINE.search(line)
+        if match and match.group('tool') in tools:
+          attributed = True
+          block.append(line)
+          continue
+        if FRONTEND_BLANK.fullmatch(line) or FRONTEND_ERROR.fullmatch(line):
+          block.append(line)
+          continue
+        if FRONTEND_EXIT.fullmatch(line):
+          if not attributed:
+            others.extend(block + [line])
+          block = None
+          continue
+        # Another line ends the report without its exit: nothing of it is
+        # accepted, and the line is judged on its own.
+        others.extend(block)
+        block = None
       if line in refusals or _unprefixed(line) in refusals:
         continue
-      if CACHE_LINE.fullmatch(line) or REWRITE_LINE.fullmatch(line) \
-          or FRONTEND_FAILURE_LINE.fullmatch(line):
+      if CACHE_LINE.fullmatch(line) or REWRITE_LINE.fullmatch(line):
         continue
-      match = NOT_FOUND_LINE.search(line)
-      if match and match.group('tool') in tools:
+      if FRONTEND_HEADER.fullmatch(line):
+        block, attributed = [line], False
         continue
       others.append(line)
+    if block is not None:
+      others.extend(block)
     return others
 
   def refused_tools(self, text):
@@ -523,7 +548,7 @@ class PrepareJob(Job):
       return {}
     found = {}
     for line in text.splitlines():
-      line = line.rstrip('\r')
+      line = line.rstrip()
       entry = refusals.get(line) or refusals.get(_unprefixed(line))
       if entry:
         module, tool = entry

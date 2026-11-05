@@ -2044,6 +2044,21 @@ class TestPrepare(unittest.TestCase):
     self.assertEqual(job(nowhere, shell, 'incomplete').status, 'ok')
     diagnostic = 'poker.curry needs the preprocessor currypp, which is not on PATH.'
     self.assertEqual(job(nowhere, diagnostic).status, 'ok')
+    # A line of the front end's report on its own (an empty error report,
+    # the header of another command, an orphan "Error:" or exit line), or a
+    # report whose "not found" names another tool, is another failure.
+    orphans = (
+        'sprite-make: \nsprite-make: ' + diagnostic + '\n',
+        'sprite-make: while running g++ plain.cpp:\nsprite-make: ' + diagnostic + '\n',
+        'sprite-make: Error:\nsprite-make: ' + diagnostic + '\n',
+        'sprite-make: Preprocessor exited with exit code 1\nsprite-make: ' + diagnostic + '\n',
+        shell.replace('currypp: not found', 'g++: not found'),
+      )
+    for log in orphans:
+      with self.subTest(log=log, product='absent'):
+        self.assertEqual(job(nowhere, log).status, 'FAILED')
+    # A refusal or a count line with trailing blanks is still one.
+    self.assertEqual(job(nowhere, 'sprite-make: ' + diagnostic + '  \n').status, 'ok')
     # With poker's product absent as well, a refusal beside another failure
     # keeps the failure, in both forms of the refusal.
     for log in (
@@ -2072,6 +2087,9 @@ class TestPrepare(unittest.TestCase):
     self.assertEqual(mixed.lacking, {})
     self.assertEqual(mixed.status, 'FAILED')
     self.assertEqual(mixed.note, 'exit status 1; every product is present')
+    for log in orphans:
+      with self.subTest(log=log, product='stale'):
+        self.assertEqual(job(nowhere, log).status, 'FAILED')
     for log in (
         'sprite-make: ' + diagnostic + '\ng++: not found\n',
         'unrelated sprite-make: ' + diagnostic + ' unrelated\n',
