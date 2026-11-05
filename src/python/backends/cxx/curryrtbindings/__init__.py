@@ -171,6 +171,7 @@ class RuntimeState(RuntimeStateBase):
       )
     # The count of the stepper starts here (StepCounter.reset_global).
     self._step_base = 0
+    self._counts = [0, 0, None]
 
   @property
   def stepcounter(self):
@@ -186,10 +187,11 @@ class RuntimeState(RuntimeStateBase):
 
   def generate_events(self):
     '''Yield (is_output, node), keeping the continuation between pulls.'''
+    counts, next_event = self._counts, self._next_event_counted
     try:
       while True:
         _flush_stdout()
-        result = self._next_event()
+        result = next_event(counts)
         if result is None:
           return
         yield result

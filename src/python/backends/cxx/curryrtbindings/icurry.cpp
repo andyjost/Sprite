@@ -322,7 +322,7 @@ namespace curryrt { namespace python
         "tier posts while an evaluation runs.");
     mod.def("icurry_apply_posted", &icurry_apply_posted
       , "Applies the posted steps; returns the count applied.  The backend "
-        "calls it before an evaluation.");
+        "calls it before an evaluation.", curryrt::python::heap_access{});
     mod.def("jit_sizes", &jit_sizes_
       , "The sizes the JIT needs: the bytes of a Cursor and of a Variable, "
         "the bits of a tag and of a pointer.");

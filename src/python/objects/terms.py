@@ -392,27 +392,35 @@ class Term:
   @classmethod
   def from_symbol(cls, info, module):
     metadata = getattr(module, '.info')
+    name = info.name
     with metadata._cache_lock:
-      held = metadata._terms.get(info.name)
+      held = metadata._terms.get(name)
       version = getattr(module, '.version')
       if held is None or held.symbol._info is not info or held.symbol._version is not version:
-        sym = metadata._symbols.get(info.name)
+        sym = metadata._symbols.get(name)
         if sym is None or sym._info is not info:
-          sym = metadata._symbols[info.name] = Symbol(info, module)
-        held = cls(getattr(module, '.interp'), info, sym)
-        scheme = info.scheme
-        arity = info.info.arity if scheme is None else scheme.source_arity
-        held._fresh_computation = info.info.tag < T_CTOR and arity == 0
-        metadata._terms[info.name] = held
-      # Accesses have distinct Python identities. A nullary function also
-      # needs a fresh computation; holding one access gives call-time sharing.
-      result = object.__new__(cls)
-      result.__dict__.update(held.__dict__)
-      if held._fresh_computation:
-        result._node = held._node.copy()
-        if hasattr(held, '_typed_node'):
-          result._typed_node = held._typed_node.copy()
-      return result
+          sym = metadata._symbols[name] = Symbol(info, module)
+        held = None
+    if held is None:
+      candidate = cls(getattr(module, '.interp'), info, sym)
+      scheme = info.scheme
+      arity = info.info.arity if scheme is None else scheme.source_arity
+      candidate._fresh_computation = info.info.tag < T_CTOR and arity == 0
+      with metadata._cache_lock:
+        if getattr(module, '.version') is not version:
+          raise StaleError('the module was reloaded while accessing a symbol')
+        held = metadata._terms.get(name)
+        if held is None or held.symbol._info is not info or held.symbol._version is not version:
+          held = metadata._terms[name] = candidate
+    # Native construction and copies can wait for the heap. Only cache
+    # inspection/publication above holds the metadata lock.
+    result = object.__new__(cls)
+    result.__dict__.update(held.__dict__)
+    if held._fresh_computation:
+      result._node = held._node.copy()
+      if hasattr(held, '_typed_node'):
+        result._typed_node = held._typed_node.copy()
+    return result
 
   def __call__(self, *args):
     check_live(self)

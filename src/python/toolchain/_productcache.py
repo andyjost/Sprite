@@ -315,7 +315,7 @@ def _place(source, target, link, publish=False):
       except OSError as exc:
         # A file system that refuses the link (a link limit, a policy): a
         # copy serves as well.
-        logger.debug('cannot link %r to %r (%s); copied', source, tmp, exc)
+        _productlock.log(logger, logging.DEBUG, 'cannot link %r to %r (%s); copied', source, tmp, exc)
       else:
         linked = True
     if not linked:
@@ -373,7 +373,7 @@ def store(digest, key, files, cache_root=None):
       if not os.path.isdir(directory):
         raise
       # The other writer won; its entry has the same key.
-      logger.debug('The product cache entry %r was stored by another process (%s)', directory, exc)
+      _productlock.log(logger, logging.DEBUG, 'The product cache entry %r was stored by another process (%s)', directory, exc)
       shutil.rmtree(tmpdir, ignore_errors=True)
   except BaseException:
     shutil.rmtree(tmpdir, ignore_errors=True)
@@ -463,14 +463,14 @@ def prune(keep, cache_root=None, max_age=3600):
               continue
             shutil.rmtree(subpath)
           except OSError as exc:
-            logger.warning('cannot remove %r from the product cache (%s)', subpath, exc)
+            _productlock.log(logger, logging.WARNING, 'cannot remove %r from the product cache (%s)', subpath, exc)
           else:
             temporaries += 1
       continue
     try:
       shutil.rmtree(path)
     except OSError as exc:
-      logger.warning('cannot remove %r from the product cache (%s)', path, exc)
+      _productlock.log(logger, logging.WARNING, 'cannot remove %r from the product cache (%s)', path, exc)
     else:
       digests += 1
   return digests, temporaries
