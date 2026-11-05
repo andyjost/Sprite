@@ -96,6 +96,7 @@ namespace
   py::dict result_dict(TieredResult const & r)
   {
     py::dict d;
+    d["registry_id"] = r.registry_id;
     d["module"] = r.module;
     d["sofile"] = r.sofile;
     d["ok"] = r.ok;
@@ -217,7 +218,8 @@ namespace curryrt { namespace python
     mod.def("tiered_wait", &tiered_wait_, py::arg("seconds")
       , "Waits until no job is queued or running, or until the seconds "
         "passed.  Returns True when the worker is idle.", curryrt::python::heap_access{});
-    mod.def("tiered_cancel", &tiered_cancel
+    mod.def("tiered_cancel", [](InterpreterState * state)
+      { tiered_cancel(state ? &state->modules : nullptr); }, py::arg("state") = nullptr
       , "Drops the queued jobs and kills the running compile.", curryrt::python::heap_access{});
   }
 }}

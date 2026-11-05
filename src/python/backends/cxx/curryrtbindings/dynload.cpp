@@ -48,6 +48,9 @@ namespace curryrt { namespace python
 
     py::class_<SharedCurryModule, std::shared_ptr<SharedCurryModule>>(mod, "SharedCurryModule")
       .def(py::init<std::string const &>(), curryrt::python::heap_access{})
+      .def(py::init([](std::string const & filename, InterpreterState & state)
+        { return std::make_shared<SharedCurryModule>(filename, state.modules); }),
+        curryrt::python::heap_access{})
 			.def_property_readonly("bom", &SharedCurryModule::bom, reference_internal, curryrt::python::heap_access{})
 			.def_property_readonly("info", &SharedCurryModule::info, reference_internal, curryrt::python::heap_access{})
 			.def("sofilename", &SharedCurryModule::sofilename, reference, curryrt::python::heap_access{})

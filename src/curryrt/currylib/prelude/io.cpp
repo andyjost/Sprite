@@ -48,11 +48,11 @@ namespace curryrt
       "fileError", "pppp", file_error_step, nullptr
     };
 
-  static Node * _make_io_error(char const * error_msg, IOErrorKind error_kind=IO_ERROR,
+  static Node * _make_io_error(RuntimeState * rts, char const * error_msg, IOErrorKind error_kind=IO_ERROR,
                               int error_number=0, std::string const & filename={})
   {
     Node * error_object = Node::create(
-        ioerror_info(error_kind), cstring(error_msg)
+        ioerror_info(rts, error_kind), cstring(error_msg)
       );
     if(!filename.empty())
       return Node::create(&file_error_Info, error_object,
@@ -90,7 +90,7 @@ namespace curryrt
       auto [error_value, message] = C->pop_error();
       if(!error_value)
         error_value = Node::create(
-            ioerror_info(IO_ERROR), build_curry_string(message.c_str())
+            ioerror_info(rts, IO_ERROR), build_curry_string(message.c_str())
           );
       Variable _2 = _0[1];
       Node * replacement = Node::create(&apply_Info, _2, error_value);
@@ -117,7 +117,7 @@ namespace curryrt
     }
     catch(std::exception const & exc)
     {
-      _0->forward_to(_make_io_error("EOF"));
+      _0->forward_to(_make_io_error(rts, "EOF"));
       return T_FWD;
     }
   }
@@ -129,11 +129,11 @@ namespace curryrt
     Variable _1 = _0[0];
     // The show instance of IOError is defined in Curry; its table comes
     // from the loaded Prelude, compiled or interpreted (Module::find_symbol).
-    InfoTable const * show_Info = Module::find_symbol(process_registry(),
+    InfoTable const * show_Info = Module::find_symbol(rts->istate.modules,
         "Prelude", "_impl#show#Prelude.Show#Prelude.IOError"
       );
     if(!show_Info)
-      show_Info = Module::find_symbol(process_registry(),
+      show_Info = Module::find_symbol(rts->istate.modules,
           "Prelude", "_impl#show#Prelude.Show#Prelude.IOError#"
         );
     if(!show_Info)
@@ -163,7 +163,7 @@ namespace curryrt
     }
     catch(std::exception const & exc)
     {
-      _0->forward_to(_make_io_error("EOF"));
+      _0->forward_to(_make_io_error(rts, "EOF"));
       return T_FWD;
     }
   }
@@ -198,7 +198,7 @@ namespace curryrt
     {
       int error_number = errno;
       char const * error_msg = _make_io_error_msg(IO_ERROR, filename);
-      Node * replacement = _make_io_error(error_msg, IO_ERROR, error_number, filename);
+      Node * replacement = _make_io_error(rts, error_msg, IO_ERROR, error_number, filename);
       _0->forward_to(replacement);
       return T_FWD;
     }
@@ -270,7 +270,7 @@ namespace curryrt
     {
       int error_number = errno;
       char const * error_msg = _make_io_error_msg(IO_ERROR, filename);
-      Node * replacement = _make_io_error(error_msg, IO_ERROR, error_number, filename);
+      Node * replacement = _make_io_error(rts, error_msg, IO_ERROR, error_number, filename);
       _0->forward_to(replacement);
       return T_FWD;
     }

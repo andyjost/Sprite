@@ -164,8 +164,7 @@ class Interpreter(object):
     Prelude.
     '''
     from ..backends.cxx import tiered
-    tiered.cancel()
-    tiered.wait(interp=self)
+    tiered.cancel(self)
     from ..utility.locking import native_metadata
     return native_metadata(self._reset_state)(flags)
     return self._reset_state(flags)

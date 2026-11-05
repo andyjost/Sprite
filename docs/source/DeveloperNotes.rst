@@ -461,11 +461,11 @@ interpreted. Only compile jobs create files in the background compiler's
 temporary root.
 
 Each interpreter owns the registry of tables made at run time, including
-interpreted images and LLVM code. Runtime builtin modules and loaded compiled
-objects use the process registry, including reserved modules under
-``interpret=all``. Name lookup checks the interpreter registry first, then
-the process registry. Reset retires only the interpreter's private modules,
-leaving shared tables such as the Prelude intact.
+interpreted images and LLVM code. Static builtin tables and loaded compiled
+objects use the process registry. Interpreted modules belong to their
+interpreter, including reserved importers and Prelude under ``interpret=all``.
+Lookup checks the interpreter's selected modules before the process registry.
+Reset retires that interpreter's runtime tables and preserves loaded objects.
 
 The module image
 ================

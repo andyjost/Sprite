@@ -32,6 +32,14 @@ namespace
   static SharedLib const libcurryrt(CURRYRT_LIBRARY, curryrt_library_path());
   std::unordered_map<std::string, std::weak_ptr<SharedCurryModuleInfo const>> registry;
 
+  // A mapped object's slots are initialized once, including on reopening.
+  struct BoundObject
+  {
+    std::weak_ptr<SharedCurryModuleInfo const> info;
+    std::weak_ptr<Module> owner;
+  };
+  std::unordered_map<void *, BoundObject> bound_objects;
+
   // The decoder of one module record.  It memoizes the metadata by the
   // address of the record, so a record shared between symbols gives one
   // Metadata object.
@@ -133,10 +141,12 @@ namespace
     std::string const & sofilename;
     bom::Module const & record;
     std::shared_ptr<Module> owner;
+    ModuleRegistry const & references;
 
-    Binder(std::string const & sofilename, bom::Module const & record)
+    Binder(std::string const & sofilename, bom::Module const & record,
+           ModuleRegistry const & references)
       : sofilename(sofilename), record(record)
-      , owner(Module::find(process_registry(), record.fullname))
+      , owner(Module::find(process_registry(), record.fullname)), references(references)
     {}
 
     [[noreturn]] void unresolved(
@@ -182,7 +192,7 @@ namespace
       {
         bom::InfoSlot const & slot = record.info_slots[i];
         InfoTable const * info = nullptr;
-        if(auto module = Module::find(process_registry(), slot.module))
+        if(auto module = Module::find(references, slot.module))
           info = module->get_infotable(slot.name);
         if(!info)
         {
@@ -197,7 +207,7 @@ namespace
       {
         bom::TypeSlot const & slot = record.type_slots[i];
         DataType const * type = nullptr;
-        if(auto module = Module::find(process_registry(), slot.module))
+        if(auto module = Module::find(references, slot.module))
           type = module->get_type(slot.name);
         if(!type)
           type = Module::builtin_type(slot.module, slot.name);
@@ -248,7 +258,7 @@ namespace curryrt
   SharedCurryModule::SharedCurryModule(std::string const & sofilename)
     : SharedLib(sofilename), _info()
   {
-    this->init(false);
+    this->init(false, process_registry());
   }
 
   SharedCurryModule::SharedCurryModule(
@@ -256,20 +266,36 @@ namespace curryrt
     )
     : SharedLib(sofilename, loadpath), _info()
   {
-    this->init(true);
+    this->init(true, process_registry());
   }
 
-  // Reads the record of the module, binds its slots, runs its initializer
-  // and registers the library.  With ``fresh`` the library never joins the
-  // entry of its name.  A library that joins an entry was bound at its own
-  // load (dlopen of a mapped file gives the mapped library), and its slots
-  // are bound again all the same, against the registry of the moment: a
-  // table of the module that an incarnation interpreted since then takes
-  // the step of the object back, so the load of an object is the swap
-  // whether or not a library of the name is mapped.  The initializer runs
-  // once: the nodes of the literals exist.
-  void SharedCurryModule::init(bool fresh)
+  SharedCurryModule::SharedCurryModule(std::string const & sofilename,
+      ModuleRegistry const & references)
+    : SharedLib(sofilename), _info()
   {
+    this->init(false, references);
+  }
+
+  SharedCurryModule::SharedCurryModule(std::string const & sofilename,
+      std::string const & loadpath, ModuleRegistry const & references)
+    : SharedLib(sofilename, loadpath), _info()
+  {
+    this->init(true, references);
+  }
+
+  // A mapped generation retains the slots chosen at its first load.
+  void SharedCurryModule::init(bool fresh, ModuleRegistry const & references)
+  {
+    auto & bound = bound_objects[this->handle()];
+    if(auto existing = bound.info.lock())
+    {
+      this->_info = existing;
+      registry[existing->fullname] = existing;
+      if(!fresh)
+        if(auto owner = bound.owner.lock())
+          process_registry().storage->modules[existing->fullname] = owner;
+      return;
+    }
     std::string const & sofilename = this->sofilename();
     auto addr = platform::symbol(this->handle(), "_bom_");
     if(!addr)
@@ -291,7 +317,7 @@ namespace curryrt
     auto pinfo = registry.find(record->fullname);
     if(pinfo != registry.end() && !fresh)
       this->_info = pinfo->second.lock();
-    Binder binder(sofilename, *record);
+    Binder binder(sofilename, *record, references);
     binder.run();
     if(!this->_info)
     {
@@ -313,6 +339,7 @@ namespace curryrt
       else
         pinfo->second = this->_info;
     }
+    bound_objects[this->handle()] = {this->_info, binder.owner};
     assert(this->_info);
   }
 

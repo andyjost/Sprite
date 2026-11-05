@@ -75,7 +75,9 @@ __all__ = ['compile', 'write_module', 'FORMAT_VERSION']
 # Format 28: only external declarations select registered primitives, with
 # the library's named wrapper exceptions; the native record version is 3
 # (the primitives branch used 21 to 25 for these steps, never published).
-FORMAT_VERSION = 28
+# Format 29: ELF definitions bind locally so loading another generation
+# cannot run its table constructors over an earlier object's exported data.
+FORMAT_VERSION = 29
 
 # The runtime headers every generated file includes, as vEmitHeader writes
 # them: one directive per name.  The toolchain digests the include closure
@@ -207,6 +209,8 @@ class CxxCompiler(compiler.CompilerBase):
     yield ''
     yield '#if defined(_WIN32)'
     yield '#define SPRITE_MODULE_EXPORT __declspec(dllexport)'
+    yield '#elif defined(__ELF__)'
+    yield '#define SPRITE_MODULE_EXPORT __attribute__((visibility("protected")))'
     yield '#else'
     yield '#define SPRITE_MODULE_EXPORT'
     yield '#endif'

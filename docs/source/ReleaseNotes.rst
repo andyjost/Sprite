@@ -5,8 +5,10 @@ Release Notes
 Unreleased
 ==========
 
-- Give each interpreter its own runtime module registry; share runtime builtin
-  modules and loaded compiled objects, and preserve them across resets (#184).
+- Give each interpreter its own runtime module registry; share static runtime
+  builtin tables and loaded compiled objects across resets (#184).
+  Interpreted reserved importers keep their interpreter's dependencies; compiled
+  slots, C++ hot jobs and first-use compilation preserve the selected registry.
   Two constructor classes compare by identity.
 
 - Serve loaded modules from memory until reload or reset, without product

@@ -57,8 +57,7 @@ from .interpreter import flags as _flags
 # modules first, so their libraries unload now; see interpreter/compile.py.
 if '_interpreter_' in globals():
   from .backends.cxx import tiered as _tiered
-  _tiered.cancel()
-  _tiered.wait(interp=_interpreter_)
+  _tiered.cancel(_interpreter_)
   _interpreter_._session = object()
   _interpreter_._expression_modules = []
   _interpreter_._unlink_modules()

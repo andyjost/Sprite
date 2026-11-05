@@ -166,9 +166,6 @@ namespace curryrt
   {
     if(!runtime_tables)
       if(auto module = find(registry, name)) return module;
-    auto bi = builtin_modules().find(name);
-    if(bi != builtin_modules().end() && bi->second.reserved)
-      registry = process_registry();
     auto & slot = registry.storage->modules[name];
     if(auto handle = slot.lock())
       return handle;

@@ -337,7 +337,7 @@ namespace
     catch(std::exception const & exc) { error = exc.what(); }
     error = "primitive " + primitive->qualified_name + ": " + error;
     if(is_monadic(primitive->info))
-      C->set_error(Node::create(ioerror_info(IO_ERROR),
+      C->set_error(Node::create(ioerror_info(rts, IO_ERROR),
           build_curry_string(error.c_str())), "i/o error: " + error, ErrorKind::io);
     else C->set_error(error);
     return E_ERROR;

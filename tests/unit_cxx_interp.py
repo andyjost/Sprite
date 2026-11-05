@@ -439,16 +439,19 @@ class TestValues(cytest.TestCase):
       , '[3, 2, 1]'
       ]))
     self.assertEqual(self.value(expected, 'chars'), ['"az\\955\\n"'])
-    prelude_info = curry.import_('Prelude')['map'].info
-    prelude_interpreted = curryrt.icurry_is_interpreted(prelude_info)
+    compiled_prelude = None
     for mode in 'new', 'all':
       M = None
       M = switch(mode)
       interpreted = curryrt.icurry_is_interpreted(M.fact.info)
       self.assertEqual(interpreted, mode == 'all', mode)
-      # Reserved tables keep the route chosen when the process loaded them.
-      self.assertIs(curry.import_('Prelude')['map'].info, prelude_info)
-      self.assertEqual(curryrt.icurry_is_interpreted(prelude_info), prelude_interpreted)
+      prelude_info = curry.import_('Prelude')['map'].info
+      self.assertEqual(curryrt.icurry_is_interpreted(prelude_info), mode == 'all')
+      if mode == 'new':
+        compiled_prelude = prelude_info
+      else:
+        self.assertIsNot(prelude_info, compiled_prelude)
+        self.assertFalse(curryrt.icurry_is_interpreted(compiled_prelude))
       if mode == 'all':
         self.assertEqual(self.values(M), expected)
 
@@ -1254,7 +1257,7 @@ other = 2
     gc.disable()  # the module of the plan's import stays alive, as in a run without a collection
     try:
       toolchain.makecurry(plan, name, self.currypath)
-      old = materialize._PENDING[name].module()
+      old = materialize._PENDING[(cytest.raw.interp()._its.registry_id, name)].module()
       self.assertIsNotNone(old)
       self.assertNotIn(name, cytest.raw.interp().modules)
       self.assertTrapped(old, 'double', 'main', 'boom')

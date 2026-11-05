@@ -140,7 +140,7 @@ def _wait_pending(interp, name, sofile):
   checks of prepare_adoption.
   '''
   from . import tiered
-  if tiered.pending(name):
+  if tiered.pending(name, interp):
     logger.info(
         'Waiting for the background compile of module %s before the load '
         'of %r', name, sofile
@@ -203,7 +203,7 @@ def _load_module_once(interp, sofile, from_plan, fresh, _saved_payload):
   name, needed = _dynamic_names(sofile)
   if name is not None:
     _wait_pending(interp, name, sofile)
-    record = tiered._state.records.get(name)
+    record = tiered._state.records.get(tiered._key(interp, name))
     module = interp.modules.get(name)
     if record is not None and record.module() is module and module is not None \
         and record.publish and os.path.realpath(record.publish) == os.path.realpath(sofile) \
@@ -259,7 +259,7 @@ def _open_module(interp, sofile, name, from_plan, fresh, before, _saved_payload)
     if registered is not None:
       _refuse_other_file(name, registered, sofile)
   registered = curryrt.SharedCurryModule.find_sofilename(name) if name else None
-  adopt = replace or (tiered.has_binding(name) and registered is None) or (
+  adopt = replace or (tiered.has_binding(name, interp) and registered is None) or (
       module is not None and getHandle(module).sofilename is None
     )
   steps = tiered.prepare_adoption(interp, name) if adopt else []
@@ -283,7 +283,7 @@ def _open_module(interp, sofile, name, from_plan, fresh, before, _saved_payload)
     shlib = owner.shlib
     tiered._refresh(name, interp)
   else:
-    shlib = curryrt.SharedCurryModule(sofile)
+    shlib = curryrt.SharedCurryModule(sofile, interp._its)
   # The runtime keeps one registry entry per module name for as long as a
   # library of that name is loaded, and a second library joins the entry of
   # the first.  _check_before_open refused such a file before the open; this

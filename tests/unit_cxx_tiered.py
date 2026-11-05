@@ -408,7 +408,7 @@ class TestRemovedDirectory(TieredTestCase):
     name = self.write_module()
     M = self.import_module(name)
     private = os.path.realpath(tiered._tmpdir()) + os.sep
-    record = tiered._state.records[name]
+    record = tiered._state.records[tiered._key(cytest.raw.interp(), name)]
     self.assertTrue(os.path.realpath(record.sofile).startswith(private), record.sofile)
     self.wait()
     self.assertTrue(os.path.isfile(self.sofile(name)))
@@ -1290,7 +1290,8 @@ class TestLoadDuringCompile(TieredTestCase):
   def test_mapped_name_poll_reports_adoption_decline_once(self):
     name = self.write_module()
     error = 'the object is mapped under this name in this process'
-    result = dict(module=name, ok=False, error=error, output='', mapped=[])
+    result = dict(registry_id=cytest.raw.interp()._its.registry_id,
+                  module=name, ok=False, error=error, output='', mapped=[])
     with mock.patch.object(curryrt, 'tiered_poll'), \
          mock.patch.object(curryrt, 'tiered_results', return_value=[result]), \
          capture_log('curry.backends.cxx.tiered') as log:
@@ -1324,7 +1325,8 @@ class TestLoadDuringCompile(TieredTestCase):
     self.assertTrue(tiered.pending(name))
     self.assertTrue(curryrt.icurry_is_interpreted(M.area.info))
     before = tiered.status()
-    with capture_log('curry.backends.cxx.loader', 'curry.backends.cxx.tiered') as log:
+    with mock.patch('curry.backends.cxx.loader.WAIT_NOTICE_SECONDS', COMPILE_SECONDS), \
+         capture_log('curry.backends.cxx.loader', 'curry.backends.cxx.tiered') as log:
       M2 = curry._interpreter_.load(self.sofile(name))
     self.assertIs(M2, M)
     self.assertFalse(tiered.pending(name))
@@ -1362,7 +1364,8 @@ class TestLoadDuringCompile(TieredTestCase):
     M = self.import_module(name)
     self.assertTrue(tiered.pending(name))
     self.assertTrue(curryrt.icurry_is_interpreted(M.area.info))
-    with capture_log('curry.backends.cxx.loader', 'curry.backends.cxx.tiered') as log:
+    with mock.patch('curry.backends.cxx.loader.WAIT_NOTICE_SECONDS', COMPILE_SECONDS), \
+         capture_log('curry.backends.cxx.loader', 'curry.backends.cxx.tiered') as log:
       M2 = curry._interpreter_.load(self.sofile(name))
     self.assertIs(M2, M)
     self.assertFalse(tiered.pending(name))
@@ -1594,7 +1597,7 @@ class TestImportObjects(TieredTestCase):
           curryrt.tiered_wait(COMPILE_SECONDS)
         , 'the background compile did not end in %s s' % COMPILE_SECONDS
         )
-      private = tiered._state.records[user].sofile
+      private = tiered._state.records[tiered._key(cytest.raw.interp(), user)].sofile
       self.assertTrue(os.path.isfile(private))
       self.assertFalse(os.path.exists(self.sofile(user)))
       with open(private, 'wb') as stream:

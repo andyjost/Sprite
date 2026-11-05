@@ -6,6 +6,7 @@
 #include "curryrt/graph/node.hpp"
 #include "curryrt/inspect.hpp"
 #include "curryrt/module.hpp"
+#include "curryrt/state/rts.hpp"
 #include "curryrt/utf8.hpp"
 #include <deque>
 #include <limits>
@@ -487,13 +488,13 @@ namespace curryrt
   // The constructors of IOError are defined in Curry, so their tables come
   // from the loaded Prelude: the compiled library, or the tables made at
   // run time when the Prelude is interpreted (see Module::find_symbol).
-  InfoTable const * ioerror_info(IOErrorKind kind)
+  InfoTable const * ioerror_info(RuntimeState * rts, IOErrorKind kind)
   {
     assert(((int) kind) >=0 && ((int) kind) < 4);
     static char const * symbol_names[] = {
         "IOError", "UserError", "FailError", "NondetError"
       };
-    InfoTable const * info = Module::find_symbol(process_registry(), "Prelude", symbol_names[kind]);
+    InfoTable const * info = Module::find_symbol(rts->istate.modules, "Prelude", symbol_names[kind]);
     if(!info)
       throw std::logic_error(
           std::string("the Prelude is not loaded: no constructor ")

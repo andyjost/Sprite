@@ -80,10 +80,10 @@ second = Interpreter(flags=flags)
 a = first.compile('value :: Int\nvalue = 11', modulename='ResetSeparate')
 b = second.compile('value :: Int\nvalue = 22', modulename='ResetSeparate')
 prelude = getHandle(second.prelude).backend_handle
-assert prelude is getHandle(first.prelude).backend_handle
+assert (prelude is getHandle(first.prelude).backend_handle) == (flags['interpret'] == 'new')
 for _ in range(2):
     first.reset()
-    assert getHandle(first.prelude).backend_handle is prelude
+    assert (getHandle(first.prelude).backend_handle is prelude) == (flags['interpret'] == 'new')
     assert list(second.eval(b.value)) == [22]
     assert list(second.eval(getattr(second.prelude, '+')(1, 2))) == [3]
     assert list(first.eval(getattr(first.prelude, '+')(3, 4))) == [7]
@@ -210,18 +210,20 @@ from curry.interpreter import Interpreter
 from curry.backends.cxx import curryrtbindings as rt, llvmjit
 flags = {'interpret': 'all', 'jit': 'hot', 'jit_backend': 'llvm', 'inline_budget': 0}
 
-def hot(interp, module, expected):
+def hot(interp, module, expected, name='f'):
+    function = getattr(module, name)
     deadline = time.monotonic() + 30
-    while not rt.icurry_is_jit(module.f.info):
+    while not rt.icurry_is_jit(function.info):
         assert time.monotonic() < deadline, llvmjit.statistics()
-        assert interp.eval(module.f(10)).one() == expected
+        assert interp.eval(function(10)).one() == expected
         time.sleep(0.02)
-    assert interp.eval(module.f(10)).one() == expected
+    assert interp.eval(function(10)).one() == expected
 
 with tempfile.TemporaryDirectory() as work:
     source = Path(work) / 'HotSeparate.curry'
     template = ('module HotSeparate where\nf :: Int -> Int\n'
-                'f n = if n == 0 then %d else f (n - 1) + 1\n')
+                'f n = if n == 0 then %d else f (n - 1) + 1\n'
+                'g :: Int -> Int\ng n = if n == 0 then f 0 else g (n - 1) + 1\n')
     source.write_text(template % 1)
     first = Interpreter(flags=flags)
     first.path.insert(0, work)
@@ -229,6 +231,7 @@ with tempfile.TemporaryDirectory() as work:
     hot(first, a, 11)
     # Attach a different image after the first generation has linked code.
     source.write_text(template % 2)
+    quiet = Interpreter(flags=dict(flags, jit='off'))
     second = Interpreter(flags=flags)
     second.path.insert(0, work)
     b = second.import_('HotSeparate')
@@ -238,11 +241,191 @@ with tempfile.TemporaryDirectory() as work:
     assert first.eval(a.f(10)).one() == 11
     first.reset()
     assert second.eval(b.f(10)).one() == 12
+    quiet.reset()
+    hot(second, b, 12, 'g')
     # Equal image bodies still need constants bound to their own tables.
     again = first.import_('HotSeparate')
     hot(first, again, 12)
     second.reset()
     assert first.eval(again.f(10)).one() == 12
+''')
+
+  def test_reserved_importer_keeps_private_imports(self):
+    original = Path(config.installed_path('curry', 'Data/List.curry')).read_text()
+    edited = original.replace('minimum xs@(_:_) =  foldl1 min xs',
+                              'minimum xs@(_:_) =  maximum xs')
+    self.assertNotEqual(original, edited)
+    for mode in ('all', 'new'):
+      for changed_first in (True, False):
+        with self.subTest(mode=mode, changed_first=changed_first):
+          self.run_child(r'''
+from curry.interpreter import Interpreter
+from curry.objects.handle import getHandle
+from pathlib import Path
+import tempfile
+with tempfile.TemporaryDirectory() as work:
+    source = Path(work) / 'Data' / 'List.curry'
+    source.parent.mkdir()
+    source.write_text(%r)
+    flags = {'interpret': %r, 'jit': 'off', 'inline_budget': 0}
+    changed, normal = Interpreter(flags=flags), Interpreter(flags=flags)
+    changed.path.insert(0, work)
+    ordered = [changed, normal] if %r else [normal, changed]
+    def load(interp):
+        return interp.compile('import Control.SetFunctions\n'
+            'value :: Int\nvalue = minValue (set0 (1 ? 2))\n',
+            modulename='ReservedCaller')
+    loaded = [(interp, load(interp)) for interp in ordered]
+    for interp, module in loaded:
+        values = list(interp.eval(module.value))
+        assert values == ([2] if interp is changed else [1]), values
+    a = getHandle(changed.modules['Control.SetFunctions']).backend_handle
+    b = getHandle(normal.modules['Control.SetFunctions']).backend_handle
+    assert a is not b
+    assert not a.shared
+    assert b.shared == (flags['interpret'] == 'new')
+    changed.reset()
+    again = load(changed)
+    assert list(changed.eval(again.value)) == [2]
+    normal_module = next(m for i, m in loaded if i is normal)
+    assert list(normal.eval(normal_module.value)) == [1]
+''' % (edited, mode, changed_first))
+
+  @cytest.posix_only('multiple compiled generations of one name')
+  def test_compiled_caller_uses_selected_dependency(self):
+    self.run_child(r'''
+import os
+os.environ['SPRITE_INTERPRETER_FLAGS'] = 'inline_budget:0'
+from curry.interpreter import Interpreter
+from pathlib import Path
+import tempfile
+with tempfile.TemporaryDirectory() as work:
+    roots = [Path(work) / name for name in ('a', 'b')]
+    flags = {'interpret': 'off', 'jit': 'off', 'inline_budget': 0}
+    first, second = Interpreter(flags=flags), Interpreter(flags=flags)
+    for interp, root, value in zip((first, second), roots, (11, 22)):
+        root.mkdir()
+        (root / 'SlotDep.curry').write_text('module SlotDep where\n'
+            'f :: Int -> Int\nf n = if n == 0 then %d else f (n - 1)\n' % value)
+        interp.path.insert(0, str(root))
+        dep = interp.import_('SlotDep')
+        assert interp.eval(dep.f(1)).one() == value
+    from curry.backends.cxx import curryrtbindings as rt
+    from curry.objects.handle import getHandle
+    for interp, root, expected in ((first, roots[0], 11), (second, roots[1], 22)):
+        actual = interp.eval(interp.modules['SlotDep'].f(1)).one()
+        assert actual == expected
+        assert rt.Module.find_or_create(interp._its, 'SlotDep') is getHandle(interp.modules['SlotDep']).backend_handle
+        (root / 'SlotCaller.curry').write_text('module SlotCaller where\n'
+            'import SlotDep\nvalue :: Int\nvalue = f 1\n')
+        module = interp.import_('SlotCaller')
+        values = list(interp.eval(module.value))
+        assert values == [expected], (values, expected)
+    original = getHandle(first.modules['SlotCaller']).backend_handle.shlib
+    reopened = rt.SharedCurryModule(original.sofilename(), second._its)
+    assert list(first.eval(first.modules['SlotCaller'].value)) == [11]
+''')
+
+  @cytest.posix_only('multiple compiled generations of one name')
+  def test_cxx_hot_jobs_are_private(self):
+    self._cxx_private_jobs(False)
+
+  @cytest.posix_only('multiple compiled generations of one name')
+  def test_reset_preserves_other_cxx_hot_job(self):
+    self._cxx_private_jobs(True)
+
+  @cytest.posix_only('multiple compiled generations of one name')
+  def test_reset_preserves_other_running_cxx_job(self):
+    self._cxx_private_jobs(True, running=True)
+
+  def _cxx_private_jobs(self, reset, running=False):
+    self.run_child(r'''
+import os, time, tempfile
+from pathlib import Path
+os.environ['SPRITE_JIT_THRESHOLD'] = '5'
+from curry.interpreter import Interpreter
+from curry.backends.cxx import curryrtbindings as rt, tiered
+from curry.objects.handle import getHandle
+flags = {'interpret': 'new', 'jit': 'hot', 'jit_backend': 'cxx', 'inline_budget': 0}
+with tempfile.TemporaryDirectory() as work:
+    first, second = Interpreter(flags=flags), Interpreter(flags=flags)
+    running = %r
+    gate = Path(work) / 'release'
+    entered = Path(work) / 'entered'
+    if running:
+        import sys
+        arm = rt.cxx_arm
+        def blocked(*args):
+            args = list(args)
+            wrapper = ("import os, sys, time\nfrom pathlib import Path\n"
+                "Path(sys.argv[1]).touch()\n"
+                "while not Path(sys.argv[2]).exists(): time.sleep(0.01)\n"
+                "os.execv(sys.argv[3], sys.argv[3:])\n")
+            args[2] = [sys.executable, '-c', wrapper, str(entered), str(gate)] + args[2]
+            return arm(*args)
+        rt.cxx_arm = blocked
+    modules = []
+    for interp, name, value in ((first, 'a', 11), (second, 'b', 22)):
+        root = Path(work) / name
+        root.mkdir()
+        (root / 'PrivateHot.curry').write_text('module PrivateHot where\n'
+            'f :: Int -> Int\nf n = if n == 0 then %%d else f (n - 1)\n' %% value)
+        interp.path.insert(0, str(root))
+        modules.append(interp.import_('PrivateHot'))
+    if running:
+        for _ in range(6):
+            assert second.eval(modules[1].f(1)).one() == 22
+        deadline = time.monotonic() + 30
+        while not entered.exists():
+            assert time.monotonic() < deadline, tiered.status()
+            time.sleep(0.01)
+        assert tiered.status()['running'] == 1
+    if %r:
+        first.reset()
+        gate.touch()
+        selected = [(second, modules[1], 22)]
+    else:
+        selected = [(first, modules[0], 11), (second, modules[1], 22)]
+    for interp, module, expected in selected:
+        for _ in range(6):
+            assert interp.eval(module.f(1)).one() == expected
+        assert tiered.wait(timeout=90, interp=interp)
+        assert getHandle(module).backend_handle.shlib is not None, tiered.status()
+        assert interp.eval(module.f(1)).one() == expected
+    for interp, module, expected in selected:
+        assert interp.eval(module.f(1)).one() == expected
+    tiered.finish()
+''' % (running, reset))
+
+  @cytest.posix_only('multiple compiled generations of one name')
+  def test_first_use_in_two_interpreters(self):
+    self.run_child(r'''
+from curry.interpreter import Interpreter
+from curry.backends.cxx import curryrtbindings as rt
+from curry.objects.handle import getHandle
+from pathlib import Path
+import tempfile
+with tempfile.TemporaryDirectory() as work:
+    first, second = (Interpreter(flags={'interpret': 'off', 'jit': 'off'})
+                     for _ in range(2))
+    loaded = []
+    from curry import toolchain
+    from curry.toolchain import plans
+    for interp, value in ((first, 11), (second, 22)):
+        root = Path(work) / str(value)
+        root.mkdir()
+        source = root / 'PrivateTrap.curry'
+        source.write_text('module PrivateTrap where\nf :: Int\nf = %d\n' % value)
+        plan = plans.makeplan(None, plans.MAKE_ICURRY)
+        icy = toolchain.makecurry(plan, str(source), [str(root)], is_sourcefile=True)
+        interp.path.insert(0, str(root))
+        module = interp.import_(toolchain.loadicurry(icy), currypath=list(interp.path))
+        assert rt.is_trapped(getHandle(module).symbols['f'].info)
+        loaded.append((interp, module, value))
+    for interp, module, value in loaded:
+        assert interp.eval(module.f).one() == value
+        assert not rt.is_trapped(getHandle(module).symbols['f'].info)
+    assert first.eval(loaded[0][1].f).one() == 11
 ''')
 
 

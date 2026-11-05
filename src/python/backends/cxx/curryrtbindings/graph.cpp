@@ -800,6 +800,8 @@ namespace curryrt { namespace python
   {
     py::class_<InterpreterState, HeapOwned<InterpreterState>>(mod, "InterpreterState")
       .def(py::init<>(), curryrt::python::heap_access{})
+      .def_property_readonly("registry_id", [](InterpreterState const & state)
+        { return state.modules.storage->id; }, curryrt::python::heap_access{})
       .def("inherit_registry", [](InterpreterState & state, InterpreterState & previous)
         {
           state.modules = previous.modules;

@@ -26,14 +26,10 @@ class IBackend(backends.IBackend):
     return interp._its
 
   def init_interpreter_state(self, interp):
-    # A new interpreter and a reset unload the modules whose compiles run in
-    # the background.
-    tiered.cancel()
-    tiered._state.private.clear()
+    if getattr(interp, '_its', None) is not None:
+      tiered.cancel(interp)
+    # Apply completed swaps before kept tables are reused by the new session.
     with llvmjit._lock:
-      llvmjit._hot_enabled = False
-      curryrtbindings.icurry_set_hot_threshold(0)
-      curryrtbindings.icurry_take_hot()
       curryrtbindings.icurry_apply_posted()
     curryrtbindings._curryrtbindings._heap_drain()
     jit.select(interp)
