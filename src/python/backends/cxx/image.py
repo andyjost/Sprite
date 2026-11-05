@@ -565,11 +565,11 @@ def attach(interp, source, path, header):
           if curryrt.icurry_is_interpreted(info) or curryrt.icurry_is_jit(info)]
       llvmjit.attach_cache(path, header, items)
       if jit == 'hot':
-        llvmjit.start_hot_tier(materialize.jit_threshold())
+        llvmjit.start_hot_tier(interp._its, materialize.jit_threshold())
       else:
         for _, _, info in bom.functions:
           if curryrt.icurry_bytecode(info) is not None:
-            llvmjit.enqueue(info, bom.fullname + '.' + info.name)
+            llvmjit.enqueue(info, bom.fullname + '.' + info.name, interp._its)
     except llvmjit.Unavailable as exc:
       if not materialize._JIT_WARNED:
         materialize._JIT_WARNED = True

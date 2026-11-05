@@ -10,6 +10,7 @@
 #include "curryrt/graph/infotable.hpp"
 #include "curryrt/graph/node.hpp"
 #include "curryrt/icurry.hpp"
+#include "curryrt/state/rts.hpp"
 #include "pybind11/pybind11.h"
 #include "pybind11/stl.h"
 
@@ -263,11 +264,11 @@ namespace
     }
   }
 
-  void icurry_post_step_(InfoTable * info, std::uintptr_t address)
+  void icurry_post_step_(ICurryWork const & work, std::uintptr_t address)
   {
     try
     {
-      icurry_post_step(info, reinterpret_cast<stepfunc_type>(address));
+      icurry_post_step(work, reinterpret_cast<stepfunc_type>(address));
     }
     catch(std::invalid_argument const & e)
     {
@@ -334,6 +335,14 @@ namespace curryrt { namespace python
     // tier calls them while an evaluation owns the lock.  They read a table
     // and the lists of the interpreter, under their own mutexes, and write
     // one step pointer.
+    py::class_<ICurryWork>(mod, "ICurryWork")
+      .def_property_readonly("info", [](ICurryWork const & work) { return work.info; },
+          py::return_value_policy::reference)
+      .def_property_readonly("owner", [](ICurryWork const & work) { return work.owner->id; })
+      .def_readonly("generation", &ICurryWork::generation)
+      .def_property_readonly("valid", &ICurryWork::valid);
+    mod.def("icurry_work", &icurry_work);
+    mod.def("icurry_invalidate", &icurry_invalidate);
     mod.def("icurry_take_hot", &icurry_take_hot
       , "The interpreted functions whose call count reached the threshold of "
         "the hot tier since the last call; the list is cleared."

@@ -250,9 +250,9 @@ class Materializer(object):
       from . import llvmjit
       try:
         if self.jit == 'hot':
-          llvmjit.start_hot_tier(jit_threshold())
+          llvmjit.start_hot_tier(self.interp._its, jit_threshold())
         else:
-          llvmjit.enqueue(info, ifun.fullname)
+          llvmjit.enqueue(info, ifun.fullname, self.interp._its)
       except llvmjit.Unavailable as exc:
         global _JIT_WARNED
         if not _JIT_WARNED:

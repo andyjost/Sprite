@@ -38,6 +38,8 @@ class IBackend(backends.IBackend):
     interp._its = curryrtbindings.InterpreterState()
     if previous is not None:
       interp._its.inherit_registry(previous)
+    curryrtbindings.icurry_set_hot_threshold(interp._its,
+        materialize.jit_threshold() if interp.flags['jit'] == 'hot' else 0)
 
   def module_loaded(self, interp, moduleobj, currypath):
     materialize.module_loaded(interp, moduleobj, currypath)

@@ -250,6 +250,130 @@ with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') 
     assert first.eval(again.f(10)).one() == 12
 ''')
 
+  def test_llvm_reset_discards_taken_work(self):
+    self._llvm_reset_work(False)
+
+  def test_llvm_reset_interrupts_batches(self):
+    self._llvm_reset_work(True)
+
+  def _llvm_reset_work(self, between):
+    try:
+      import llvmlite
+    except ImportError:
+      self.skipTest('llvmlite is unavailable')
+    self.run_child(r'''
+import os, sys, tempfile, threading, time
+from pathlib import Path
+os.environ['SPRITE_JIT_THRESHOLD'] = '2'
+from curry.interpreter import Interpreter
+from curry.backends.cxx import curryrtbindings as rt, llvmjit
+flags = {'interpret': 'all', 'jit': 'hot', 'jit_backend': 'llvm', 'inline_budget': 0}
+first, second = Interpreter(flags=flags), Interpreter(flags=flags)
+entered, release, done = threading.Event(), threading.Event(), threading.Event()
+between = %r
+llvmjit.BATCH_SIZE = 2
+ready, take = threading.Event(), threading.Event()
+take_hot = rt.icurry_take_hot
+def gated_take():
+    ready.set()
+    assert take.wait(30)
+    return take_hot()
+rt.icurry_take_hot = gated_take
+with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') as work:
+    source = Path(work) / 'RetiredHot.curry'
+    def write(value):
+        source.write_text('module RetiredHot where\n' + ''.join(
+            'f%%d :: Int -> Int\nf%%d n = %%d\n' %% (i, i, value)
+            for i in range(34)))
+    write(11)
+    first.path.insert(0, work)
+    a = first.import_('RetiredHot')
+    b = second.compile('f :: Int -> Int\nf n = 22\n', modulename='SurvivingHot')
+    assert ready.wait(30)
+    old = [getattr(a, 'f%%d' %% i).info for i in range(34)]
+    compiled = []
+    batch = llvmjit._jit.compile_batch
+    def record(items, **kw):
+        compiled.extend(info for info, name in items if info in old)
+        return batch(items, **kw)
+    llvmjit._jit.compile_batch = record
+    original = llvmjit._compile_groups_locked
+    def held(*args, **kw):
+        if not between:
+            entered.set()
+            assert release.wait(30)
+        try:
+            return original(*args, **kw)
+        finally:
+            done.set()
+    llvmjit._compile_groups_locked = held
+    sleep = time.sleep
+    def pause(seconds):
+        if between and seconds == 0 and threading.current_thread() is llvmjit._hot_thread:
+            entered.set()
+            assert release.wait(30)
+        else:
+            sleep(seconds)
+    llvmjit.time.sleep = pause
+    # The group lock holds all calls until every function is queued.
+    with llvmjit._group_lock:
+        for i in range(33):
+            for _ in range(2):
+                assert first.eval(getattr(a, 'f%%d' %% i)(0)).one() == 11
+        for _ in range(2):
+            assert second.eval(b.f(0)).one() == 22
+    take.set()
+    assert entered.wait(30), 'hot thread did not reach hold'
+    # Leave another entry queued while the worker holds the taken group.
+    for _ in range(2):
+        assert first.eval(a.f33(0)).one() == 11
+    owner = first._its.registry_id
+    try:
+        first.reset()
+        assert all(ticket.owner != owner for ticket in rt.icurry_take_hot())
+        write(33)
+        again = first.import_('RetiredHot')
+    finally:
+        release.set()
+    assert done.wait(30)
+    deadline = time.monotonic() + 30
+    while not rt.icurry_is_jit(b.f.info):
+        assert time.monotonic() < deadline, llvmjit.statistics()
+        second.eval(b.f(0)).one()
+        sleep(0.01)
+    rt.icurry_apply_posted()
+    assert all(not rt.icurry_is_jit(info) for info in old), 'retired generation was swapped'
+    assert len(compiled) == (2 if between else 0), ('stale batches compiled', len(compiled))
+    assert first.eval(again.f0(0)).one() == 33
+    assert second.eval(b.f(0)).one() == 22
+''' % between)
+
+  def test_eager_reset_preserves_other_cxx_hot_threshold(self):
+    self.run_child(r'''
+import os, sys, tempfile
+from pathlib import Path
+os.environ['SPRITE_JIT_THRESHOLD'] = '3'
+from curry.interpreter import Interpreter
+from curry.backends.cxx import curryrtbindings as rt, tiered
+from curry.objects.handle import getHandle
+first = Interpreter(flags={'interpret': 'all', 'jit': 'eager', 'jit_backend': 'cxx'})
+first.import_('Prelude')
+second = Interpreter(flags={'interpret': 'new', 'jit': 'hot', 'jit_backend': 'cxx'})
+with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') as work:
+    source = Path(work) / 'MixedHot.curry'
+    source.write_text('module MixedHot where\nf :: Int -> Int\nf n = n + 1\n')
+    second.path.insert(0, work)
+    module = second.import_('MixedHot')
+    first.reset()
+    first.import_('Prelude')
+    for _ in range(4):
+        assert second.eval(module.f(41)).one() == 42
+    assert tiered.wait_for('MixedHot', timeout=90, interp=second), tiered.status()
+    assert getHandle(module).backend_handle.shlib is not None
+    assert not rt.icurry_is_interpreted(module.f.info)
+    tiered.finish()
+''')
+
   def test_reserved_importer_keeps_private_imports(self):
     original = Path(config.installed_path('curry', 'Data/List.curry')).read_text()
     edited = original.replace('minimum xs@(_:_) =  foldl1 min xs',

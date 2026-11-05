@@ -170,6 +170,9 @@ class Interpreter(object):
     return self._reset_state(flags)
 
   def _reset_state(self, flags):
+    from ..backends.cxx import llvmjit
+    if getattr(self, '_its', None) is not None:
+      llvmjit.invalidate(self._its)
     self._session = object()
     self.stdin = sys.stdin
     self.stdout = sys.stdout

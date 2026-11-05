@@ -5,6 +5,7 @@
 #include <alloca.h>
 #endif
 #include <cassert>
+#include <algorithm>
 #include <cstring>
 #include <atomic>
 #include <mutex>
@@ -93,18 +94,22 @@ namespace curryrt
 
   namespace
   {
-    std::atomic<uint32_t> g_hot_threshold{0};
     std::mutex g_hot_mutex;
-    std::vector<InfoTable *> g_hot;
+    std::vector<ICurryWork> g_hot;
   }
 
-  void icurry_set_hot_threshold(uint32_t threshold)
-    { g_hot_threshold.store(threshold, std::memory_order_relaxed); }
-  uint32_t icurry_hot_threshold()
-    { return g_hot_threshold.load(std::memory_order_relaxed); }
-  std::vector<InfoTable *> icurry_take_hot()
+  ICurryWork icurry_work(InterpreterState & state, InfoTable * info)
   {
-    std::vector<InfoTable *> hot;
+    auto owner = state.modules.storage;
+    return {info, owner, owner->generation.load()};
+  }
+  void icurry_set_hot_threshold(InterpreterState & state, uint32_t threshold)
+    { state.hot_threshold = threshold; }
+  uint32_t icurry_hot_threshold(InterpreterState const & state)
+    { return state.hot_threshold; }
+  std::vector<ICurryWork> icurry_take_hot()
+  {
+    std::vector<ICurryWork> hot;
     std::lock_guard<std::mutex> lock(g_hot_mutex);
     hot.swap(g_hot);
     return hot;
@@ -115,13 +120,13 @@ namespace curryrt
     Cursor const _0 = C->cursor();
     Bytecode const * bc = (Bytecode const *) _0->info->aux;
     assert(bc);
-    if(uint32_t const threshold = g_hot_threshold.load(std::memory_order_relaxed))
+    if(uint32_t const threshold = rts->istate.hot_threshold)
     {
       if(++bc->calls == threshold)
       {
         cxx_hot(_0->info);
         std::lock_guard<std::mutex> lock(g_hot_mutex);
-        g_hot.push_back(const_cast<InfoTable *>(_0->info));
+        g_hot.push_back(icurry_work(rts->istate, const_cast<InfoTable *>(_0->info)));
       }
     }
     uint32_t const * const code = bc->code.data();
@@ -450,23 +455,39 @@ namespace curryrt
   namespace
   {
     std::mutex g_posted_mutex;
-    std::vector<std::pair<InfoTable *, stepfunc_type>> g_posted;
+    std::vector<std::pair<ICurryWork, stepfunc_type>> g_posted;
+  }
+
+  void icurry_invalidate(InterpreterState & state)
+  {
+    // Reset owns the heap and the Python JIT lock before retiring tables.
+    auto owner = state.modules.storage;
+    ++owner->generation;
+    {
+      std::lock_guard<std::mutex> lock(g_hot_mutex);
+      g_hot.erase(std::remove_if(g_hot.begin(), g_hot.end(),
+          [&](ICurryWork const & work) { return work.owner == owner; }), g_hot.end());
+    }
+    std::lock_guard<std::mutex> lock(g_posted_mutex);
+    g_posted.erase(std::remove_if(g_posted.begin(), g_posted.end(),
+        [&](auto const & entry) { return entry.first.owner == owner; }), g_posted.end());
   }
 
   std::atomic<bool> g_icurry_posted{false};
 
-  void icurry_post_step(InfoTable * info, stepfunc_type step)
+  void icurry_post_step(ICurryWork const & work, stepfunc_type step)
   {
-    if(!info || !step)
+    if(!work.info || !step)
       throw std::invalid_argument("icurry_post_step: a null argument");
     std::lock_guard<std::mutex> lock(g_posted_mutex);
-    g_posted.emplace_back(info, step);
+    if(!work.valid()) return;
+    g_posted.emplace_back(work, step);
     g_icurry_posted.store(true, std::memory_order_release);
   }
 
   size_t icurry_apply_posted()
   {
-    std::vector<std::pair<InfoTable *, stepfunc_type>> posted;
+    std::vector<std::pair<ICurryWork, stepfunc_type>> posted;
     {
       std::lock_guard<std::mutex> lock(g_posted_mutex);
       posted.swap(g_posted);
@@ -481,13 +502,13 @@ namespace curryrt
     for(auto const & entry: posted)
     {
       // A table swapped meanwhile, or never interpreted, keeps its step.
-      if(!is_interpreted_step(entry.first->step))
+      if(!entry.first.valid() || !is_interpreted_step(entry.first.info->step))
         continue;
       {
         std::lock_guard<std::mutex> lock(g_jit_mutex);
-        g_jit_steps.insert(entry.first);
+        g_jit_steps.insert(entry.first.info);
       }
-      entry.first->step = entry.second;
+      entry.first.info->step = entry.second;
       ++applied;
     }
     return applied;

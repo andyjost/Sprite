@@ -189,9 +189,18 @@ namespace curryrt
   // icurry_take_hot hands over and clears.  The JIT of the Python package
   // reads the list from a thread of its own, compiles the functions, and
   // swaps their steps while the evaluation runs (backends/cxx/llvmjit.py).
-  void icurry_set_hot_threshold(uint32_t);
-  uint32_t icurry_hot_threshold();
-  std::vector<InfoTable *> icurry_take_hot();
+  struct ICurryWork
+  {
+    InfoTable * info;
+    std::shared_ptr<ModuleRegistry::Storage> owner;
+    size_t generation;
+    bool valid() const { return owner->generation.load() == generation; }
+  };
+  ICurryWork icurry_work(InterpreterState &, InfoTable *);
+  void icurry_invalidate(InterpreterState &);
+  void icurry_set_hot_threshold(InterpreterState &, uint32_t);
+  uint32_t icurry_hot_threshold(InterpreterState const &);
+  std::vector<ICurryWork> icurry_take_hot();
 
   // The posted swaps of the hot tier.  The thread of the JIT posts a step for
   // a table (icurry_post_step); a scheduler applies the posted swaps at the
@@ -200,7 +209,7 @@ namespace curryrt
   // evaluation.  g_icurry_posted is the flag the scheduler reads per
   // iteration; icurry_apply_posted returns the count applied.
   extern CURRYRT_DATA std::atomic<bool> g_icurry_posted;
-  void icurry_post_step(InfoTable *, stepfunc_type);
+  void icurry_post_step(ICurryWork const &, stepfunc_type);
   size_t icurry_apply_posted();
 
   // Gives an interpreted function the step ``step``: the code a JIT made from

@@ -51,6 +51,7 @@ _lock = threading.Lock()
 _group_lock = threading.Lock()
 _jit = None       # the JIT of the process, made at the first compile
 _reason = None    # why the JIT is unavailable, once known
+BATCH_SIZE = 32
 
 def available():
   '''Whether the JIT can compile in this process.'''
@@ -70,7 +71,7 @@ def compile(info, name):
   with _lock:
     jit.compile_batch([(info, name)])
 
-def enqueue(info, name):
+def enqueue(info, name, state):
   '''
   Queues the interpreted function of ``info`` for the next :func:`flush`.
   The function runs interpreted until then.  Raises Unavailable when the
@@ -78,7 +79,7 @@ def enqueue(info, name):
   '''
   jit = _get()
   with _lock:
-    jit.pending.append((info, name))
+    jit.pending.append((curryrt.icurry_work(state, info), name))
 
 def flush():
   '''
@@ -93,7 +94,8 @@ def flush():
     pending, jit.pending = jit.pending, []
   if pending:
     start = time.perf_counter()
-    _compile_groups(jit, pending)
+    work = {curryrt.icurry_address(ticket.info): ticket for ticket, _ in pending}
+    _compile_groups(jit, [(ticket.info, name) for ticket, name in pending], work=work)
     name = pending[0][1].rsplit('.', 1)[0]
     logger.info('jit eager: module %s, %d functions, %.1f ms',
         name, len(pending), 1000 * (time.perf_counter() - start))
@@ -103,7 +105,7 @@ def flush():
 _hot_thread = None
 _hot_enabled = False
 
-def start_hot_tier(threshold):
+def start_hot_tier(state, threshold):
   '''
   Starts the hot tier once: the runtime counts the calls of every
   interpreted function, and a thread of this process compiles the functions
@@ -116,7 +118,7 @@ def start_hot_tier(threshold):
   _hot_enabled = True
   _get()
   with _lock:
-    curryrt.icurry_set_hot_threshold(int(threshold))
+    curryrt.icurry_set_hot_threshold(state, int(threshold))
     if _hot_thread is not None:
       return
     _hot_thread = threading.Thread(target=_hot_loop, name='curry-jit', daemon=True)
@@ -156,12 +158,13 @@ def _hot_loop():
     try:
       # These bindings read tables without acquiring the heap lock.
       start = time.perf_counter()
-      _compile_groups(jit, [(info, jit.names.get(curryrt.icurry_address(info))
-          or curryrt.icurry_name(info)) for info in hot], post=True)
+      work = {curryrt.icurry_address(ticket.info): ticket for ticket in hot}
+      # Names and bytecode are read only after checking the session under _lock.
+      _compile_groups(jit, [(ticket.info, None) for ticket in hot], post=True, work=work)
       if not _hot_enabled:
         continue
       logger.info('jit hot: compiled %s in %.1f ms',
-          ', '.join(curryrt.icurry_name(info) for info in hot),
+          ', '.join(str(ticket.owner) for ticket in hot),
           1000 * (time.perf_counter() - start))
       jit.hot += len(hot)
     except Exception as exc:
@@ -170,16 +173,31 @@ def _hot_loop():
       logger.exception('The hot tier of the JIT failed; the functions stay interpreted')
 
 
-def _compile_groups(jit, items, post=False):
+def _compile_groups(jit, items, post=False, work=None):
   with _group_lock:
-    _compile_groups_locked(jit, items, post)
+    _compile_groups_locked(jit, items, post, work)
 
-def _compile_groups_locked(jit, items, post):
+def _valid(info, work):
+  return work is None or work[curryrt.icurry_address(info)].valid
+
+def invalidate(state):
+  # Reset calls this before retirement, while holding the native metadata lock.
+  with _lock:
+    curryrt.icurry_invalidate(state)
+    if _jit is not None:
+      _jit.pending = [(ticket, name) for ticket, name in _jit.pending if ticket.valid]
+    # Keep the barrier for other owners' valid posted swaps.
+    curryrt.icurry_apply_posted()
+
+def _compile_groups_locked(jit, items, post, work=None):
   # Group and publish by image, but let a waiting resolver enter between
   # optimizer batches. No binding here may acquire the heap under _lock.
   with _lock:
     groups = {}
     for info, name in items:
+      if not _valid(info, work):
+        continue
+      name = name or jit.names.get(curryrt.icurry_address(info)) or curryrt.icurry_name(info)
       context = jit.modules.get(curryrt.icurry_address(info))
       groups.setdefault(id(context), (context, []))[1].append((info, name))
     ordered = list(groups.values())
@@ -189,22 +207,26 @@ def _compile_groups_locked(jit, items, post):
           reverse=True)
   for _, group in ordered:
     dirty = set()
-    for offset in range(0, len(group), 32):
+    for offset in range(0, len(group), BATCH_SIZE):
       with _lock:
         if post and not _hot_enabled:
           for context in dirty:
             if context.dirty:
               context.store()
           return
-        context = jit.compile_batch(group[offset:offset + 32], post=post, store=False)
+        batch = [(info, name) for info, name in group[offset:offset + BATCH_SIZE]
+            if _valid(info, work)]
+        if not batch:
+          continue
+        context = jit.compile_batch(batch, post=post, store=False, work=work)
         if context is not None:
           dirty.add(context)
       # Give a resolver waiting for the GIL a chance to take the lock.
-      if offset + 32 < len(group):
+      if offset + BATCH_SIZE < len(group):
         time.sleep(0)
     with _lock:
       for context in dirty:
-        if context.dirty:
+        if context.dirty and any(_valid(info, work) for info, _ in group):
           context.store()
 
 
@@ -310,7 +332,7 @@ class _JIT(object):
     self.seconds = 0.0
     curryrt.icurry_set_cache_hook(_resolve_cached)
 
-  def compile_batch(self, items, post=False, store=True):
+  def compile_batch(self, items, post=False, store=True, work=None):
     '''
     Optimizes ``items`` together, emits one object per function and swaps their
     steps; with ``post`` the swaps are posted for a scheduler to apply at
@@ -323,7 +345,13 @@ class _JIT(object):
       return
     # Callers bound the optimizer batch to one image and at most 32 steps.
     context = self.modules.get(curryrt.icurry_address(items[0][0]))
-    swap = curryrt.icurry_post_step if post else curryrt.icurry_set_step
+    def swap(info, address):
+      if not _valid(info, work):
+        return
+      if post:
+        curryrt.icurry_post_step(work[curryrt.icurry_address(info)], address)
+      else:
+        curryrt.icurry_set_step(info, address)
     uncached = []
     for info, name in items:
       if curryrt.icurry_is_jit(info):
@@ -348,6 +376,8 @@ class _JIT(object):
     symbols = []
     costs = {}
     for info, name in items:
+      if not _valid(info, work):
+        continue
       bc = curryrt.icurry_bytecode(info)
       if bc is None:
         raise ValueError('%s is not an interpreted function' % name)

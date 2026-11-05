@@ -443,7 +443,7 @@ def module_loaded(interp, moduleobj, currypath):
   _record(moduleobj)
   _register_binding(moduleobj)
   from .materialize import jit_threshold
-  curryrt.icurry_set_hot_threshold(jit_threshold() if interp.flags['jit'] == 'hot' else 0)
+  curryrt.icurry_set_hot_threshold(interp._its, jit_threshold() if interp.flags['jit'] == 'hot' else 0)
   queued = submit(interp, moduleobj, currypath, hot=interp.flags['jit'] == 'hot')
   if queued and interp.flags['jit'] == 'eager':
     start = time.monotonic()

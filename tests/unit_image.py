@@ -82,14 +82,15 @@ class TestImage(cytest.TestCase):
     path = image.filename(getHandle(module).icurry.filename)
     self.assertEqual(image.read(path)['name'], 'Prelude')
     native = curry.symbol('Prelude.map').info
-    had_bytecode = curryrt.icurry_bytecode(native) is not None
+    self.assertIsNotNone(curryrt.icurry_bytecode(native))
     curry.reset(backend='cxx', interpret='all', jit='off')
     with mock.patch('curry.toolchain._loadcurry.loadicurry',
         side_effect=AssertionError('image load read ICurry text')):
       module = curry.import_('Prelude')
     self.assertEqual(curry.eval(getattr(module, 'not')(True)).one(), False)
+    # Reset preserves registry identity, so the kept tables of #114 are reused by registry and name.
     self.assertIs(curry.symbol('Prelude.map').info, native)
-    self.assertEqual(curryrt.icurry_bytecode(native) is not None, had_bytecode)
+    self.assertIsNotNone(curryrt.icurry_bytecode(native))
 
   def test_roundtrip_stale_corrupt_and_version(self):
     with tempfile.TemporaryDirectory() as directory:

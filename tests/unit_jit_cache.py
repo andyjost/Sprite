@@ -178,7 +178,9 @@ def stopping(text):
 with llvmjit._lock:
   try:
     with mock.patch.object(llvmjit._jit.llvm, 'parse_assembly', side_effect=stopping), mock.patch.object(llvmjit._jit, 'link_object', side_effect=AssertionError('shutdown work linked')):
-      llvmjit._jit.compile_batch([(M.fib.info, 'Cached.fib')], post=True)
+      llvmjit._jit.compile_batch([(M.fib.info, 'Cached.fib')], post=True,
+      work={rt.icurry_address(info): rt.icurry_work(curry._interpreter_._its, info)
+            for info in (M.fib.info,)})
   finally:
     llvmjit._hot_enabled = True
 assert not rt.icurry_is_jit(M.fib.info)
@@ -281,7 +283,9 @@ def checked(obj):
   return read(obj)
 with mock.patch.object(llvmjit._Object, 'read', checked), mock.patch.object(llvmjit._Batch, 'emit', side_effect=AssertionError('cache hit compiled')):
   with llvmjit._lock:
-    llvmjit._jit.compile_batch([(M.fib.info, 'Cached.fib'), (M.message.info, 'Cached.message')], post=True)
+    llvmjit._jit.compile_batch([(M.fib.info, 'Cached.fib'), (M.message.info, 'Cached.message')], post=True,
+      work={rt.icurry_address(info): rt.icurry_work(curry._interpreter_._its, info)
+            for info in (M.fib.info, M.message.info,)})
   before = llvmjit.statistics()['linked']
   assert llvmjit._resolve_cached(M.fib.info.address)
   assert llvmjit.statistics()['linked'] == before
@@ -347,7 +351,9 @@ with mock.patch.object(obj, 'read', side_effect=ValueError('corrupt JIT object')
   assert [str(x) for x in curry.eval(M.fib(12))] == ['144']
   assert not rt.icurry_is_jit(M.fib.info)
   with llvmjit._lock:
-    llvmjit._jit.compile_batch([(M.fib.info, 'Cached.fib')], post=True)
+    llvmjit._jit.compile_batch([(M.fib.info, 'Cached.fib')], post=True,
+      work={rt.icurry_address(info): rt.icurry_work(curry._interpreter_._its, info)
+            for info in (M.fib.info,)})
 rt.icurry_apply_posted()
 assert rt.icurry_is_jit(M.fib.info)
 assert [str(x) for x in curry.eval(M.fib(12))] == ['144']
@@ -684,7 +690,9 @@ def slow(items, **kwargs):
   else:
     assert resolved.wait(2), 'resolver blocked by the whole hot group'
 def worker():
-  llvmjit._compile_groups(jit, [(M.bad.info, 'Cached.bad')] * 64, post=True)
+  llvmjit._compile_groups(jit, [(M.bad.info, 'Cached.bad')] * 64, post=True,
+      work={rt.icurry_address(info): rt.icurry_work(curry._interpreter_._its, info)
+            for info in (M.bad.info, M.fib.info)})
 with mock.patch.object(jit, 'compile_batch', side_effect=slow):
   thread = threading.Thread(target=worker)
   thread.start()
@@ -743,7 +751,9 @@ def stop():
 thread = threading.Thread(target=stop)
 thread.start()
 with mock.patch.object(jit, 'compile_batch', side_effect=fake):
-  llvmjit._compile_groups(jit, [(M.bad.info, 'Cached.bad')] * 64, post=True)
+  llvmjit._compile_groups(jit, [(M.bad.info, 'Cached.bad')] * 64, post=True,
+      work={rt.icurry_address(info): rt.icurry_work(curry._interpreter_._its, info)
+            for info in (M.bad.info, M.fib.info)})
 thread.join(5)
 assert stopped.is_set()
 assert calls == [32, 32]
@@ -803,7 +813,9 @@ with open(context.local, 'r+b') as stream:
 context.store()
 assert 'Cached.fib' not in context.cached
 with llvmjit._lock:
-  llvmjit._jit.compile_batch([(M.fib.info, 'Cached.fib')], post=True)
+  llvmjit._jit.compile_batch([(M.fib.info, 'Cached.fib')], post=True,
+      work={rt.icurry_address(info): rt.icurry_work(curry._interpreter_._its, info)
+            for info in (M.fib.info,)})
 rt.icurry_apply_posted()
 assert rt.icurry_is_jit(M.fib.info)
 print(json.dumps(dict(ok=True)))
@@ -918,7 +930,9 @@ assert index.stream.closed
 assert context.resolve('Cached.bad') == 0
 assert 'Cached.bad' in context.failed
 with llvmjit._lock:
-  jit.compile_batch([(M.bad.info, 'Cached.bad')], post=True)
+  jit.compile_batch([(M.bad.info, 'Cached.bad')], post=True,
+      work={rt.icurry_address(info): rt.icurry_work(curry._interpreter_._its, info)
+            for info in (M.bad.info,)})
 rt.icurry_apply_posted()
 assert rt.icurry_is_jit(M.bad.info)
 print(json.dumps(dict(ok=True)))

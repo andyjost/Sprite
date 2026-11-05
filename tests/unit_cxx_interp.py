@@ -561,8 +561,7 @@ main = double (CxxInterp.fact 3)
 
   @cytest.hardreset
   def test_all(self):
-    # A reserved module keeps the process's first definition across resets.
-    # Start a fresh process to test its initial interpreted load.
+    # Isolate the compiled objects and interpreted tables created by this fixture.
     child = cytest.run_in_subprocess(r'''
 import curry
 from curry.backends.cxx import curryrtbindings as rt

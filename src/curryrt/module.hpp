@@ -1,4 +1,5 @@
 #pragma once
+#include <atomic>
 #include <map>
 #include <memory>
 #include "curryrt/fwd.hpp"
@@ -20,6 +21,7 @@ namespace curryrt
     struct Storage
     {
       size_t id;
+      std::atomic<size_t> generation{0};
       std::unordered_map<std::string, std::weak_ptr<Module>> modules;
     };
     ModuleRegistry();
