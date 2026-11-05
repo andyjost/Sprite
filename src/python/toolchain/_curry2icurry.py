@@ -344,9 +344,9 @@ def icurry_is_stale(filename, currypath=None):
   try:
     curryfile = _filenames.curryfilename(filename)
   except ValueError:
-    return False
+    return not _interfaces.is_current(filename, currypath)
   if not os.path.isfile(curryfile):
-    return False
+    return not _interfaces.is_current(filename, currypath)
   if source_changed(curryfile, filename):
     return True
   if not all(os.path.isfile(cache.interface_filename(filename, suffix))
@@ -476,8 +476,9 @@ class Curry2ICurryConverter(object):
                 with _system.bindCurryPath(protected):
                   if logger.isEnabledFor(logging.DEBUG):
                     logger.debug('Command: %s', ' '.join(cmd))
-                  _system.pexec(cmd, cwd=_frontend.source_root(selected),
-                                env=_frontend.frontend_environment())
+                  import tempfile
+                  with tempfile.TemporaryDirectory(prefix='sprite-icurry-') as work:
+                    _system.pexec(cmd, cwd=work, env=_frontend.frontend_environment())
             else:
               _frontend.curry2icurry(file_in, file_out, currypath, self.quiet)
             if logger.isEnabledFor(logging.INFO):

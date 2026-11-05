@@ -124,6 +124,9 @@ class TestMake(cytest.TestCase):
       icy = toolchain.curry2icurry(source, [])
       standalone = os.path.join(directory, 'hello.icy')
       shutil.copy(icy, standalone)
+      shutil.copy(icy + '.imports', standalone + '.imports')
+      for suffix in ('.fint', '.icurry'):
+        shutil.copy(icy[:-4] + suffix, standalone[:-4] + suffix)
       icy = standalone
       make.main('sprite-make', ['--image', icy])
       self.assertEqual(image.read(icy[:-4] + '.img')['name'], 'hello')
@@ -330,7 +333,7 @@ class TestJobs(cytest.TestCase):
     self.assertEqual(
         cmd[:3], [sys.executable, '-m', config.python_package_name() + '.tools.make']
       )
-    self.assertEqual(cmd[-1], 'Data.Maybe')
+    self.assertEqual(cmd[-1], '/x/Data/Maybe.curry')
     for flag in [ '--cxx', '--so', '--icy', '--image', '--keep-going'
                 , '--quiet' ]:
       self.assertIn(flag, cmd)
@@ -441,7 +444,7 @@ class TestJobs(cytest.TestCase):
     b = self.write_module(2, imports=[c])
     a = self.write_module(3, imports=[b, c])
     commands = self.sprite_make(self.target, '--jobs', '3', a)
-    self.assertEqual([cmd[-1] for cmd in commands], [c, b, a])
+    self.assertEqual([os.path.basename(cmd[-1]).split('.')[0] for cmd in commands], [c, b, a])
     for cmd in commands:
       self.assertIn(self.target, cmd)
       self.assertNotIn('--zip', cmd)
@@ -493,7 +496,9 @@ class TestJobs(cytest.TestCase):
     A module whose child failed stops the modules that import it; with -k
     the others are still made.  The exit status is 1 either way.
     '''
-    x = self.write_module(0, text='not a module')
+    x = self.new_name()
+    self.write_module(0, name=x,
+        text='(IProg "%s" ["Prelude"] [] [invalid])' % x)
     y = self.write_module(1, imports=[x])
     z = self.write_module(2)
     with contextlib.redirect_stderr(io.StringIO()) as stderr:
@@ -520,7 +525,7 @@ class TestJobs(cytest.TestCase):
     a = self.write_module(6, imports=[b])
     out = os.path.join(self.tmpdir, 'out' + self.suffix)
     commands = self.sprite_make(self.target, '--jobs', '2', '-o', out, a)
-    self.assertEqual([cmd[-1] for cmd in commands], [b])
+    self.assertEqual([os.path.basename(cmd[-1]).split('.')[0] for cmd in commands], [b])
     self.assertTrue(os.path.isfile(out))
     self.assertTrue(os.path.isfile(self.product(a)))
 
@@ -714,6 +719,8 @@ class TestProductLock(cytest.TestCase):
     shutil.copy(
         os.path.join('data', 'curry', SUBDIR, 'hello.icy'), subdir
       )
+    from curry.toolchain import _interfaces
+    _interfaces.write(os.path.join(subdir, 'hello.icy'), [self.tmpdir] + curry.path)
     lock = os.path.join(subdir, 'hello.lock')
     error = OSError(errno.ENOLCK, 'No locks available')
     with mock.patch.object(_productlock.fcntl, 'flock', side_effect=error):
@@ -892,18 +899,18 @@ class TestProgramDirectory(cytest.TestCase):
     # (test_import_of_a_path), not for a name.
     code = (
         'import cytest, curry\n'
-        'from curry.exceptions import ModuleLookupError\n'
+        'from curry.exceptions import ModuleLookupError, CompileError\n'
         'try:\n'
         '  curry.import_("ProgDirMain", path=[%r])\n'
-        'except ModuleLookupError as exc:\n'
-        '  print("ModuleLookupError", "ProgDirLib" in str(exc))\n'
+        'except (ModuleLookupError, CompileError) as exc:\n'
+        '  print("missing import", "ProgDirLib" in str(exc))\n'
       ) % self.progdir
     proc = subprocess.run(
         [sys.executable, '-B', '-c', code], env=self.env, cwd=self.cwd
       , capture_output=True, text=True
       )
     self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
-    self.assertEqual(proc.stdout.split(), ['ModuleLookupError', 'True'])
+    self.assertEqual(proc.stdout.split(), ['missing', 'import', 'True'])
 
   def test_import_of_a_path(self):
     # curry.import_ of a path, with the directory on no search path.

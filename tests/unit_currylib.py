@@ -284,8 +284,13 @@ goal = ( getSum mempty, getProduct mempty, getAll mempty, getAny mempty
     self.assertFalse(os.path.exists(productfile('Numeric', '.icy')))
     Numeric = curry.import_('Numeric')
     self.assertEqual(next(curry.eval((Numeric.readHex)('ffz'))), [(255, 'z')])
-    self.assertTrue(os.path.isfile(productfile('Numeric', '.icy')))
-    with open(productfile('Numeric', '.icy'), 'rb') as rebuilt:
+    self.assertFalse(os.path.exists(productfile('Numeric', '.icy')))
+    from curry.objects.handle import getHandle
+    from curry.toolchain import _filenames
+    rebuiltfile = _filenames.icurryfilename(getHandle(Numeric).icurry.filename)
+    self.assertFalse(os.path.realpath(rebuiltfile).startswith(
+        os.path.realpath(config.installed_path('curry')) + os.sep))
+    with open(rebuiltfile, 'rb') as rebuilt:
       with open(os.path.join(saved, 'Numeric.icy'), 'rb') as staged:
         self.assertEqual(rebuilt.read(), staged.read())
     # The import leaves the installed FlatCurry file of the module in place:
@@ -542,7 +547,8 @@ assert curry.show(curry.eval(module.listToMaybe(curry.term([1]))).one()) == 'Jus
           else:
             result.append(item)
         return result
-      self.assertEqual(without_paths(actual), without_paths(ordinary))
+      self.assertEqual(without_paths(actual)[:-1], without_paths(ordinary)[:-1])
+      self.assertEqual(actual[-1], program[:-6])
       self.assertIn('-P', actual)
       paths = [actual[i + 1] for i, item in enumerate(actual[:-1]) if item == '-i']
       self.assertNotIn(config.system_curry_path(), paths)
@@ -743,7 +749,6 @@ def checked_command(*args, **kwargs):
     library = cmd[cmd.index('-P') + 1]
     paths = [cmd[i + 1] for i, value in enumerate(cmd[:-1]) if value == '-i']
     frontend_paths[_frontend.flatcurryfile(args[0])] = paths, library
-    private = tiered._state.private
     views = {entry[1] for entry in _interfaceview._views.values()}
     loaded_views = [path for path in paths if path in views and path != library]
     external = translation_routes[-1]
@@ -752,7 +757,7 @@ def checked_command(*args, **kwargs):
                for path in loaded_views)
     if loaded_views:
       assert paths[0] in loaded_views, paths
-    assert all(path in private or path in loaded_views for path in paths
+    assert all(list(Path(path).rglob('*.sprite-input')) or path in loaded_views for path in paths
                if path != library and tiered._state.tmpdir
                and path.startswith(tiered._state.tmpdir + os.sep)), paths
     assert not any(path.startswith(curry.config.installed_path('curry')) for path in paths)

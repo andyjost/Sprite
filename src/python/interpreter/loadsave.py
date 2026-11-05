@@ -217,3 +217,60 @@ def _standing_in(interp, cymodule, imodule):
     else:
       with binding(pkg.icurry, h.name, imodule):
         yield
+
+
+_SAVED_IMPORTS = b'SPRTSAVE1'
+
+
+def _saved_record(filename):
+  import json, struct
+  with open(filename, 'rb') as stream:
+    stream.seek(0, os.SEEK_END)
+    if stream.tell() < len(_SAVED_IMPORTS) + 8:
+      return None
+    stream.seek(-len(_SAVED_IMPORTS), os.SEEK_END)
+    if stream.read() != _SAVED_IMPORTS:
+      return None
+    stream.seek(-len(_SAVED_IMPORTS) - 8, os.SEEK_END)
+    size, = struct.unpack('<Q', stream.read(8))
+    if size > stream.tell() - 8:
+      raise exceptions.LoadError('invalid saved dependency record')
+    stream.seek(-len(_SAVED_IMPORTS) - 8 - size, os.SEEK_END)
+    return json.loads(stream.read(size))
+
+
+def _saved_snapshot(interp, names):
+  from ..toolchain import _findcurry, _interfaces
+  with _findcurry.resolving(interp):
+    result = _interfaces.object_snapshot(names, interp.path)
+    for name in names:
+      generation = _findcurry.loaded_generation(name)
+      if generation is not None and generation.object:
+        path = _findcurry.verify_product(generation, generation.object)
+        record = _saved_record(path)
+        if record is not None:
+          result[name] = record['identity']
+    return result
+
+
+def record_saved_imports(interp, module, filename):
+  """Keep dependency provenance in the relocatable object itself."""
+  import json, struct
+  from ..backends.cxx.toolchain import Cpp2So
+  names = Cpp2So._read_stamp_records(filename)[2]
+  if names is None:
+    names = handle.getHandle(module).icurry.imports
+  record = dict(imports=_saved_snapshot(interp, names),
+      identity=_saved_snapshot(interp, [module.__name__])[module.__name__])
+  payload = json.dumps(record, sort_keys=True).encode('ascii')
+  with open(filename, 'ab') as stream:
+    stream.write(payload + struct.pack('<Q', len(payload)) + _SAVED_IMPORTS)
+
+
+def verify_saved_imports(interp, filename):
+  """Refuse incompatible saved code before its initializers can run."""
+  record = _saved_record(filename)
+  if record is not None and record['imports'] != _saved_snapshot(interp, record['imports']):
+    error = exceptions.LoadError('saved object dependencies changed; save it again')
+    error.saved_dependencies_changed = True
+    raise error

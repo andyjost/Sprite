@@ -52,7 +52,7 @@ from ...toolchain import (
     plans, _filenames, _findcurry, _loadcurry, _makecurry, _productcache
   , _system, _productlock, _interfaces
   )
-import functools, hashlib, itertools, json, logging, os, re, sys, tempfile, threading, time
+import functools, hashlib, itertools, json, logging, os, re, shutil, sys, tempfile, threading, time
 
 logger = logging.getLogger(__name__)
 _warning_lock = threading.Lock()
@@ -1272,8 +1272,20 @@ class Cpp2So(object):
     selected = _destination.select(file_in, products)
     if selected != file_in:
       # Regenerate C++ from the selected translation before compiling it.
-      file_in = ICurry2Cpp(self.interp)(
-          _filenames.icurryfilename(selected), currypath, **ignored)
+      icyfile = _filenames.icurryfilename(selected)
+      if os.path.isfile(icyfile):
+        file_in = ICurry2Cpp(self.interp)(icyfile, currypath, **ignored)
+      else:
+        # A source-free generated input carries its own import receipt.
+        # Validate it below before compiling into the private destination.
+        try:
+          _filenames.curryfilename(selected)
+        except ValueError:
+          selected = os.path.join(os.path.dirname(selected), '.curry',
+              config.intermediate_subdir(), os.path.basename(selected))
+          os.makedirs(os.path.dirname(selected), exist_ok=True)
+        shutil.copyfile(file_in, selected)
+        file_in = selected
     # The imports of a program given as a file are searched on its path;
     # those of a module given by name on the path of the interpreter.
     imports = _findcurry.imports_path(currypath, **ignored)

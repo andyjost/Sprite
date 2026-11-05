@@ -74,8 +74,8 @@ with the installation (make stage), and the swap maps the object of such an
 import for its importers (above), so a library module an interpreter runs
 (interpret:all, or a stale object) runs compiled once an importer swaps.  A
 library source in a dependency view must pass the loader-snapshot
-namesake check (issue #168), which authenticates the declared name and
-installed source bytes. A dependency view belongs to one job.
+namesake check (issue #168), which checks the copier-written provenance
+record, declared name and installed source bytes. A dependency view belongs to one job.
 
 The check of the swap.  The child compiles the source as it is when the
 child runs.  An edit of the source between the import and the compile would
@@ -174,7 +174,6 @@ class _State(object):
     self.pending = {}    # module name -> the object of a compile not applied
     self.modules = {}    # module name -> a weak reference to its module object
     self.records = {}    # module name -> _Record
-    self.private = []    # the directories of the private copies, in order
     self.warned = set()  # the keys of the messages logged once
     self.counter = itertools.count()
 
@@ -183,7 +182,6 @@ _state = _State()
 def _after_fork_in_child():
   # The parent's private products belong to the parent, including at exit.
   _state.tmpdir = None
-  _state.private = []
 
 if hasattr(os, 'register_at_fork'):
   os.register_at_fork(after_in_child=_after_fork_in_child)
@@ -259,7 +257,7 @@ def _private_copy(imodule):
   pending = [generation] if generation is not None else []
   seen = set()
   closure = []
-  from ...toolchain._findcurry import verify_product
+  from ...toolchain._findcurry import verify_product, record_loader_input
   from .image import digest
   while pending:
     item = pending.pop()
@@ -293,6 +291,7 @@ def _private_copy(imodule):
   if os.path.isfile(filename):
     shutil.copy2(filename, copy)
     os.chmod(copy, 0o644)
+    record_loader_input(imodule.fullname, copy)
   stem = _filenames.icurryfilename(filename)[:-len('.icy')]
   products = [(generation.image if generation is not None and generation.image else stem + suffix)
       if suffix == '.img' else stem + suffix
@@ -315,6 +314,7 @@ def _private_copy(imodule):
     if item.source and os.path.isfile(item.source):
       shutil.copy2(item.source, target)
       os.chmod(target, 0o644)
+      record_loader_input(item.name, target)
     stem = _filenames.icurryfilename(item.source_spelling)[:-4] if item.source else None
     output = _filenames.icurryfilename(target)[:-4]
     os.makedirs(os.path.dirname(output), exist_ok=True)
@@ -339,7 +339,6 @@ def _private_copy(imodule):
         except OSError:
           shutil.copyfile(product, output + suffix)
   searchdirs = [directory, root]
-  _state.private.append(directory)
   return copy, searchdirs
 
 def _runtime(info):
@@ -832,6 +831,5 @@ def finish():
   if _state.tmpdir is not None:
     shutil.rmtree(_state.tmpdir, ignore_errors=True)
     _state.tmpdir = None
-    _state.private.clear()
 
 atexit.register(finish)

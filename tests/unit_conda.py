@@ -698,43 +698,38 @@ class TestPackageRules(cytest.TestCase):
 
   def test_compile_into_read_only_directory(self):
     '''
-    The compile step of the C++ backend names the cause when the directory
-    of its object cannot be written, instead of the error of the first
-    write.  The case: a read-only installation of the package, whose
-    shipped library objects are stale under it (open question 2 of
-    conda/README.md), so that sprite-make --so of any program compiles the
-    Prelude again and fails.
+    A source-free generated C++ input in a read-only product directory
+    compiles privately without changing the original object or ABI stamp.
     '''
     if os.geteuid() == 0:
       raise unittest.SkipTest('root writes everywhere')
     from curry.backends.cxx import toolchain
     from curry.backends.cxx import compiler as cxxcompiler
+    from curry.toolchain._frontend import ROUTE_VERSION
     step = toolchain.Cpp2So(cytest.raw.interp())
     with tempfile.TemporaryDirectory(dir=ENV['TMPDIR']) as tmpdir:
       cppfile = os.path.join(tmpdir, 'M.cpp')
       sofile = os.path.join(tmpdir, 'M.so')
       with open(cppfile, 'w') as ostream:
-        ostream.write('// FORMAT: %d\n// IMPORTS: \n' % cxxcompiler.FORMAT_VERSION)
+        ostream.write('// FORMAT: %d\n// MODULE: M\n// IMPORTS: \n' % cxxcompiler.FORMAT_VERSION)
         ostream.write('// INTERFACES: {"version":1,"imports":{}}\n')
-      def compile_fails(state):
+        ostream.write('// INPUT: {"registry":[],"route":%d,"source":null}\n' % ROUTE_VERSION)
+      def compile_privately():
         os.chmod(tmpdir, 0o555)
         try:
-          with self.assertRaises(exceptions.CompileError) as context:
-            step(cppfile, config.currypath())
+          product = step(cppfile, config.currypath())
         finally:
           os.chmod(tmpdir, 0o755)
-        message = str(context.exception)
-        self.assertIn('the directory %r cannot be written' % tmpdir, message)
-        self.assertIn(state, message)
-        self.assertIn('sprite-exec', message)
+        self.assertFalse(product.startswith(tmpdir + os.sep))
+        self.assertTrue(os.path.isfile(product))
         self.assertFalse(os.path.exists(sofile) and os.path.getsize(sofile) > 1)
       # No object; an object without a stamp; a stale object.
-      compile_fails('no object exists there')
+      compile_privately()
       open(sofile, 'w').close()
-      compile_fails('the object there has no ABI stamp')
+      compile_privately()
       with open(step.stampfile(sofile), 'w') as ostream:
         ostream.write('0123456789abcdef\n')
-      compile_fails('names another installation or runtime')
+      compile_privately()
       # The stamp of a stale object is left as it is: nothing was written.
       self.assertEqual(step.read_stamp(sofile), '0123456789abcdef')
 

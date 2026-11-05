@@ -87,18 +87,15 @@ import cytest
 from curry.backends.cxx import tiered
 import os, sys
 parent = tiered._tmpdir()
-tiered._state.private.append(parent)
 pid = os.fork()
 if pid == 0:
   assert tiered._state.tmpdir is None
-  assert tiered._state.private == []
   child = tiered._tmpdir()
   assert child != parent
   sys.exit(0)
 _, status = os.waitpid(pid, 0)
 assert os.waitstatus_to_exitcode(status) == 0
 assert os.path.isdir(parent)
-assert tiered._state.private == [parent]
 """
     child = subprocess.run([sys.executable, '-c', script],
         capture_output=True, text=True, timeout=TIMEOUT)
@@ -1074,15 +1071,10 @@ assert Cpp2So(curry._interpreter_).format_version(%r) is not None
     with open(source, 'w') as stream:
       stream.write('f :: Int\nf = 1\n')
     imodule = types.SimpleNamespace(filename=source, fullname='PrivateOrder')
-    before = list(tiered._state.private)
-    try:
-      copy1, dirs1 = tiered._private_copy(imodule)
-      copy2, dirs2 = tiered._private_copy(imodule)
-      copy3, dirs3 = tiered._private_copy(imodule)
-    finally:
-      added = tiered._state.private[len(before):]
-      del tiered._state.private[len(before):]
-    dir1, dir2, dir3 = added
+    copy1, dirs1 = tiered._private_copy(imodule)
+    copy2, dirs2 = tiered._private_copy(imodule)
+    copy3, dirs3 = tiered._private_copy(imodule)
+    dir1, dir2, dir3 = [os.path.dirname(path) for path in (copy1, copy2, copy3)]
     self.assertEqual(os.path.dirname(copy1), dir1)
     self.assertEqual(os.path.dirname(copy3), dir3)
     self.assertTrue(os.path.isfile(copy3))

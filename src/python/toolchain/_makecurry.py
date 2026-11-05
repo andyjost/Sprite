@@ -1,5 +1,5 @@
 from .. import config, exceptions
-from . import plans, _filenames, _findcurry, _productlock
+from . import plans, _filenames, _findcurry, _productlock, _frontend
 from ..utility import formatDocstring
 import importlib.util, logging, os, shutil, sys, time, threading
 
@@ -74,7 +74,10 @@ def makecurry(plan, name, currypath=None, **kwds):
   currypath = _findcurry.program_path(name, currypath, **kwds)
   do_tidy = kwds.pop('tidy', False)
   output = kwds.pop('output', None)
-  with _findcurry.resolving(plan.interp), \
+  from . import _destination
+  with _frontend.effective_imports(), \
+      _destination.publication(kwds.get('image_importing', False)), \
+      _findcurry.resolving(plan.interp), \
       ToolchainContext(tidy=do_tidy, output=output) as pipeline:
     for attempt in range(3):
       pipeline.currentfile = _findcurry.currentfile(
@@ -84,7 +87,13 @@ def makecurry(plan, name, currypath=None, **kwds):
         return pipeline.currentfile
       try:
         if not os.path.isdir(pipeline.currentfile):
-          Maker(plan, pipeline, name, currypath, kwds).make()
+          effective = currypath
+          if plan.interp is not None:
+            effective = _findcurry.import_path(plan.interp,
+                _findcurry.imports_path(currypath, **kwds))
+            if effective is None:
+              effective = list(plan.interp.path)
+          Maker(plan, pipeline, name, effective, kwds).make()
         return pipeline.currentfile
       except exceptions.CompileError as exc:
         # Another producer can replace an imported image after generation.

@@ -638,7 +638,7 @@ class TestAbiStamp(ToolchainTestCase):
     self.assertEqual(
         names, sorted(
             module.__name__ + suffix
-            for suffix in ['.icy', '.img', '.cpp', '.lock', '.so', '.so.abi']
+            for suffix in ['.icy', '.icy.imports', '.img', '.cpp', '.lock', '.so', '.so.abi']
           )
       )
 

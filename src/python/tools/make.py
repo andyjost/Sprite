@@ -237,9 +237,13 @@ def main(program_name, argv):
   # program must still write the object (the hot tier of the C++ compiler backend runs this
   # program for its background compile).
   from .. import _interpreter_
-  interp = _interpreter_ if args.backend_name is None else \
+  batch = len(args.names) > 1 and (args.image or args.cxx) \
+      and not args.output and not args.rewrite_flat \
+      and not any(name.endswith('.icy') for name in args.names)
+  interp = _interpreter_ if args.backend_name is None and not batch else \
            interpreter.Interpreter(
                flags=_flags.getflags(
+                   dict(_interpreter_.flags) if args.backend_name is None else
                    {'backend': args.backend_name, 'interpret': 'off'}
                  )
              )
@@ -254,8 +258,23 @@ def main(program_name, argv):
   counts = {'restored': 0, 'stored': 0, 'refreshed': 0, 'served': 0}
   if jobs > 1:
     _make_parallel(program_name, plan, args, kwds, error_handler, jobs, counts)
-  else:
+  elif batch:
+    graph = JobGraph(plan, config.currypath())
     for name in args.names:
+      with error_handler:
+        graph.add(name, is_sourcefile=name.endswith('.curry'))
+    for job in graph.jobs:
+      # Each completed target may replace files used by a loaded import.
+      interp.reset()
+      with error_handler:
+        toolchain.makecurry(plan, _filenames.curryfilename(job.currentfile),
+            job.currypath, **dict(kwds, is_sourcefile=True, resolved_path=True))
+  else:
+    for index, name in enumerate(args.names):
+      if index and args.cxx:
+        # This tool owns the native-build interpreter. A preceding target
+        # may have replaced products attached while resolving its imports.
+        interp.reset()
       with error_handler:
         _make_one(program_name, plan, name, args, kwds)
   report_cache(program_name, args, counts)
@@ -337,7 +356,10 @@ def _make_one(program_name, plan, name, args, kwds):
     # Standalone ICurry need not have a Curry source or interfaces.
     _convert_icy(program_name, name, args)
     return
+  # A child inherits the parent's already resolved scope.
   kwds = dict(kwds, is_sourcefile=name.endswith('.curry'))
+  if getattr(args, 'child', False):
+    kwds['resolved_path'] = True
   if args.rewrite_flat:
     name = _rewrite_flat(plan, name, kwds)
     kwds['is_sourcefile'] = True
@@ -431,9 +453,10 @@ class Job(object):
   the jobs of the stale modules it imports (directly, or through imports
   whose files are current), and the child that makes it.
   '''
-  def __init__(self, arg, currentfile):
+  def __init__(self, arg, currentfile, currypath=None):
     self.arg = arg
     self.currentfile = currentfile
+    self.currypath = currypath
     self.imports = []
     self.proc = None
     self.stdout = None
@@ -546,7 +569,7 @@ class JobGraph(object):
     if is_done(self.plan, currentfile, currypath):
       self._deps[curryfile] = waits
       return None
-    job = Job(arg, currentfile)
+    job = Job(arg, currentfile, currypath)
     job.imports = waits
     self.jobs.append(job)
     self._own[curryfile] = job
@@ -564,7 +587,7 @@ def child_command(args, job):
     cmd += ['--curry2icurry', args.curry2icurry]
   if args.goal is not None:
     cmd += ['--goal', args.goal]
-  cmd.append(job.arg)
+  cmd.append(_filenames.curryfilename(job.currentfile))
   return cmd
 
 def child_environment():
@@ -656,7 +679,9 @@ def run_jobs(
           job.stderr = tempfile.TemporaryFile()
           job.proc = subprocess.Popen(
               child_command(args, job), stdin=subprocess.DEVNULL
-            , stdout=job.stdout, stderr=job.stderr, env=env
+            , stdout=job.stdout, stderr=job.stderr,
+              env=dict(env, CURRYPATH=os.pathsep.join(job.currypath))
+                  if job.currypath is not None else env
             )
           running.append(job)
       if not running:

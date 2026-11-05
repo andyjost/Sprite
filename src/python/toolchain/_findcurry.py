@@ -18,23 +18,31 @@ def reserved_module_names():
 
 def is_loader_snapshot(modulename, filename):
   """Authenticate a private source copy, including in another process."""
-  import tempfile
-  from pathlib import Path
+  import hashlib, json
   try:
-    source = Path(os.path.realpath(_filenames.curryfilename(filename)))
-    relative = source.relative_to(os.path.realpath(tempfile.gettempdir()))
-    parts = relative.parts
-    if len(parts) < 3 or not parts[0].startswith('sprite-tiered-') \
-        or not parts[1].startswith('private') or not parts[1][7:].isdigit():
-      return False
-    if Path(*parts[2:]) != Path(*modulename.split('.')).with_suffix('.curry'):
-      return False
-    installed = Path(config.installed_path(
-        'curry', modulename.replace('.', os.sep) + '.curry'))
-    return _filenames.module_name(str(source)) == modulename \
-        and source.read_bytes() == installed.read_bytes()
+    source = os.path.realpath(_filenames.curryfilename(filename))
+    with open(source + '.sprite-input', encoding='ascii') as stream:
+      record = json.load(stream)
+    with open(source, 'rb') as stream:
+      digest = hashlib.sha256(stream.read()).hexdigest()
+    installed = config.installed_path(
+        'curry', modulename.replace('.', os.sep) + '.curry')
+    with open(installed, 'rb') as stream:
+      expected = hashlib.sha256(stream.read()).hexdigest()
+    return record == dict(version=1, name=modulename, digest=digest) and digest == expected
   except (OSError, ValueError):
     return False
+
+
+def record_loader_input(modulename, filename):
+  """Mark an input created by the private rebuild copier, for its readers."""
+  import hashlib, json
+  from .. import cache
+  with open(filename, 'rb') as stream:
+    digest = hashlib.sha256(stream.read()).hexdigest()
+  cache.write_file(filename + '.sprite-input', json.dumps(
+      dict(version=1, name=modulename, digest=digest), sort_keys=True) + '\n')
+
 
 def reject_library_shadow(modulename, filename, interp):
   if interp is None or modulename not in reserved_module_names() \
@@ -76,7 +84,8 @@ def with_resolution(function):
   from functools import wraps
   @wraps(function)
   def wrapped(plan, *args, **kwds):
-    with resolving(getattr(plan, 'interp', plan)):
+    from . import _frontend
+    with resolving(getattr(plan, 'interp', plan)), _frontend.effective_imports():
       return function(plan, *args, **kwds)
   return wrapped
 
@@ -262,7 +271,7 @@ def _modulefiles(plan, name, currypath):
     if os.path.isdir(directory):
       yield directory
 
-def program_path(name, currypath, is_sourcefile=False, **ignored):
+def program_path(name, currypath, is_sourcefile=False, resolved_path=False, **ignored):
   '''
   The search path of a program.  For a module given as a source file
   (``is_sourcefile``), the root of the module hierarchy comes first, then the
@@ -274,7 +283,7 @@ def program_path(name, currypath, is_sourcefile=False, **ignored):
   files of the program under it.
   '''
   currypath = list(currypath)
-  if is_sourcefile:
+  if is_sourcefile and not resolved_path:
     from . import _frontend
     directory = _frontend.source_root(name)
     currypath = [directory] + [
@@ -356,7 +365,8 @@ def currentfile(
   '''
   modulename = (_filenames.module_name(name) if is_sourcefile else
                 curryname.getModuleName(name, False))
-  currypath = program_path(name, currypath, is_sourcefile)
+  currypath = program_path(name, currypath, is_sourcefile,
+      resolved_path=ignored.get('resolved_path', False))
   # ICurry provenance needs the same effective import path as images and
   # objects, including imports by name whose imports_path is None.
   effective = import_path(plan.interp, imports_path(currypath, is_sourcefile)) \

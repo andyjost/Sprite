@@ -178,8 +178,10 @@ def reload(interp, module, *, text=None):
     os.makedirs(os.path.dirname(filename), exist_ok=True)
     with open(filename, 'w', encoding='utf-8') as stream:
       stream.write(replacement)
-    plan = plans.makeplan(flags=plans.MAKE_ICURRY)
-    toolchain.makecurry(plan, filename, currypath, is_sourcefile=True)
+    with interp._private_modules():
+      interp.modules.pop(module.__name__, None)
+      plan = plans.makeplan(interp, flags=plans.MAKE_ICURRY)
+      toolchain.makecurry(plan, filename, currypath, is_sourcefile=True)
   wait(interp)
   from ..utility.locking import native_metadata
   return native_metadata(_replace_module)(interp, module, source, text, imports)
@@ -258,6 +260,8 @@ def save(interp, module, path, *, main=None):
         cpp = os.path.join(directory, current.__name__ + '.cpp')
         interp.save(current, cpp, module_main=False, interfaces=True)
         product = SavedCpp2So(interp)(cpp, interp.path)
+        from .loadsave import record_saved_imports
+        record_saved_imports(interp, current, product)
         objects[current.__name__] = product
         return product
 

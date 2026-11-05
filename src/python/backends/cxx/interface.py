@@ -29,7 +29,6 @@ class IBackend(backends.IBackend):
     # A new interpreter and a reset unload the modules whose compiles run in
     # the background.
     tiered.cancel()
-    tiered._state.private.clear()
     with llvmjit._lock:
       llvmjit._hot_enabled = False
       curryrtbindings.icurry_set_hot_threshold(0)

@@ -450,15 +450,43 @@ fingerprints use the loaded declarations and recorded digests, including
 the object digest for a source-free object.
 
 Editing or rebuilding a loaded module's files without reload or reset is
-outside the module rules; behavior in that process is undefined. The next
-reload, reset or process reads the changed files. Three guarantees still
-hold: the installation is never written, inlining uses the loaded bodies,
-and tools that need product files verify their digests against the load
-record. Inspection and saved-program reconstruction refuse changed products
+outside the module rules; behavior in that process is undefined. This is
+the loaded-module boundary. The next reload, reset or process reads the
+changed files. Three guarantees still
+hold: importers and runtime paths never write the installation, except
+for the documented LLVM cache slot beside its attached image; inlining uses
+the loaded bodies; and tools that need product files verify their digests
+against the load record. Inspection and saved-program reconstruction
+refuse changed products
 with an error naming the module and asking for reload. Background compilation
 skips a module with changed inputs, logs one INFO message and leaves it
 interpreted. Only compile jobs create files in the background compiler's
 temporary root.
+
+A writable development installation also accepts explicit ``sprite-make``
+refreshes when all prerequisite products are in place, and its precompiled
+header goes in the include directory. These are deliberate writers.
+Importers rebuild stale installed products privately, even in a writable
+installation. Read-only user product directories also rebuild privately.
+
+Named imports keep Curry path order throughout translation and execution.
+Only an explicit source-file operation puts the program's source root first;
+parallel make children inherit that effective path and the resolved input.
+A local CPM project's sources are present even without installed packages.
+
+Saved objects carry dependency fingerprints inside the artifact. Loading
+checks them before opening the object, rebuilds from the first source on
+the effective path when available, and refuses incompatible source-free
+artifacts. A saved executable checks externally resolved dependencies in
+the same way.
+ICurry import receipts are validated even without source, and when supplied
+explicitly. Stale source-free translations are refused.
+
+Image publication replaces a complete file by rename, including a path that
+was previously attached. An attached process keeps its mapped generation;
+a later tool read still checks the recorded digest. Private rebuild inputs
+carry a copier-written provenance record; a directory's spelling alone does
+not authorize an outside reserved module.
 
 The module image
 ================

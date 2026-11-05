@@ -1,5 +1,7 @@
 """Publication destinations shared by installed-module product writers."""
 import os
+from contextlib import contextmanager
+from contextvars import ContextVar
 from . import _filenames, _findcurry
 from .. import config
 
@@ -24,30 +26,32 @@ def writable(filename):
   return os.access(directory, os.W_OK) and bool(os.stat(directory).st_mode & 0o222)
 
 
+_importing = ContextVar('product_importing', default=False)
+
+
+@contextmanager
+def publication(importing):
+  token = _importing.set(importing)
+  try:
+    yield
+  finally:
+    _importing.reset(token)
+
+
 def needs_private(filename, products):
   filename = canonical(filename)
-  return _findcurry._installed_library_file(filename) and (
-      not writable(_filenames.icurryfilename(filename)
-          if filename.endswith('.curry') else filename) or any(path is not None and
+  product = _filenames.icurryfilename(filename) if filename.endswith('.curry') else filename
+  return not writable(product) or (_findcurry._installed_library_file(filename) and (
+      _importing.get() or any(path is not None and
           not _findcurry._installed_library_file(canonical(path))
-          for path in products))
+          for path in products)))
 
 
 def select(filename, products=(), force=False):
   """Return a source generation; later writers inherit its destination."""
   filename = canonical(filename)
-  from ..backends.cxx import tiered, image, curryrtbindings as curryrt
+  from ..backends.cxx import tiered
   source = _filenames.sourcefilename(filename)
-  private = tiered._state.tmpdir
-  if private and os.path.realpath(source).startswith(os.path.realpath(private) + os.sep):
-    name = _filenames.module_name(source)
-    mapped = curryrt.SharedCurryModule.find_sofilename(name)
-    objectfile = _filenames.replacesuffix(source, config.module_object_suffix())
-    if os.path.realpath(image.filename(source)) in image._attached_paths or \
-        (mapped is not None and os.path.realpath(mapped) == os.path.realpath(objectfile)):
-      # Every writer follows a new source destination, including interfaces
-      # and ABI stamps; an attached private generation is never replaced.
-      force = True
   if not force and not needs_private(filename, products):
     return filename
   from ..icurry.types import IModule

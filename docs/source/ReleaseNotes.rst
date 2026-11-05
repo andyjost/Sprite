@@ -5,6 +5,11 @@ Release Notes
 Unreleased
 ==========
 
+- Preserve module path order, saved dependency provenance and ICurry import
+  validation; rebuild stale installed and read-only user products privately,
+  retain local CPM sources without packages, and validate private rebuild
+  provenance under the loaded-module boundary.
+
 - Serve loaded modules from memory until reload or reset, without product
   snapshots; product-file readers verify the digests recorded at load.
 - Library modules follow Curry path order; only runtime builtin module names

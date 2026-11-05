@@ -503,6 +503,23 @@ def write_module_image(path, description, translate=True):
   icyfile = path[:-4] + '.icy'
   with open(icyfile, 'w') as stream:
     stream.write(text + '\n')
+  search = [os.path.dirname(os.path.dirname(os.path.dirname(path)))] + raw.interp().path
+  from curry.toolchain import _interfaces, _filenames, _curry2icurry
+  from curry import cache
+  source = _filenames.sourcefilename(icyfile)
+  if os.path.isfile(source):
+    cache.write_file(icyfile + '.source', _curry2icurry.source_digest(source))
+    for suffix in cache.INTERFACE_SUFFIXES:
+      interface = cache.interface_filename(icyfile, suffix)
+      if not os.path.exists(interface):
+        # Source-backed synthetic integer goals still need a typed interface.
+        name = json.dumps(_filenames.module_name(source))
+        text = ('Prog %s ["Prelude"] [] [Func (%s,"goal") 0 Public '
+            '(TCons ("Prelude","Int") []) (Rule [] (Var 0))] [] []\n') % (name, name)
+        cache.write_file(interface, text if suffix == '.fint' else '')
+  try:
+    _interfaces.write(icyfile, search)
+  except ValueError:
+    pass # malformed synthetic inputs are diagnosed by their test
   if translate:
-    search = [os.path.dirname(os.path.dirname(os.path.dirname(path)))] + raw.interp().path
     image.ensure(raw.interp(), icyfile, search)
