@@ -1107,7 +1107,11 @@ reaping wait.
 Sprite ends the POSIX process group or Windows Job Object that it started
 for a command. A descendant that leaves that group or session itself (for
 example with ``setsid``, ``setpgid`` or daemonization) is outside this boundary,
-and Sprite does not chase it.
+and Sprite does not chase it. A host program that reaps child processes
+itself (a ``SIGCHLD`` handler that calls ``waitpid(-1, ...)``) takes over
+Sprite's command children, and an asynchronous interruption inside the
+standard library's process launch is not cleaned up; both are outside the
+boundary too.
 
 ``ReadShowTerm`` from CPM ``read-legacy`` uses pure C++ primitives to print
 and read ground data in PAKCS prefix notation. Constructor names are
