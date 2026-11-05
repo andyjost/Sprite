@@ -195,6 +195,7 @@ namespace curryrt
   struct ICurryWork
   {
     InfoTable * info;
+    Bytecode const * bytecode;
     std::shared_ptr<ModuleRegistry::Storage> owner;
     size_t generation;
     bool valid() const { return owner->generation.load() == generation; }
@@ -218,9 +219,9 @@ namespace curryrt
   // Gives an interpreted function the step ``step``: the code a JIT made from
   // its bytecode (backends/cxx/llvmjit.py). The bytecode stays in aux.
   // This is the only LLVM install point. Returns false for ownerless or
-  // retired bytecode, leaving the interpreted entry unchanged.
+  // retired or replaced bytecode, leaving the current entry unchanged.
   // ``info`` must be interpreted at the call (std::invalid_argument).
-  bool icurry_set_step(InfoTable * info, stepfunc_type step);
+  bool icurry_set_step(InfoTable * info, stepfunc_type step, ICurryWork const & work);
 
   // Makes ``info`` an interpreted function: its step becomes icurry_step and
   // its bytecode ``code``, which lives as long as the process.  ``info`` must

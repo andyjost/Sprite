@@ -71,7 +71,8 @@ def compile(info, name):
   messages = []
   try:
     with _lock:
-      jit.compile_batch([(info, name)], messages=messages)
+      work = {curryrt.icurry_address(info): curryrt.icurry_work(info)}
+      jit.compile_batch([(info, name)], work=work, messages=messages)
   finally:
     _emit_messages(messages)
 
@@ -253,7 +254,14 @@ def _compile_groups_locked(jit, items, post, messages, work=None):
 
 
 def statistics():
-  '''The counts and the seconds of the JIT of this process.'''
+  '''The counts and the seconds of the JIT of this process.
+
+  ``functions`` counts newly compiled steps accepted for direct installation
+  or posted as hot work.
+  ``hot`` counts posted work, not swaps applied by the scheduler. The native
+  ``icurry_apply_posted`` return value counts the installations it accepts.
+  ``linked`` counts cached objects resolved, including refused installations.
+  '''
   jit = _jit
   if jit is None:
     return {'functions': 0, 'batches': 0, 'hot': 0, 'errors': 0, 'last_error': None, 'seconds': 0.0, 'linked': 0}
@@ -367,15 +375,18 @@ class _JIT(object):
       return
     if not items:
       return
+    if work is None:
+      work = {curryrt.icurry_address(info): curryrt.icurry_work(info) for info, _ in items}
     # Callers bound the optimizer batch to one image and at most 32 steps.
     context = self.modules.get(curryrt.icurry_address(items[0][0]))
     def swap(info, address):
       if not _valid(info, work):
-        return
+        return False
+      ticket = work[curryrt.icurry_address(info)]
       if post:
-        curryrt.icurry_post_step(work[curryrt.icurry_address(info)], address)
-      else:
-        curryrt.icurry_set_step(info, address)
+        curryrt.icurry_post_step(ticket, address)
+        return True
+      return curryrt.icurry_set_step(info, address, ticket)
     uncached = []
     for info, name in items:
       if curryrt.icurry_is_jit(info):
@@ -481,8 +492,7 @@ class _JIT(object):
         context.objects.append((records, obj))
         context.dirty = True
         self.generations.setdefault(context.runtime_key, []).append((tracker, records))
-      if not curryrt.icurry_is_jit(info):
-        swap(info, tracker[symbol])
+      if not curryrt.icurry_is_jit(info) and swap(info, tracker[symbol]):
         swapped += 1
         if compiled is not None:
           compiled.append(name)

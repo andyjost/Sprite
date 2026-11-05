@@ -250,6 +250,107 @@ with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') 
     assert first.eval(again.f(10)).one() == 12
 ''')
 
+  def test_llvm_cached_reload_during_resolution(self):
+    try:
+      import llvmlite
+    except ImportError:
+      self.skipTest('llvmlite is unavailable')
+    self.run_child(r'''
+import logging, os, shutil, sys, tempfile
+from pathlib import Path
+os.environ['SPRITE_JIT_THRESHOLD'] = '1000000000'
+from curry.interpreter import Interpreter, session
+from curry.backends.cxx import curryrtbindings as rt, llvmjit
+flags = {'interpret': 'all', 'jit': 'hot', 'jit_backend': 'llvm', 'inline_budget': 0}
+with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') as work:
+    os.environ['SPRITE_JIT_CACHE'] = str(Path(work) / 'cache')
+    source = Path(work) / 'ReloadCached.curry'
+    for value in (17, 29):
+        source.write_text('module ReloadCached where\nf :: Int -> Int\nf n = %d\n' % value)
+        fill = Interpreter(flags=flags)
+        fill.path.insert(0, work)
+        m = fill.import_('ReloadCached')
+        llvmjit.compile(m.f.info, 'ReloadCached.f')
+        context = llvmjit._jit.modules[rt.icurry_address(m.f.info)]
+        Path(context.private).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(context.local, context.private)
+    source.write_text('module ReloadCached where\nf :: Int -> Int\nf n = 17\n')
+    first = Interpreter(flags=flags)
+    first.path.insert(0, work)
+    m = first.import_('ReloadCached')
+    info = m.f.info
+    old = llvmjit._jit.modules[rt.icurry_address(info)]
+    assert 'ReloadCached.f' in old.cached and not old.resolved
+    seen = []
+    class Reload(logging.Handler):
+        def emit(self, record):
+            if seen or 'resolved ReloadCached.f' not in record.getMessage():
+                return
+            seen.append(record.getMessage())
+            assert not llvmjit._lock.locked()
+            session.reload(first, m, text='f :: Int -> Int\nf n = 29\n')
+            assert rt.icurry_address(m.f.info) == rt.icurry_address(info)
+            new = llvmjit._jit.modules[rt.icurry_address(info)]
+            assert new is not old and 'ReloadCached.f' in new.cached
+    handler = Reload()
+    llvmjit.logger.addHandler(handler)
+    llvmjit.logger.setLevel(logging.INFO)
+    before = llvmjit.statistics().copy()
+    try:
+        assert first.eval(m.f(0)).one() == 29, 'old cached address was installed'
+    finally:
+        llvmjit.logger.removeHandler(handler)
+    assert len(seen) == 1
+    new = llvmjit._jit.modules[rt.icurry_address(info)]
+    assert 'ReloadCached.f' in new.resolved, 'replacement trampoline was overwritten'
+    assert rt.icurry_is_jit(info)
+    after = llvmjit.statistics()
+    assert after['linked'] == before['linked'] + 2, (before, after)
+    assert after['functions'] == before['functions'], (before, after)
+    assert first.eval(m.f(0)).one() == 29
+''')
+
+  def test_llvm_direct_compile_refused_install_counts(self):
+    try:
+      import llvmlite
+    except ImportError:
+      self.skipTest('llvmlite is unavailable')
+    self.run_child(r'''
+from unittest import mock
+from curry.interpreter import Interpreter
+from curry.backends.cxx import curryrtbindings as rt, llvmjit
+import sys, tempfile
+from pathlib import Path
+with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') as work:
+    first = Interpreter(flags={'interpret': 'all', 'jit': 'off', 'inline_budget': 0})
+    source = Path(work) / 'RefusedCompile.curry'
+    source.write_text('module RefusedCompile where\nf :: Int -> Int\nf n = 17\n')
+    first.path.insert(0, work)
+    m = first.import_('RefusedCompile')
+    info = m.f.info
+    first.reset()
+    before = llvmjit.statistics().copy()
+    llvmjit.compile(info, 'RefusedCompile.f')
+    after = llvmjit.statistics()
+    assert not rt.icurry_is_jit(info)
+    assert after['functions'] == before['functions'], (before, after)
+    assert after['hot'] == before['hot'], (before, after)
+    # A native refusal must also propagate when the Python token is valid.
+    source = Path(work) / 'RefusedLiveCompile.curry'
+    source.write_text('module RefusedLiveCompile where\ng :: Int -> Int\ng n = 23\n')
+    m = first.import_('RefusedLiveCompile')
+    info = m.g.info
+    before = llvmjit.statistics().copy()
+    with mock.patch.object(rt, 'icurry_set_step', return_value=False) as install:
+        llvmjit.compile(info, 'RefusedLiveCompile.g')
+    assert install.call_count == 1
+    assert install.call_args.args[2].valid
+    assert not rt.icurry_is_jit(info)
+    after = llvmjit.statistics()
+    assert after['functions'] == before['functions'], (before, after)
+    assert after['hot'] == before['hot'], (before, after)
+''')
+
   def test_llvm_cached_lazy_cross_interpreter_after_reset(self):
     try:
       import llvmlite
@@ -282,6 +383,7 @@ with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') 
     assert 'RetiredCached.f' in context.cached
     assert 'RetiredCached.f' not in context.resolved
     results = second.eval(m.f(0))
+    ticket = rt.icurry_work(info)
     first.reset()
     before = llvmjit.statistics().copy()
     assert results.one() == 17
@@ -289,7 +391,7 @@ with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') 
     assert 'RetiredCached.f' not in context.resolved, 'retired object was resolved'
     assert llvmjit.statistics() == before, (before, llvmjit.statistics())
     # A caller that bypasses the resolver still cannot install on this table.
-    assert rt.icurry_set_step(info, native_step) is False
+    assert rt.icurry_set_step(info, native_step, ticket) is False
     assert not rt.icurry_is_jit(info)
 ''')
 

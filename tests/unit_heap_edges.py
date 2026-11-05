@@ -174,6 +174,53 @@ llvmjit.logger.removeHandler(handler)
 print('ok')
 ''')
 
+  def test_changed_input_rejection_logging_can_reenter(self):
+    self.changed_input_logging(False)
+
+  def test_changed_input_retry_logging_can_reenter(self):
+    self.changed_input_logging(True)
+
+  def changed_input_logging(self, retry):
+    self.child('''
+import os, sys, tempfile
+from curry import cache
+from curry.toolchain import _curry2icurry as convert, _productlock, _destination
+term = curry.term(7)
+seen = []
+class Reenter(logging.Handler):
+  def emit(self, record):
+    seen.append(record.getMessage())
+    assert not getattr(_productlock._local, 'held', {}), 'logging under product lock'
+    assert curry.eval(term).one() == 7
+handler = Reenter()
+target = convert.logger if %r else cache.logger
+target.addHandler(handler)
+target.setLevel(logging.INFO)
+with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') as directory:
+  source = os.path.join(directory, 'Changed.curry')
+  with open(source, 'w') as stream:
+    stream.write('module Changed where\\nf = 1\\n')
+  if %r:
+    output = os.path.join(directory, 'Changed.icy')
+    with open(output, 'w') as stream:
+      stream.write('')
+    converter = convert.Curry2ICurryConverter()
+    with mock.patch.object(_destination, 'select', return_value=source), \\
+         mock.patch.object(converter, '_convert', side_effect=[convert._InputsChanged(), output]):
+      assert converter.convert(source, [directory]) == output
+  else:
+    slot = object.__new__(cache.Curry2ICurryCache.Slot)
+    slot.file_in, slot.key_args = source, (source, [directory], (), None)
+    slot.snapshot = ({'source': 'old'}, {})
+    with mock.patch.object(cache, '_input_snapshot', return_value=({'source': 'new'}, {})):
+      with _productlock.locked(source):
+        assert slot._refresh_key() is False
+        assert slot.inputs_changed
+  assert len(seen) == 1, seen
+target.removeHandler(handler)
+print('ok')
+''' % (retry, retry))
+
   def test_product_registry_snapshot_precedes_image_lock(self):
     self.child('''
 import os, tempfile

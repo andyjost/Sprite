@@ -463,20 +463,22 @@ class PrepareJob(Job):
     '''
     from curry.toolchain import _preprocessor
     lines = [line for line in text.splitlines() if line.strip()]
-    if not lines or not all(
-        PREPROCESSOR_FAILURE.search(line) or CACHE_LINE.match(line)
-        or REWRITE_LINE.match(line) for line in lines
-      ):
-      return {}
     path = (self.env or os.environ).get('PATH')
-    found = {}
+    refusals = {}
     for module in self.modules:
       tool = self.tool_lacking(module)
-      if tool is None:
-        continue
-      message = _preprocessor.missing(os.path.join(self.testdir, module), path=path)
-      if message and message in text:
+      if tool is not None:
+        message = _preprocessor.missing(os.path.join(self.testdir, module), path=path)
+        if message:
+          refusals['sprite-make: ' + message] = (module, tool)
+    found = {}
+    for line in lines:
+      if line in refusals:
+        module, tool = refusals[line]
         found[module] = tool
+      elif not (CACHE_LINE.fullmatch(line) or REWRITE_LINE.fullmatch(line)):
+        return {}
+    found = {module: found[module] for module in self.modules if module in found}
     return found
 
   def product(self, module):

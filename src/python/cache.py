@@ -696,7 +696,9 @@ class Curry2ICurryCache(object):
       sources, interfaces = self.snapshot
       if current[0] != sources or any(value is not None and
           current[1].get(name) != value for name, value in interfaces.items()):
-        logger.info('not caching %s: inputs changed during compilation', self.file_in)
+        from .toolchain import _productlock
+        _productlock.log(logger, logging.INFO,
+            'not caching %s: inputs changed during compilation', self.file_in)
         self.inputs_changed = True
         return False
       self.key = icurry_cache_key(*self.key_args, snapshot=current)

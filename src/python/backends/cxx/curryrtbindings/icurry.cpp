@@ -252,11 +252,11 @@ namespace
     return nullptr;
   }
 
-  bool icurry_set_step_(InfoTable * info, std::uintptr_t address)
+  bool icurry_set_step_(InfoTable * info, std::uintptr_t address, ICurryWork const & work)
   {
     try
     {
-      return icurry_set_step(info, reinterpret_cast<stepfunc_type>(address));
+      return icurry_set_step(info, reinterpret_cast<stepfunc_type>(address), work);
     }
     catch(std::invalid_argument const & e)
     {
@@ -313,8 +313,8 @@ namespace curryrt { namespace python
       , curryrt::python::heap_access{});
     mod.def("icurry_set_step", &icurry_set_step_
       , "Gives an interpreted function the step at an address: the code a JIT "
-        "made from its bytecode. The function must be interpreted at the "
-        "call. Returns false when its attachment is retired or ownerless. "
+        "made from the bytecode recorded by the supplied work ticket. "
+        "Returns false for retired work or a different table or bytecode. "
         "The caller provides the existing installation synchronization.");
     mod.def("icurry_post_step", &icurry_post_step_
       , "Posts the step at an address for an interpreted function: a "

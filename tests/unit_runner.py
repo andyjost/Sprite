@@ -2061,6 +2061,12 @@ class TestPrepare(unittest.TestCase):
     self.assertEqual(mixed.lacking, {})
     self.assertEqual(mixed.status, 'FAILED')
     self.assertEqual(mixed.note, 'exit status 1; every product is present')
+    for log in (
+        'sprite-make: ' + diagnostic + '\ng++: not found\n',
+        'unrelated sprite-make: ' + diagnostic + ' unrelated\n',
+      ):
+      with self.subTest(log=log):
+        self.assertEqual(job(nowhere, log).status, 'FAILED')
     os.remove(os.path.join(products, 'poker.so'))
     # A failure after the ICurry step is not blamed on the tool.
     plain = job(nowhere, other)

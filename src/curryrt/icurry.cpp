@@ -103,7 +103,7 @@ namespace curryrt
     auto bc = icurry_bytecode(info);
     if(!bc || !bc->owner)
       throw std::invalid_argument("icurry_work: table has no owned bytecode");
-    return {info, bc->owner, bc->generation};
+    return {info, bc, bc->owner, bc->generation};
   }
   void icurry_set_hot_threshold(InterpreterState & state, uint32_t threshold)
     { state.hot_threshold = threshold; }
@@ -417,30 +417,33 @@ namespace curryrt
   tag_type icurry_cached_step(RuntimeState * rts, Configuration * C)
   {
     auto info = const_cast<InfoTable *>(C->cursor()->info);
+    auto work = icurry_work(info);
     auto step = g_cache_hook ? g_cache_hook(info) : nullptr;
-    // Like trap_step, replace the current entry on the evaluation thread
-    // and run it on the same redex. The hot worker only posts swaps.
-    if(info->step == &icurry_cached_step)
+    // The callback may reload and reuse this table. Install only the result
+    // made for our attachment, then run the table's current entry.
+    if(step && info->step == &icurry_cached_step)
+      icurry_set_step(info, step, work);
+    if(info->step == &icurry_cached_step && icurry_bytecode(info) == work.bytecode)
     {
-      if(!step || !icurry_set_step(info, step))
+      if(work.valid())
         info->step = &icurry_step;
+      return icurry_step(rts, C);
     }
     return info->step(rts, C);
   }
 
-  bool icurry_set_step(InfoTable * info, stepfunc_type step)
+  bool icurry_set_step(InfoTable * info, stepfunc_type step, ICurryWork const & work)
   {
     if(!info || !step)
       throw std::invalid_argument("icurry_set_step: a null argument");
+    // Validate the work's original attachment before inspecting its step:
+    // a replacement may already have installed its own compiled entry.
+    if(!work.valid() || work.info != info || icurry_bytecode(info) != work.bytecode)
+      return false;
     if(!is_interpreted_step(info->step))
       throw std::invalid_argument(
           std::string("icurry_set_step: ") + info->name + " is not interpreted"
         );
-    auto bc = icurry_bytecode(info);
-    // Only the attachment's owner can authorize an LLVM installation.
-    // Ownerless bytecode cannot establish that its table is still live.
-    if(!bc || !bc->owner || bc->generation != bc->owner->generation.load())
-      return false;
     {
       std::lock_guard<std::mutex> lock(g_jit_mutex);
       g_jit_steps.insert(info);
@@ -512,7 +515,7 @@ namespace curryrt
       // A table swapped meanwhile, or never interpreted, keeps its step.
       if(!entry.first.valid() || !is_interpreted_step(entry.first.info->step))
         continue;
-      if(icurry_set_step(entry.first.info, entry.second))
+      if(icurry_set_step(entry.first.info, entry.second, entry.first))
         ++applied;
     }
     return applied;
