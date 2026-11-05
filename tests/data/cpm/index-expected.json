@@ -952,9 +952,13 @@
         "test: class: Sprite error",
         "test: diagnostic: ERROR: i/o error: Source file for module 'Control.Search.SetFunctions' not found!",
         "test: diagnostic: ERROR: i/o error: Source file for module 'Prelude' not found!",
-        "test: diagnostic: ERROR: user error: Illegal source program",
-        "test: diagnostic: Error:",
-        "test: diagnostic: STATIC ERRORS IN PROGRAMS:"
+        "test: diagnostic: STATIC ERRORS IN PROGRAMS:",
+        "test: diagnostic: module BubbleSort: Module 'BubbleSort': incorrect source program: ERROR: user error: Illegal source program",
+        "test: diagnostic: module BubbleSortFormat: Module 'BubbleSortFormat': incorrect source program: ERROR: user error: Illegal source program",
+        "test: diagnostic: module Coin: Module 'Coin': incorrect source program: ERROR: user error: Illegal source program",
+        "test: diagnostic: module FibInfinite: Module 'FibInfinite': incorrect source program: ERROR: user error: Illegal source program",
+        "test: diagnostic: module Quicksort: Error: Preprocessor exited with exit code 1",
+        "test: diagnostic: module Quicksort: Module 'Quicksort': incorrect source program: ERROR: user error: Illegal source program"
       ]
     },
     "db-pakcs": {
@@ -966,10 +970,9 @@
       "failure_class": "front-end error",
       "failure_set": [
         "test: class: front-end error",
-        "test: diagnostic: <path>:<location> Error:",
-        "test: diagnostic: ERROR: user error: Illegal source program",
-        "test: diagnostic: Interface for module AllSolutions not found",
-        "test: diagnostic: STATIC ERRORS IN PROGRAMS:"
+        "test: diagnostic: STATIC ERRORS IN PROGRAMS:",
+        "test: diagnostic: module TestDatabase: <path>:<location> Error: Interface for module AllSolutions not found | <location> | import AllSolutions | <location>",
+        "test: diagnostic: module TestDatabase: Module 'TestDatabase': incorrect source program: ERROR: user error: Illegal source program"
       ]
     },
     "dimacs": {
@@ -1004,12 +1007,11 @@
         "install: class: front-end error",
         "install: diagnostic: ERROR: AbstractCurryComments.curry:<location> Error: Interface for module Char not found",
         "test: class: front-end error",
-        "test: diagnostic: AbstractCurryComments.curry:<location> Error:",
-        "test: diagnostic: ERROR: user error: Illegal source program",
-        "test: diagnostic: Interface for module Char not found",
-        "test: diagnostic: Interface for module Directory not found",
-        "test: diagnostic: Interface for module List not found",
-        "test: diagnostic: STATIC ERRORS IN PROGRAMS:"
+        "test: diagnostic: AbstractCurryComments.curry:<location> Error: Interface for module Char not found | <location> | import Char | <location>",
+        "test: diagnostic: AbstractCurryComments.curry:<location> Error: Interface for module Directory not found | <location> | import Directory(doesFileExist) | <location>",
+        "test: diagnostic: AbstractCurryComments.curry:<location> Error: Interface for module List not found | <location> | import List(isSuffixOf) | <location>",
+        "test: diagnostic: STATIC ERRORS IN PROGRAMS:",
+        "test: diagnostic: module DSDCurryTransform: Module 'DSDCurryTransform': incorrect source program: ERROR: user error: Illegal source program"
       ]
     },
     "easycheck": {
@@ -1350,24 +1352,29 @@
       "failure_class": "front-end error",
       "failure_set": [
         "test: class: front-end error",
-        "test: diagnostic: ERROR: user error: Illegal source program",
-        "test: diagnostic: GUI.curry:<location> Error:",
-        "test: diagnostic: HtmlCgi.curry:<location> Error:",
-        "test: diagnostic: Interface for module CPNS not found",
-        "test: diagnostic: Interface for module Char not found",
-        "test: diagnostic: Interface for module Directory not found",
-        "test: diagnostic: Interface for module IO not found",
-        "test: diagnostic: Interface for module IOExts not found",
-        "test: diagnostic: Interface for module List not found",
-        "test: diagnostic: Interface for module NamedSocket not found",
-        "test: diagnostic: Interface for module Read not found",
-        "test: diagnostic: Interface for module ReadNumeric not found",
-        "test: diagnostic: Interface for module ReadShowTerm not found",
-        "test: diagnostic: Interface for module System not found",
-        "test: diagnostic: Interface for module Time not found",
-        "test: diagnostic: Interface for module Unsafe not found",
+        "test: diagnostic: GUI.curry:<location> Error: Interface for module Char not found | <location> | import Char (isSpace, toUpper) | <location>",
+        "test: diagnostic: GUI.curry:<location> Error: Interface for module IO not found | <location> | import IO | <location>",
+        "test: diagnostic: GUI.curry:<location> Error: Interface for module IOExts not found | <location> | import IOExts (connectToCommand) | <location>",
+        "test: diagnostic: GUI.curry:<location> Error: Interface for module Read not found | <location> | import Read | <location>",
+        "test: diagnostic: GUI.curry:<location> Error: Interface for module System not found | <location> | import System (system) | <location>",
+        "test: diagnostic: GUI.curry:<location> Error: Interface for module Unsafe not found | <location> | import Unsafe (trace) | <location>",
+        "test: diagnostic: HtmlCgi.curry:<location> Error: Interface for module CPNS not found | <location> | import CPNS(unregisterPort) | <location>",
+        "test: diagnostic: HtmlCgi.curry:<location> Error: Interface for module Char not found | <location> | import Char | <location>",
+        "test: diagnostic: HtmlCgi.curry:<location> Error: Interface for module Directory not found | <location> | import Directory(doesFileExist,getCurrentDirectory) | <location>",
+        "test: diagnostic: HtmlCgi.curry:<location> Error: Interface for module IO not found | <location> | import IO | <location>",
+        "test: diagnostic: HtmlCgi.curry:<location> Error: Interface for module IOExts not found | <location> | import IOExts(exclusiveIO,connectToCommand) | <location>",
+        "test: diagnostic: HtmlCgi.curry:<location> Error: Interface for module List not found | <location> | import List | <location>",
+        "test: diagnostic: HtmlCgi.curry:<location> Error: Interface for module NamedSocket not found | <location> | import NamedSocket | <location>",
+        "test: diagnostic: HtmlCgi.curry:<location> Error: Interface for module ReadNumeric not found | <location> | import ReadNumeric | <location>",
+        "test: diagnostic: HtmlCgi.curry:<location> Error: Interface for module ReadShowTerm not found | <location> | import ReadShowTerm | <location>",
+        "test: diagnostic: HtmlCgi.curry:<location> Error: Interface for module System not found | <location> | import System | <location>",
+        "test: diagnostic: HtmlCgi.curry:<location> Error: Interface for module Time not found | <location> | import Time | <location>",
         "test: diagnostic: STATIC ERRORS IN PROGRAMS:",
-        "test: diagnostic: UI.curry:<location> Error:"
+        "test: diagnostic: UI.curry:<location> Error: Unexpected token `class' | <location> | addStyle widget class = addStyles widget [class] | <location>",
+        "test: diagnostic: module GUI2HTML: Module 'GUI2HTML': incorrect source program: ERROR: user error: Illegal source program",
+        "test: diagnostic: module UI2GUI: Module 'UI2GUI': incorrect source program: ERROR: user error: Illegal source program",
+        "test: diagnostic: module UI2HTML: Module 'UI2HTML': incorrect source program: ERROR: user error: Illegal source program",
+        "test: diagnostic: module UI: Module 'UI': incorrect source program: ERROR: user error: Illegal source program"
       ]
     },
     "verify": {
@@ -1398,13 +1405,13 @@
       "failure_class": "front-end error",
       "failure_set": [
         "test: class: front-end error",
-        "test: diagnostic: <path>:<location> Error:",
-        "test: diagnostic: ERROR: user error: Illegal source program",
-        "test: diagnostic: Interface for module Char not found",
-        "test: diagnostic: Interface for module ReadNumeric not found",
-        "test: diagnostic: Interface for module System not found",
-        "test: diagnostic: Interface for module Time not found",
-        "test: diagnostic: STATIC ERRORS IN PROGRAMS:"
+        "test: diagnostic: STATIC ERRORS IN PROGRAMS:",
+        "test: diagnostic: module WUI: Module 'WUI': incorrect source program: ERROR: user error: Illegal source program",
+        "test: diagnostic: module WUIjs: <path>:<location> Error: Interface for module Char not found | <location> | import Char ( isAlphaNum, isSpace ) | <location>",
+        "test: diagnostic: module WUIjs: <path>:<location> Error: Interface for module ReadNumeric not found | <location> | import ReadNumeric ( readNat, readHex ) | <location>",
+        "test: diagnostic: module WUIjs: <path>:<location> Error: Interface for module System not found | <location> | import System ( getEnviron ) | <location>",
+        "test: diagnostic: module WUIjs: <path>:<location> Error: Interface for module Time not found | <location> | import Time ( CalendarTime(..), ClockTime, toTimeString, toUTCTime ) | <location>",
+        "test: diagnostic: module WUIjs: Module 'WUIjs': incorrect source program: ERROR: user error: Illegal source program"
       ]
     },
     "wui2": {

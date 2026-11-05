@@ -169,6 +169,36 @@ class TestCPMIndex(cytest.TestCase):
       row['result'] = 'pass'
       self.assertEqual(survey.compare([row], expected), ([], ['sample: ' + kind + ' now passes']))
 
+  def test_compiler_diagnostic_blocks_keep_distinct_messages(self):
+    first = "Sample.curry:10:7 Error:\n    Unexpected token `class'\n"
+    second = "Sample.curry:20:7 Error:\n    Unexpected token `where'\n"
+    baseline = survey.failure_set('test', first)
+    both = survey.failure_set('test', first + '\n' + second)
+    diagnostics = [f for f in both if ': diagnostic: ' in f]
+    self.assertEqual(len(diagnostics), 2)
+    self.assertTrue(any("Unexpected token `class'" in f for f in diagnostics))
+    self.assertTrue(any("Unexpected token `where'" in f for f in diagnostics))
+    expected = {'packages': {'sample': {'version': '1', 'result': 'exception',
+                                       'failure_set': baseline}}}
+    row = {'package': 'sample', 'version': '1', 'result': 'frontend',
+           'failure_set': survey.failure_set('test', second)}
+    self.assertTrue(survey.compare([row], expected)[0])
+    self.assertEqual(baseline, survey.failure_set('test', first.replace('10:7', '99:2')))
+    self.assertNotEqual(baseline, survey.failure_set('test', first.replace('Sample', 'Other')))
+
+  def test_compiler_blocks_keep_unindented_and_multiline_messages(self):
+    output = ("Sample.curry:10:7 Error:\nUnexpected token `class'\n"
+              "    Expected a declaration\n\n"
+              "Sample.curry:20:7 Error:\nUnexpected token `where'\n"
+              "    Expected an expression\n")
+    diagnostics = [f for f in survey.failure_set('test', output)
+                   if ': diagnostic: ' in f]
+    self.assertEqual(len(diagnostics), 2)
+    self.assertTrue(any("`class' Expected a declaration" in f for f in diagnostics))
+    self.assertTrue(any("`where' Expected an expression" in f for f in diagnostics))
+    self.assertEqual(survey.normalize_failure('/build/Sample.curry:10:7 Error:'),
+                     survey.normalize_failure(r'C:\build\Sample.curry:99:2 Error:'))
+
   def test_acquisition_retries_with_healthy_index_and_reports_infrastructure(self):
     url = 'https://example.org/package.tar.gz'
     failed = mock.Mock(returncode=22, stdout=url, stderr='curl: (22) HTTP error')

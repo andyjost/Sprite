@@ -55,11 +55,11 @@ run command = do
       self.assertIn(output, ('0:HELLO\n', '1:HELLO\n'))
       self.assertEqual(errors, 'error\n')
 
-  def test_last_command_child_is_reaped_while_interpreter_remains_alive(self):
+  def test_closed_command_is_reaped_at_next_close_or_launch(self):
     from curry.backends.cxx import curryrtbindings as bindings
     import shlex
-    for operation in ('exec', 'connect'):
-      with self.subTest(operation=operation):
+    for operation, trigger in [('exec', 'close'), ('connect', 'launch')]:
+      with self.subTest(operation=operation, trigger=trigger):
         script = 'import time; time.sleep(.2)'
         command = (subprocess.list2cmdline([sys.executable, '-c', script])
                    if sys.platform == 'win32' else
@@ -72,10 +72,14 @@ run command = do
           for token in tokens:
             bindings._standard_stream(token, 'prim_hClose', '', 0)
           self.assertLess(time.monotonic() - started, .15)
-          deadline = time.monotonic() + 5
-          # Do not call poll/wait: that would reap the child in the test.
-          while process in bindings._command_processes and time.monotonic() < deadline:
-            time.sleep(.02)
+          # Let the child exit without a test-side poll/wait reaping it.
+          time.sleep(.5)
+          if trigger == 'close':
+            bindings._standard_stream(tokens[0], 'prim_hClose', '', 0)
+          else:
+            later = list(map(int, bindings._standard_stream(0, operation, command, 0).split()))
+            for token in later:
+              bindings._standard_stream(token, 'release', '', 0)
           self.assertNotIn(process, bindings._command_processes)
           if sys.platform == 'win32':
             import ctypes
@@ -88,7 +92,128 @@ run command = do
         finally:
           for token in tokens:
             bindings._standard_stream(token, 'release', '', 0)
-          process.wait()
+          process.wait(timeout=5)
+
+  def test_shutdown_isolates_child_errors_and_waits_outside_lock(self):
+    from curry.backends.cxx import curryrtbindings as b
+    from unittest import mock
+    broken, stubborn, healthy = mock.Mock(), mock.Mock(), mock.Mock()
+    broken.poll.side_effect = RuntimeError('cannot inspect child')
+    stubborn.poll.return_value = None
+    stubborn.terminate.side_effect = OSError('terminate failed')
+    stubborn.kill.side_effect = OSError('kill failed')
+    healthy.poll.return_value = None
+    def wait(timeout):
+      self.assertEqual(timeout, 1)
+      self.assertFalse(b._command_lock._is_owned())
+    healthy.wait.side_effect = wait
+    def timeout_wait(timeout):
+      wait(timeout)
+      raise subprocess.TimeoutExpired('child', timeout)
+    stubborn.wait.side_effect = timeout_wait
+    processes = {broken, stubborn, healthy}
+    with mock.patch.object(b, '_command_processes', processes), \
+         mock.patch.object(b, '_command_pending', processes.copy()), \
+         mock.patch.object(b, '_command_streams', {}), \
+         mock.patch.object(b, 'shutdown_handles'), \
+         mock.patch.object(b._curryrtbindings, '_heap_drain'):
+      b._shutdown_native()
+      healthy.terminate.assert_called_once()
+      healthy.wait.assert_called_once_with(timeout=1)
+      stubborn.kill.assert_called_once()
+      self.assertEqual(stubborn.wait.call_count, 2)
+      self.assertNotIn(healthy, processes)
+
+  def _run_lifecycle_subprocess(self, script, timeout):
+    # Kill the whole group on regression, including children ignoring SIGTERM.
+    import signal
+    process = subprocess.Popen([sys.executable, '-c', script],
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+        start_new_session=True)
+    try:
+      stdout, stderr = process.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+      os.killpg(process.pid, signal.SIGKILL)
+      stdout, stderr = process.communicate(timeout=2)
+      self.fail('command lifecycle timed out: ' + stdout + stderr)
+    self.assertEqual(process.returncode, 0, stdout + stderr)
+    return stdout
+
+  @cytest.posix_only('uses POSIX signals and exec')
+  def test_shutdown_bounds_termination_and_closes_open_handles(self):
+    started = time.monotonic()
+    output = self._run_lifecycle_subprocess('''
+import atexit, os, shlex, sys
+def verify():
+  assert all(s.closed for s in streams)
+  assert not b._command_processes
+  assert not b._command_streams
+  assert all(p.returncode is not None for p in processes)
+  print('shutdown complete')
+atexit.register(verify)
+from curry.backends.cxx import curryrtbindings as b
+script = "import signal,time; signal.signal(signal.SIGTERM, signal.SIG_IGN); print('ready', flush=True); time.sleep(60)"
+command = 'exec ' + shlex.quote(sys.executable) + ' -c ' + shlex.quote(script)
+for operation in ('exec', 'connect'):
+  tokens = list(map(int, b._standard_stream(0, operation, command, 0).split()))
+  reader = tokens[1] if operation == 'exec' else tokens[0]
+  assert b._command_streams[reader].readline() == 'ready\\n'
+  writer = b._command_streams[tokens[0]]
+  if operation == 'connect': writer = writer.writer
+  fd = writer.fileno()
+  os.set_blocking(fd, False)
+  try:
+    while True: os.write(fd, b'x' * 4096)
+  except BlockingIOError:
+    pass
+  finally:
+    os.set_blocking(fd, True)
+  writer.write('buffered input')
+streams = list(b._command_streams.values())
+processes = list(b._command_processes)
+
+''', timeout=8)
+    self.assertIn('shutdown complete', output)
+    self.assertLess(time.monotonic() - started, 7)
+
+  @cytest.posix_only('uses fork and POSIX command quoting')
+  def test_fork_resets_command_ownership_and_lock(self):
+    output = self._run_lifecycle_subprocess('''
+import os, shlex, sys, threading
+from curry.backends.cxx import curryrtbindings as b
+command = 'exec ' + shlex.quote(sys.executable) + ' -c ' + shlex.quote('import time; time.sleep(.2)')
+tokens = list(map(int, b._standard_stream(0, 'exec', command, 0).split()))
+for token in tokens: b._standard_stream(token, 'release', '', 0)
+# Fork while another thread owns the registry lock, when present.
+lock = getattr(b, '_command_lock', getattr(b, '_command_condition', None))
+ready, release = threading.Event(), threading.Event()
+def hold():
+  with lock:
+    ready.set()
+    release.wait(5)
+worker = threading.Thread(target=hold)
+worker.start()
+ready.wait(5)
+pid = os.fork()
+if pid == 0:
+  try:
+    assert not b._command_pending
+    assert not b._command_processes
+    own = list(map(int, b._standard_stream(0, 'exec', command, 0).split()))
+    for token in own: b._standard_stream(token, 'release', '', 0)
+    b._shutdown_native()
+    assert not b._command_processes
+    os._exit(0)
+  except BaseException:
+    os._exit(1)
+release.set()
+worker.join(5)
+_, status = os.waitpid(pid, 0)
+b._shutdown_native()
+assert os.waitstatus_to_exitcode(status) == 0, status
+print('fork complete')
+''', timeout=10)
+    self.assertIn('fork complete', output)
 
   @cytest.posix_only('the broken pipe reproducer uses POSIX command quoting')
   def test_buffered_broken_pipe_retirement_drains_every_handle(self):

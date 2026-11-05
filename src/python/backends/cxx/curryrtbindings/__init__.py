@@ -234,38 +234,45 @@ _command_streams = {}
 _command_processes = set()
 _command_owners = {}
 import threading as _threading
-_command_condition = _threading.Condition()
+_command_lock = _threading.RLock()
 _command_pending = set()
-_command_reaper = None
-_command_reaper_stopping = False
+
+
+def _reset_commands_after_fork():
+  global _command_lock
+  # Inherited children belong to the parent; its lock owner may not survive.
+  _command_lock = _threading.RLock()
+  _command_pending.clear()
+  _command_processes.clear()
+  _command_owners.clear()
+
+
+if hasattr(_os, 'register_at_fork'):
+  _os.register_at_fork(after_in_child=_reset_commands_after_fork)
 
 
 def _reap_commands():
-  with _command_condition:
-    while not _command_reaper_stopping:
-      for process in list(_command_pending):
+  # No worker: a child exiting while idle is reaped at the next launch,
+  # handle close or shutdown. Poll never waits for a running child.
+  with _command_lock:
+    for process in list(_command_pending):
+      try:
         if process.poll() is not None:
           if sys.platform == 'win32':
             process._handle.Close()
-          _command_pending.remove(process)
+          _command_pending.discard(process)
           _command_processes.discard(process)
-      _command_condition.wait(.02 if _command_pending else None)
+      except Exception:
+        # Keep this child pending without preventing cleanup of the others.
+        pass
 
 
 def _retire_command(token):
-  global _command_reaper
-  process = _command_owners.pop(token, None)
-  if process is None or process in _command_owners.values():
-    return
-  # A single worker polls only children whose final pipe has been closed.
-  # Evaluation never waits for the child to exit.
-  with _command_condition:
-    _command_pending.add(process)
-    if _command_reaper is None:
-      _command_reaper = _threading.Thread(target=_reap_commands,
-                                        name='command-reaper', daemon=True)
-      _command_reaper.start()
-    _command_condition.notify()
+  with _command_lock:
+    process = _command_owners.pop(token, None)
+    if process is not None and process not in _command_owners.values():
+      _command_pending.add(process)
+  _reap_commands()
 
 _next_command_stream = 3
 
@@ -413,10 +420,11 @@ def _standard_stream(index, operation, text, value):
   global _next_command_stream
   if operation in ('exec', 'connect'):
     import subprocess
+    _reap_commands()
     process = subprocess.Popen(text, shell=True, stdin=subprocess.PIPE,
         stdout=subprocess.PIPE, stderr=subprocess.PIPE if operation == 'exec' else None, text=True,
         encoding='utf-8', errors='replace', bufsize=1)
-    with _command_condition:
+    with _command_lock:
       _command_processes.add(process)
     ids = []
     streams = ((process.stdin, process.stdout, process.stderr) if operation == 'exec'
@@ -484,6 +492,7 @@ def _standard_stream(index, operation, text, value):
     ready, _, _ = select.select(selected, [], [], None if value < 0 else value / 1000)
     return str(next((i for i, item in enumerate(selected) if item in ready), -1))
   if operation == 'prim_hClose':
+    _reap_commands()
     if not stream.closed: stream.close()
     _stream_lookahead[index] = None
     _stream_recovered[index] = None
@@ -521,28 +530,36 @@ def _standard_stream(index, operation, text, value):
 set_stream_hook(_standard_stream)
 import atexit as _atexit
 def _shutdown_native():
-  global _command_reaper_stopping
   # The hot tier registers later, so it quiesces before this drain. The heap
   # and its root registries remain alive for late Python finalizers.
+  with _command_lock:
+    processes = list(_command_processes)
+  # Never hold the registry lock while waiting, and never start a thread.
+  for process in processes:
+    try:
+      if process.poll() is None:
+        try: process.terminate()
+        except Exception: pass
+        try: process.wait(timeout=1)
+        except Exception:
+          try: process.kill()
+          except Exception: pass
+          process.wait(timeout=1)
+      if sys.platform == 'win32':
+        process._handle.Close()
+      with _command_lock:
+        _command_processes.discard(process)
+        _command_pending.discard(process)
+    except Exception:
+      # A failed child must not prevent bounded cleanup of later children.
+      pass
+  # Stop children before closing buffered writers: a child that never reads
+  # must not leave close blocked flushing a full pipe.
   _curryrtbindings._heap_drain()
   shutdown_handles()
   for token in list(_command_streams):
     try: _standard_stream(token, 'release', '', 0)
-    except (OSError, ValueError): pass
-  with _command_condition:
-    for process in list(_command_processes):
-      if process.poll() is None:
-        process.terminate()
-      process.wait()
-      if sys.platform == 'win32':
-        process._handle.Close()
-    _command_processes.clear()
-    _command_pending.clear()
-    _command_reaper_stopping = True
-    _command_condition.notify()
-    reaper = _command_reaper
-  if reaper is not None:
-    reaper.join()
+    except Exception: pass
 
 _atexit.register(_shutdown_native)
 

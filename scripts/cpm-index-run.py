@@ -140,11 +140,16 @@ def normalize_failure(text):
   text = re.sub(r'\(module ([^,]+), line \d+\)', r'(module \1)', text)
   text = re.sub(r'\b(?:TEST|MAIN)\d+\b', '<generated>', text)
   text = re.sub(r'0x[0-9a-fA-F]+', '<address>', text)
+  text = re.sub(r'(?:[A-Za-z]:[\\/]|/)(?:[^\s:]+[\\/])*([^\s:]+\.curry)',
+                r'<path>\1', text)
   text = re.sub(r'(?<![:/\w])/(?:[^\s:]+/)+[^\s:]*', '<path>', text)
+  text = re.sub(r'\b[A-Za-z]:\\(?:[^\s:]+\\)*[^\s:]*', '<path>', text)
   text = re.sub(r'(?:<scratch>|<worktree>)(?:<path>)?', '<path>', text)
   text = re.sub(r'(?<=:)\d+(?::\d+)?(?:-\d+(?::\d+)?)?(?=[: ])', '<location>', text)
   text = re.sub(r'not found in path .*', 'not found in path <search-path>', text)
   text = re.sub(r'\bline \d+\b', 'line <number>', text)
+  text = re.sub(r'(?m)^\s*\d+ \|', ' <location> |', text)
+  text = re.sub(r'(?m)^(\s*\|)\s*\^+\s*$', r'\1 <location>', text)
   return ' '.join(text.split())
 
 
@@ -163,7 +168,39 @@ def failure_set(stage, output, code=1, outcome=None):
              'Segmentation fault', 'Assertion', 'Aborted', 'std::bad_alloc',
              '*** Evaluation suspended!', 'not found', 'not found!')
   previous = ''
-  for line in output.splitlines():
+  module = ''
+  lines = output.splitlines()
+  index = 0
+  while index < len(lines):
+    line = lines[index]
+    index += 1
+    context = re.search(r"(?:Analyzing module|Module) '([^']+)'", line)
+    if context:
+      module = context[1]
+    # Front-end headers introduce complete blocks, not standalone errors.
+    # Keep source excerpts and message lines associated with their file/module.
+    compiler = re.search(r':\d+(?::\d+)?(?:-\d+(?::\d+)?)? Error:', line)
+    module_header = re.match(r"Module '[^']+': incorrect source program:", line)
+    if compiler or module_header or line.strip() == 'Error:':
+      block = [line]
+      while index < len(lines):
+        following = lines[index]
+        if following.strip() and not following[:1].isspace():
+          if (module_header and not following.startswith('ERROR:')) or re.fullmatch(r'[-=]{3,}', following):
+            break
+          next_header = re.search(r':\d+(?::\d+)?(?:-\d+(?::\d+)?)? Error:', following)
+          if next_header or following.startswith(("Module '", 'ERROR:', 'Error:')):
+            if not (module_header and following.startswith('ERROR:')):
+              break
+          elif not block[-1].strip():
+            break
+        block.append(following)
+        index += 1
+      association = ('module ' + module + ': ') if module and '.curry:' not in line else ''
+      failures.add(stage + ': diagnostic: ' + association + normalize_failure('\n'.join(block)))
+      previous = line
+      continue
+
     diagnostic = re.search(r'\b(?:Error|Exception)\b|[A-Za-z]+Error:', line)
     if line.lstrip().startswith(('raise ', 'throw ')):
       continue
@@ -357,6 +394,8 @@ def main():
                               (str(Path(os.environ['HOME']).parent), '<scratch>')]:
       text = text.replace(path, replacement)
     # Tool diagnostics may name the compiler's installation outside scratch.
+    text = re.sub(r'(?:[A-Za-z]:[\\/]|/)(?:[^\s:]+[\\/])*([^\s:]+\.curry)',
+                  r'<path>\1', text)
     text = re.sub(r'(?<![:/\w])/(?:[^\s:]+/)+[^\s:]*', '<path>', text)
     identities = [(socket.gethostname(), '<test system>')]
     identities += [(os.environ.get(name), '<user>') for name in ('USER', 'LOGNAME', 'USERNAME')]

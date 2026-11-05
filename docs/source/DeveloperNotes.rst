@@ -1087,6 +1087,17 @@ and ``KeyboardInterrupt`` pass through the binding boundary. Terminal checks and
 portable C++ interface and use the Python host, including Windows console and
 pipe readiness. Regular file handles are immediately ready, including at EOF.
 
+Command streams retain their child process until the final handle closes.
+Each launch and handle close polls pending children without blocking; there
+is no reaper thread. A child that exits while the interpreter is idle is
+reaped at the next launch, handle close or shutdown. After a fork, the child
+clears inherited process ownership and replaces the registry lock. Shutdown
+terminates remaining children, waits up to one second, then kills and waits
+up to one more second per child before closing open handles. Stopping children
+first prevents buffered writers from blocking while flushing a full pipe.
+Waits run outside the registry lock and cleanup failures are isolated per
+child. Reaping also closes the Windows process handle.
+
 ``ReadShowTerm`` from CPM ``read-legacy`` uses pure C++ primitives to print
 and read ground data in PAKCS prefix notation. Constructor names are
 unqualified; applications are parenthesized, and lists and tuples use compact
