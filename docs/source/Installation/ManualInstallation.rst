@@ -19,7 +19,7 @@ Curry text. PAKCS, SWI-Prolog, Haskell and GNU make are unnecessary for
 this route. On Windows use Visual Studio 2017 or newer, or its Build Tools,
 with the workload "Desktop development with C++" and the component
 "C++ Clang tools for Windows", or clang-cl on PATH. Sprite finds it itself.
-Microsoft cl is experimental.
+The Windows compiler is clang-cl; Microsoft cl is not supported.
 :doc:`SoftwareCompatibility` lists the supported platforms.
 
 Building a checkout

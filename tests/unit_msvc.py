@@ -140,6 +140,19 @@ class TestDiscovery(unittest.TestCase):
       self.mocks[3].side_effect = lambda name: 'path-tool' if name == 'clang-cl' else None
       self.assertEqual(config.cxx_tool(cached=[]), 'path-tool')
 
+  def test_wheel_does_not_pick_cl_from_path(self):
+    with mock.patch.object(config, 'installed_path', return_value='compiler-record'), \
+         mock.patch.object(config, '_is_wheel_install', return_value=True), \
+         mock.patch.object(msvc, 'compiler') as lookup:
+      self.mocks[4].return_value = False
+      self.mocks[3].side_effect = lambda name: 'cl' if name == 'cl' else None
+      for discovered in ('discovered-clang', None):
+        with self.subTest(discovered=discovered):
+          lookup.return_value = discovered
+          self.assertEqual(config.cxx_tool(cached=[]), discovered)
+      os.environ['CXX'] = 'cl'
+      self.assertEqual(config.cxx_tool(cached=[]), 'cl')
+
   def test_lookup_does_not_capture(self):
     self.assertIsNotNone(msvc.compiler())
     self.assertIsNotNone(msvc.compiler())
