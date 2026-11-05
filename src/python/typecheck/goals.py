@@ -155,7 +155,7 @@ def symbol_goal(interp, symbol):
   '''
   if not isinstance(symbol, CurryNodeInfo) or symbol.info.arity == 0:
     return None
-  scheme = symbol.scheme
+  scheme = symbol._get_scheme()
   if scheme is None or not scheme.ndicts:
     return None
   return defaulted_goal(interp, symbol, scheme)

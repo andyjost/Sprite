@@ -4,12 +4,13 @@ from ..utility.locking import Lock as _SpriteLock
 from collections.abc import Iterator, Mapping
 from typing import NamedTuple
 import functools, threading
-from ..utility.locking import check_entry, entry
+from ..utility.locking import entry
+from ..utility import locking
 
 def _consuming(function):
   @functools.wraps(function)
   def call(self, *args, **kwds):
-    check_entry()
+    locking.check_entry()
     with self._lock:
       if self._busy:
         raise ValueError('generator already executing')

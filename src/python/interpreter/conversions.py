@@ -204,7 +204,7 @@ class ToPython(object):
         result = self._value(value, [], typeexpr, symbol=symbol)
         result._text = '<IORef>'
         return result
-      scheme = symbol.scheme
+      scheme = symbol._get_scheme()
       # Function dictionaries are implementation arguments, absent from
       # the value's source application.
       from ..common import T_FUNC
@@ -221,7 +221,7 @@ class ToPython(object):
       return self._value(value, args, typeexpr, cls, symbol)
 
   def _value(self, node, args, typeexpr, cls=None, symbol=None):
-    from ..objects.terms import Data, Symbol, Term, _convert, raw_symbols, unqualify
+    from ..objects.terms import Data, Symbol, Term, _convert, unqualify
     from ..typecheck import builder
     if symbol is None:
       symbol = self._symbol(node.info)
@@ -249,12 +249,11 @@ class ToPython(object):
         result._free_vars.update(arg.free_vars)
       elif isinstance(arg, (list, tuple)):
         stack.extend(reversed(arg))
-    with raw_symbols():
-      result._signature = unqualify(builder.typeof(self.interp, node)) if typeexpr is None else unqualify(builder.show_type(typeexpr))
-      if typeexpr is None:
-        b = builder.TypedBuilder(self.interp)
-        problem = builder.TypedProblem(b, builder.Raw(node, walk=True))
-        typeexpr = problem.typeexpr
+    result._signature = unqualify(builder.typeof(self.interp, node)) if typeexpr is None else unqualify(builder.show_type(typeexpr))
+    if typeexpr is None:
+      b = builder.TypedBuilder(self.interp)
+      problem = builder.TypedProblem(b, builder.Raw(node, walk=True))
+      typeexpr = problem.typeexpr
     result._typeexpr = typeexpr
     result._defaulted = result._signature
     result._annotation = typeexpr

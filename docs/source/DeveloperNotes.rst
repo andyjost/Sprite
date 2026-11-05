@@ -268,17 +268,20 @@ Native binding methods acquire and record Sprite mutex ownership, or release
 and clear it, without running Python between those steps; native context entry
 rolls back acquisition if dispatching a pending signal raises, and the
 caller records the large-stack worker handoff until ownership returns.
-One shared entry check raises ``curry.ReentrancyError`` for a host call into
+One shared native entry check raises ``curry.ReentrancyError`` for a host call into
 Sprite under that boundary through package functions, interpreter methods or
 public objects, and also prevents a native heap wait under it.
 Signal polling enters the same boundary, so signal handlers cannot wait for
 the evaluation they interrupted.
 Heap ownership alone permits reentry, preserving Python primitive callbacks
 that evaluate terms.
-Internal calls use unchecked implementations and follow the existing lock
-order; after the outermost release, every queued record is emitted in order
-even on exceptional exit, then the first handler exception (including
-``SystemExit``) is raised with a body exception retained as its context.
+Internal calls use explicit unchecked lookups and implementations, following
+the existing lock order without an ambient exemption for public entries.
+An outermost release enters Python only with queued records and emits that
+snapshot in FIFO order even on exceptional exit, then raises the first handler
+exception (including ``SystemExit``) with a body exception as its context;
+records generated during emission are suppressed and their count is written
+directly to standard error, bypassing logging handlers so the drain terminates.
 
 Open items: property bindings do not apply the custom ``heap_access`` precall
 guard because pybind11 constructs getters before processing their attributes

@@ -5,11 +5,10 @@ import threading, types
 from ..typecheck.defaulting import DefaultingError
 from ..typecheck.errors import ConversionError, MismatchError, ExprTypeMismatchError
 from ..exceptions import StaleError
-from ..utility.locking import synchronized, entry, check_entry
+from ..utility.locking import synchronized, entry
+from ..utility import locking
 
 
-from contextlib import contextmanager
-from contextvars import ContextVar
 from collections.abc import Collection, Iterator, Sequence
 import re
 from dataclasses import dataclass
@@ -18,18 +17,8 @@ from ..common import T_CTOR
 from .. import exceptions
 from ..typecheck import builder
 from ..toolchain.flat2icurry import flatcurry as fc
-from . import CurryNodeInfo
+from . import CurryNodeInfo, _raw_symbol
 from .results import Results
-
-_RAW_ACCESS = ContextVar('curry_raw_symbols', default=False)
-
-@contextmanager
-def raw_symbols():
-  token = _RAW_ACCESS.set(True)
-  try:
-    yield
-  finally:
-    _RAW_ACCESS.reset(token)
 
 _QUALIFIER = re.compile(r"(?<![A-Za-z0-9_'.])(?:[A-Z][A-Za-z0-9_']*\.)+(?=[A-Z])")
 
@@ -46,10 +35,10 @@ class Symbol:
   name = property(lambda self: self._info.name)
   fullname = property(lambda self: self._info.fullname)
   kind = property(lambda self: 'constructor' if self._info.info.tag >= T_CTOR else 'function')
-  arity = property(entry(lambda self: self._info.info.arity if self._info.scheme is None
-      else self._info.scheme.source_arity))
-  signature = property(entry(lambda self: None if self._info.signature is None
-      else unqualify(self._info.signature)))
+  arity = property(entry(lambda self: self._info.info.arity if self._info._get_scheme() is None
+      else self._info._get_scheme().source_arity))
+  signature = property(entry(lambda self: None if self._info._get_signature() is None
+      else unqualify(self._info._get_signature())))
   public = property(lambda self: not getattr(self._info.icurry, 'is_private', False))
   fields = property(lambda self: getattr(self.module, '.info')._fields.get(self.name))
   info = property(lambda self: self._info.info)
@@ -243,88 +232,87 @@ class Term:
     if annotation is None and symbol is not None and len(args) == 1 \
         and isinstance(args[0], Term) and self._unary_wrapper(args[0]):
       return
-    with raw_symbols():
-      if isinstance(form, CurryNodeInfo) and annotation is None \
-          and (form.scheme is None or not form.scheme.context):
-        partial = interp.backend.fundamental_symbols.PartApplic if form.info.arity else None
-        self._node = interp.backend.make_node(form, partial_info=partial)
-        self._spec = None
-        self._signature = '?' if form.signature is None else unqualify(form.signature)
-        self._defaulted = None
-        if form.scheme is not None:
-          original = form.scheme
-          self._scheme = builder.Scheme('<expr>', 'expression', original.typevars,
-              (), original.typeexpr, 0, 0)
-          self._display_scheme = original
-          self._typeexpr = original.typeexpr
-          self._variable_types = ()
-          self._environment_types = ()
-          self._iterator_types = ()
-          self._defaulted = lambda t=self._typeexpr: unqualify(builder.show_type(t))
-          self._reused_nodes = True
-        self.__doc__ = '%s :: %s' % (symbol.fullname, symbol.signature)
-        return
-      b = builder.TypedBuilder(interp, reuse_terms=True)
-      self._spec = b.specs((form,))
+    if isinstance(form, CurryNodeInfo) and annotation is None \
+        and (form._get_scheme() is None or not form._get_scheme().context):
+      partial = interp.backend.fundamental_symbols.PartApplic if form.info.arity else None
+      self._node = interp.backend.make_node(form, partial_info=partial)
+      self._spec = None
+      self._signature = '?' if form._get_signature() is None else unqualify(form._get_signature())
+      self._defaulted = None
+      if form._get_scheme() is not None:
+        original = form._get_scheme()
+        self._scheme = builder.Scheme('<expr>', 'expression', original.typevars,
+            (), original.typeexpr, 0, 0)
+        self._display_scheme = original
+        self._typeexpr = original.typeexpr
+        self._variable_types = ()
+        self._environment_types = ()
+        self._iterator_types = ()
+        self._defaulted = lambda t=self._typeexpr: unqualify(builder.show_type(t))
+        self._reused_nodes = True
+      self.__doc__ = '%s :: %s' % (symbol.fullname, symbol.signature)
+      return
+    b = builder.TypedBuilder(interp, reuse_terms=True)
+    self._spec = b.specs((form,))
+    try:
       try:
-        try:
-          problem = builder.TypedProblem(b, self._spec, annotation)
-        except exceptions.CurryTypeError:
-          if not b._held:
-            raise
-          # Diagnose from the original form so nested argument positions
-          # and the established exception sentences remain unchanged.
-          b = builder.TypedBuilder(interp)
-          b.reuse_terms = False
-          self._spec = b.specs((form,))
-          problem = builder.TypedProblem(b, self._spec, annotation)
-      except ExprTypeMismatchError as err:
-        if annotation is not None:
+        problem = builder.TypedProblem(b, self._spec, annotation)
+      except exceptions.CurryTypeError:
+        if not b._held:
           raise
-        error = MismatchError if _has_term(form) else ConversionError
-        lines = err.lines
-        if error is MismatchError and err.where:
-          from ..typecheck.sigtable import show_type
-          lines = 'type mismatch in %s: expected %s, got %s' % (
-              err.where, show_type(err.expected), show_type(err.actual))
-        raise error(
-            lines, where=err.where, symbol=err.symbol
-          , expected=err.expected, actual=err.actual, value=err.value
-          ) from None
+        # Diagnose from the original form so nested argument positions
+        # and the established exception sentences remain unchanged.
+        b = builder.TypedBuilder(interp)
+        b.reuse_terms = False
+        self._spec = b.specs((form,))
+        problem = builder.TypedProblem(b, self._spec, annotation)
+    except ExprTypeMismatchError as err:
+      if annotation is not None:
+        raise
+      error = MismatchError if _has_term(form) else ConversionError
+      lines = err.lines
+      if error is MismatchError and err.where:
+        from ..typecheck.sigtable import show_type
+        lines = 'type mismatch in %s: expected %s, got %s' % (
+            err.where, show_type(err.expected), show_type(err.actual))
+      raise error(
+          lines, where=err.where, symbol=err.symbol
+        , expected=err.expected, actual=err.actual, value=err.value
+        ) from None
+    fix_variable_types(problem)
+    self._signature = signature(problem)
+    self._display_scheme = problem.display_scheme
+    if not problem.frees and not problem._env_vars:
+      self._scheme, naming = problem.scheme, None
+    else:
+      self._scheme, naming = problem._make_scheme()
+    self._variable_types = tuple((spec.payload,
+        builder.terms.zonk(spec.type, naming, problem.arity)) for spec in problem.frees)
+    self._environment_types = tuple(builder.terms.zonk(t, naming, problem.arity)
+        for t in problem._env_vars)
+    self._iterator_types = tuple(builder.terms.zonk(spec.elem, naming, problem.arity)
+        for spec in problem.iters)
+    self._typeexpr = None
+    self._ambiguous = getattr(problem, 'ambiguous', None)
+    try:
+      problem.solve()
+    except DefaultingError:
+      # The table applies at evaluation; the term keeps its constraints.
+      self._node = b.raw_build(form)
+      self._defaulted = None
+    else:
       fix_variable_types(problem)
-      self._signature = signature(problem)
-      self._display_scheme = problem.display_scheme
-      if not problem.frees and not problem._env_vars:
-        self._scheme, naming = problem.scheme, None
-      else:
-        self._scheme, naming = problem._make_scheme()
-      self._variable_types = tuple((spec.payload,
-          builder.terms.zonk(spec.type, naming, problem.arity)) for spec in problem.frees)
-      self._environment_types = tuple(builder.terms.zonk(t, naming, problem.arity)
-          for t in problem._env_vars)
-      self._iterator_types = tuple(builder.terms.zonk(spec.elem, naming, problem.arity)
-          for spec in problem.iters)
-      self._typeexpr = None
-      self._ambiguous = getattr(problem, 'ambiguous', None)
-      try:
-        problem.solve()
-      except DefaultingError:
-        # The table applies at evaluation; the term keeps its constraints.
-        self._node = b.raw_build(form)
-        self._defaulted = None
-      else:
-        fix_variable_types(problem)
-        self._node = b.materialize(problem)
-        self._typeexpr = problem.typeexpr
-        self._defaulted = unqualify(builder.show_type(self._typeexpr))
-        builder.record_of(interp).put(self._node, problem.scheme, self._typeexpr)
-      self._reused_nodes = not b._specialized
-      if isinstance(form, CurryNodeInfo) and annotation is None:
-        # The raw-expression door exposes the unapplied symbol. Keep its
-        # defaulted graph separately for the typed construction/eval path.
-        self._typed_node = self._node
-        partial = interp.backend.fundamental_symbols.PartApplic if form.info.arity else None
-        self._node = interp.backend.make_node(form, partial_info=partial)
+      self._node = b.materialize(problem)
+      self._typeexpr = problem.typeexpr
+      self._defaulted = unqualify(builder.show_type(self._typeexpr))
+      builder.record_of(interp).put(self._node, problem.scheme, self._typeexpr)
+    self._reused_nodes = not b._specialized
+    if isinstance(form, CurryNodeInfo) and annotation is None:
+      # The raw-expression door exposes the unapplied symbol. Keep its
+      # defaulted graph separately for the typed construction/eval path.
+      self._typed_node = self._node
+      partial = interp.backend.fundamental_symbols.PartApplic if form.info.arity else None
+      self._node = interp.backend.make_node(form, partial_info=partial)
     if symbol is not None:
       self.__doc__ = '%s :: %s' % (symbol.fullname, symbol.signature)
 
@@ -337,7 +325,7 @@ class Term:
     if getattr(child, '_typeexpr', None) is None or getattr(child, '_scheme', None) is None:
       return False
     info = self.symbol._info
-    scheme = info.scheme
+    scheme = info._get_scheme()
     if info.info.tag < T_CTOR or info.info.arity != 1 or scheme is None or scheme.context:
       return False
     t = scheme.typeexpr
@@ -390,14 +378,13 @@ class Term:
     result._args = ()
     result._free_vars = {}
     result._annotation = None
-    with raw_symbols():
-      result._signature = builder.typeof(self._interp, node)
-      result._defaulted = builder.typeof(self._interp, node, True)
+    result._signature = builder.typeof(self._interp, node)
+    result._defaulted = builder.typeof(self._interp, node, True)
     return result
 
   @classmethod
   def from_symbol(cls, info, module):
-    check_entry()
+    locking.check_entry()
     metadata = getattr(module, '.info')
     name = info.name
     with metadata._cache_lock:
@@ -410,7 +397,7 @@ class Term:
         held = None
     if held is None:
       candidate = cls(getattr(module, '.interp'), info, sym)
-      scheme = info.scheme
+      scheme = info._get_scheme()
       arity = info.info.arity if scheme is None else scheme.source_arity
       candidate._fresh_computation = info.info.tag < T_CTOR and arity == 0
       with metadata._cache_lock:
@@ -462,8 +449,7 @@ class Term:
               raise
             raise _conversion_error(error, inputs[index]) from None
         raise
-    with raw_symbols():
-      apply_ = self._interp._prelude.apply
+    apply_ = _raw_symbol(self._interp._prelude, 'apply')
     head = self
     for arg in values:
       head = Term(self._interp, [apply_, head, arg])
@@ -555,7 +541,7 @@ class Term:
   # The old API reads symbol metadata directly until its removal task.
   def __getattr__(self, name):
     if name in ('successor', 'successors'):
-      check_entry()
+      locking.check_entry()
       return getattr(self._node, name)
     if self.symbol is not None:
       return getattr(self.symbol._info, name)
@@ -598,8 +584,7 @@ class Function(Term):
     if not args:
       return super().__call__()
     check_live(self)
-    with raw_symbols():
-      apply_ = self._interp._prelude.apply
+    apply_ = _raw_symbol(self._interp._prelude, 'apply')
     result = self
     for arg in args:
       result = Term(self._interp, [apply_, result, _convert(self._interp, arg)])
@@ -831,15 +816,13 @@ class Var(Term):
     self._signature = 'Data a => a' if type is None else type
     self._defaulted = None
     if type is not None:
-      with raw_symbols():
-        b = builder.TypedBuilder(interp)
-        builder.TypedProblem(b, b.specs((self,)))
+      b = builder.TypedBuilder(interp)
+      builder.TypedProblem(b, b.specs((self,)))
 
   @property
   def _node(self):
     from ..expressions import untyped_expr
-    with raw_symbols():
-      return untyped_expr(self._interp, self._marker)
+    return untyped_expr(self._interp, self._marker)
 
   def __eq__(self, other): return self is other
   def __hash__(self): return id(self)

@@ -17,6 +17,119 @@ class TestReentrancy(cytest.TestCase):
     self.assertEqual(proc.returncode, 0,
         'child status %s\n%s\n%s' % (proc.returncode, proc.stdout, proc.stderr))
     self.assertEqual(proc.stdout.splitlines(), ['ok'])
+    return proc
+
+  @cytest.posix_only('forces a signal inside real term construction')
+  def test_signal_during_term_signature_lookup(self):
+    for action in ('P.id.signature', 'P["id"].signature',
+                   'held.scheme', 'held.signature', 'constructor.scheme',
+                   'constructor.signature'):
+      with self.subTest(action=action):
+        self.child('action = %r\n' % action + '''
+P = curry.import_('Prelude')
+held, constructor = P.id, P.Just
+received = []
+def handler(*args):
+  try:
+    eval(action)
+  except curry.ReentrancyError:
+    received.append(action)
+  else:
+    raise AssertionError('metadata entry was accepted')
+signal.signal(signal.SIGUSR1, handler)
+# The native hook dispatches after acquisition, before returning to the
+# signature table. The interrupted operation is ordinary typed construction.
+cytest.raw.interp().sigtable._lock._signal_at_transition('acquire', signal.SIGUSR1)
+assert curry.eval(curry.term(7)).one() == 7
+assert received == [action], received
+print('ok')
+''')
+
+  def test_recursive_logging_drain_terminates(self):
+    proc = self.child('''
+from curry.utility import locking
+records = []
+class Handler(logging.Handler):
+  def emit(self, record):
+    assert not locking._held()
+    records.append(record.getMessage())
+    # Deliberately unconditional: draining this new record would never end.
+    with locking.Lock():
+      locking.log(logger, logging.INFO, 'recursive')
+logger = logging.getLogger('recursive-drain-test')
+logger.setLevel(logging.INFO)
+logger.addHandler(Handler())
+with locking.Lock():
+  locking.log(logger, logging.INFO, 'first')
+  locking.log(logger, logging.INFO, 'second')
+assert records == ['first', 'second'], records
+assert not locking._held()
+assert curry.eval(term).one() == 7
+print('ok')
+''')
+    self.assertIn('Sprite logging: suppressed 2 recursive records', proc.stderr)
+
+  def test_empty_release_stays_native(self):
+    self.child('''
+import sys
+from curry.utility import locking
+calls = []
+def profile(frame, event, arg):
+  if event == 'call' and frame.f_code is locking._drain.__code__:
+    calls.append('drain')
+sys.setprofile(profile)
+try:
+  with locking.Lock():
+    pass
+  with locking.holding():
+    pass
+finally:
+  sys.setprofile(None)
+assert calls == [], calls
+assert locking.check_entry is native._check_reentrancy
+print('ok')
+''')
+
+  @cytest.posix_only('forces a signal immediately after enqueueing a record')
+  def test_signal_during_log_enqueue(self):
+    self.child('''
+import sys
+from curry.utility import locking
+records, received = [], []
+class Interrupted(BaseException): pass
+class Handler(logging.Handler):
+  def emit(self, record):
+    assert not locking._held()
+    records.append(record.getMessage())
+logger = logging.getLogger('signal-enqueue-test')
+logger.setLevel(logging.INFO)
+logger.addHandler(Handler())
+def handler(*args):
+  received.append('signal')
+  try:
+    curry.stats()
+  except curry.ReentrancyError:
+    raise Interrupted()
+  raise AssertionError('reentrant entry was accepted')
+signal.signal(signal.SIGUSR1, handler)
+def profile(frame, event, arg):
+  if frame.f_code is locking.log.__code__ and event == 'c_return' \\
+      and getattr(arg, '__name__', None) == 'append':
+    sys.setprofile(None)
+    signal.raise_signal(signal.SIGUSR1)
+try:
+  with locking.Lock():
+    sys.setprofile(profile)
+    locking.log(logger, logging.INFO, 'queued')
+except Interrupted:
+  pass
+finally:
+  sys.setprofile(None)
+assert received == ['signal'], received
+assert records == ['queued'], records
+assert not locking._held()
+print('ok')
+''')
 
   @cytest.posix_only('uses a POSIX signal during the worker handoff')
   def test_signal_during_worker_handoff(self):
@@ -307,7 +420,7 @@ print('ok')
   def test_failing_handler_drains_queue(self):
     for failure in ('ValueError', 'SystemExit'):
       with self.subTest(failure=failure):
-        self.child('failure = %s\n' % failure + '''
+        proc = self.child('failure = %s\n' % failure + '''
 from curry.utility import locking
 records, errors = [], []
 class Handler(logging.Handler):
@@ -332,11 +445,12 @@ thread = threading.Thread(target=run)
 thread.start()
 thread.join(2)
 assert not thread.is_alive(), 'thread did not exit'
-assert records == ['first', 'second', 'third', 'last'], records
+assert records == ['first', 'second', 'third'], records
 assert len(errors) == 1 and type(errors[0]) is failure and str(errors[0]) == 'first', errors
 assert isinstance(errors[0].__context__, LookupError)
 print('ok')
 ''')
+        self.assertIn('Sprite logging: suppressed 1 recursive records', proc.stderr)
 
   def test_deferred_records_on_body_error_and_thread_exit(self):
     for failure in ('ValueError', 'SystemExit'):

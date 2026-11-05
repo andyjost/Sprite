@@ -21,6 +21,7 @@ namespace curryrt { namespace python
 namespace
 {
   thread_local size_t lock_depth = 0;
+  thread_local bool logs_pending = false;
   PyObject * drain_logs = nullptr; // retained with the host hooks
   bool python_lock_held()
   {
@@ -28,7 +29,7 @@ namespace
   }
   void leave_lock()
   {
-    if(!--lock_depth)
+    if(!--lock_depth && logs_pending)
       pybind11::reinterpret_borrow<pybind11::function>(drain_logs)();
   }
 
@@ -125,6 +126,9 @@ namespace
     locking.attr("_native") = mod;
     locking.attr("holding") = mod.attr("_Holding");
     locking.attr("_held") = mod.attr("_locks_held");
+    locking.attr("check_entry") = mod.attr("_check_reentrancy");
+    mod.def("_set_logs_pending", [](bool pending) { logs_pending = pending; });
+    locking.attr("_set_logs_pending") = mod.attr("_set_logs_pending");
     py::object cls = locking.attr("Lock");
     cls.attr("acquire") = py::cpp_function([](py::object self, bool blocking, double timeout)
       { return lock_state(self).acquire(blocking, timeout); }, py::is_method(cls),
@@ -168,9 +172,9 @@ namespace
 
 PYBIND11_MODULE(_curryrtbindings, mod, pybind11::mod_gil_not_used())
 {
+  mod.def("_check_reentrancy", &curryrt::check_reentrancy);
   register_host_locks(mod);
   curryrt::set_host_lock_held(&python_lock_held);
-  mod.def("_check_reentrancy", &curryrt::check_reentrancy);
   // Group native metadata operations and their Python publication without
   // acquiring a Python mutex before a heap wait. Never used for stepping.
   mod.def("_metadata_call", [](pybind11::function action) { return action(); },

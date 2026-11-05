@@ -1,7 +1,7 @@
 '''Classes for the constructors of a loaded Curry module.'''
 
 import re
-from ..utility.locking import check_entry
+from ..utility import locking
 
 from .terms import (
     ConstructorClass, Data, DataClass, Function, Term, Values
@@ -165,7 +165,7 @@ def build_classes(interp, module):
 
 def module_symbol(info, module):
   '''Return the constructor class, nullary value, or ordinary term.'''
-  check_entry()
+  locking.check_entry()
   cls = getattr(module, '.info')._classes.get(info.name)
   if cls is None:
     return Term.from_symbol(info, module)

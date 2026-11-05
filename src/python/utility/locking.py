@@ -1,6 +1,7 @@
 """Small synchronization helpers. No Python mutex spans a native wait."""
 import functools
 import contextlib
+import os
 import sys
 import threading
 
@@ -14,10 +15,11 @@ def _held():
 
 
 def check_entry():
-  """Apply the runtime's common reentrancy check at a Python API entry."""
-  native = sys.modules.get('curry.backends.cxx.curryrtbindings._curryrtbindings')
-  if native is not None:
-    native._check_reentrancy()
+  """Bootstrap only; registration replaces this with the native predicate."""
+
+
+def _set_logs_pending(pending):
+  """Bootstrap only; registration installs the native thread-local flag."""
 
 
 def entry(function):
@@ -30,9 +32,13 @@ def entry(function):
 
 def log(logger, level, message, *args):
   """Keep diagnostics unformatted until the enclosing locks release."""
-  if _held() or getattr(_local, 'draining', False):
+  if getattr(_local, 'draining', False):
+    _local.suppressed.append(None)
+  elif _held():
     if not hasattr(_local, 'messages'):
       _local.messages = []
+    # Mark first: a signal exception after append must still drain the record.
+    _set_logs_pending(True)
     _local.messages.append((logger, level, message, args))
   else:
     logger.log(level, message, *args)
@@ -43,7 +49,11 @@ def emit_messages(messages, logger=None):
     _local.messages = []
   for record in messages:
     target, level, message, args = (logger, *record) if len(record) == 3 else record
-    _local.messages.append((target, level, message, args))
+    if getattr(_local, 'draining', False):
+      _local.suppressed.append(None)
+    else:
+      _set_logs_pending(True)
+      _local.messages.append((target, level, message, args))
   if not _held():
     _drain()
 
@@ -51,21 +61,31 @@ def emit_messages(messages, logger=None):
 def _drain():
   if getattr(_local, 'draining', False):
     return
-  messages = getattr(_local, 'messages', [])
-  failure, index = None, 0
+  _local.suppressed = []
   _local.draining = True
+  messages = getattr(_local, 'messages', [])
+  _local.messages = []
+  _set_logs_pending(False)
+  failure = None
   try:
-    while index < len(messages):
-      logger, level, message, args = messages[index]
-      index += 1
+    for logger, level, message, args in messages:
       try:
         logger.log(level, message, *args)
       except BaseException:
         if failure is None:
           failure = sys.exc_info()
   finally:
-    del messages[:index]
-    _local.draining = False
+    try:
+      if _local.suppressed:
+        # Bypass logging handlers (including warnings redirected to logging)
+        # so reporting recursion cannot produce another emission cycle.
+        os.write(2, ('Sprite logging: suppressed %d recursive records\n'
+            % len(_local.suppressed)).encode('ascii'))
+    except OSError:
+      if failure is None:
+        failure = sys.exc_info()
+    finally:
+      _local.draining = False
   if failure is not None:
     raise failure[1].with_traceback(failure[2])
 

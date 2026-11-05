@@ -237,12 +237,11 @@ class ImportEx(object):
         load.loadSymbols(self.interp, imodule, moduleobj)
         from ...objects.classes import build_classes
         build_classes(self.interp, moduleobj)
-        from ...objects.terms import raw_symbols
-        with raw_symbols():
-          for name, target in imodule.aliases.items():
-            if hasattr(moduleobj, name):
-              raise ValueError("cannot alias previously defined name %r" % name)
-            setattr(moduleobj, name, getattr(moduleobj, target))
+        from ...objects import _raw_symbol
+        for name, target in imodule.aliases.items():
+          if name in vars(moduleobj) or name in getattr(moduleobj, '.symbols'):
+            raise ValueError("cannot alias previously defined name %r" % name)
+          setattr(moduleobj, name, _raw_symbol(moduleobj, target))
         imports = self.import_path
         if imports is None:
           imports = curryname.makeCurryPath(self.interp.path)

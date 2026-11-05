@@ -118,7 +118,7 @@ def application(info, args, pieces=None):
     if len(pieces) == sym.arity:
       return '(%s)' % ','.join(p[0] for p in pieces), ATOM
   arity = sym.arity
-  scheme = info.scheme
+  scheme = info._get_scheme()
   if scheme is not None:
     t, arrows = scheme.typeexpr, 0
     while isinstance(t, fc.FuncType):

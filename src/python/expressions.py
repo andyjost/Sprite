@@ -11,6 +11,7 @@ markers of this module (:class:`anchor`, :class:`choice`, :class:`cons`,
 :class:`unboxed`) describe the parts of an expression that are no Python
 value.
 '''
+from .objects import _raw_symbol
 from .utility.locking import Lock as _SpriteLock
 
 from . import backends, config, icurry, objects, utility
@@ -371,9 +372,7 @@ def expr(interp, *args, **kwds):
   exprtype = kwds.pop('exprtype', None)
   from .typecheck import builder
   target = kwds.pop('target', None)
-  from .objects.terms import raw_symbols
-  with raw_symbols():
-    return builder.build(interp, args, kwds, exprtype=exprtype, target=target)
+  return builder.build(interp, args, kwds, exprtype=exprtype, target=target)
 
 def raw_expr(interp, *args, **kwds):
   '''
@@ -388,9 +387,7 @@ def raw_expr(interp, *args, **kwds):
   to more is an error.  An expression that is not well typed evaluates with
   undefined behaviour.
   '''
-  from .objects.terms import raw_symbols
-  with raw_symbols():
-    return _build(interp, args, kwds, raw=True)
+  return _build(interp, args, kwds, raw=True)
 
 def untyped_expr(interp, *args, **kwds):
   '''
@@ -553,7 +550,7 @@ class ExpressionBuilder(object):
     if trailing:
       raise CurryTypeError('invalid arguments after %r' % arg)
     if len(arg) == 1:
-      return self._mknode(self.prelude.Char, str(arg), target=self.target)
+      return self._mknode(_raw_symbol(self.prelude, 'Char'), str(arg), target=self.target)
     else:
       return self(list(arg))
 
@@ -572,8 +569,8 @@ class ExpressionBuilder(object):
     if len(lst) and isinstance(lst[0], (objects.CurryNodeInfo, backends.InfoTable)):
       return self(*lst)
     else:
-      Cons = self.prelude.Cons
-      Nil = self.prelude.Nil
+      Cons = _raw_symbol(self.prelude, 'Cons')
+      Nil = _raw_symbol(self.prelude, 'Nil')
       # Convert left to right (anchors may refer to earlier elements), then
       # assemble the spine from the end without nested builder calls.
       values = [self(x) for x in lst]
@@ -603,22 +600,22 @@ class ExpressionBuilder(object):
     if trailing:
       raise CurryTypeError('invalid arguments after %r' % arg)
     if arg:
-      return self._mknode(self.prelude.True_, target=self.target)
+      return self._mknode(_raw_symbol(self.prelude, 'True_'), target=self.target)
     else:
-      return self._mknode(self.prelude.False_, target=self.target)
+      return self._mknode(_raw_symbol(self.prelude, 'False_'), target=self.target)
 
   @__call__.when(numbers.Integral)
   def __call__(self, arg, *trailing):
     if trailing:
       raise CurryTypeError('invalid arguments after %r' % arg)
-    return self._mknode(self.prelude.Int, int(arg), target=self.target)
+    return self._mknode(_raw_symbol(self.prelude, 'Int'), int(arg), target=self.target)
 
   @__call__.when(numbers.Real)
   def __call__(self, arg, *trailing):
     if trailing:
       raise CurryTypeError('invalid arguments after %r' % arg)
     return self._mknode(
-        self.prelude.Float, float(arg), target=self.target
+        _raw_symbol(self.prelude, 'Float'), float(arg), target=self.target
       )
 
   @__call__.when(anchor)
@@ -668,7 +665,7 @@ class ExpressionBuilder(object):
   def __call__(self, arg, *trailing):
     if trailing:
       raise CurryTypeError('invalid arguments after %r' % arg)
-    pygen = self.prelude._biGenerator
+    pygen = _raw_symbol(self.prelude, '_biGenerator')
     arg = (self(x) for x in arg)
     return self._mknode(pygen, arg, target=self.target)
 
@@ -705,7 +702,7 @@ class ExpressionBuilder(object):
               % (info.name, arity, '' if arity == 1 else 's', len(args))
         )
     head, rest = args[:arity], args[arity:]
-    apply_ = self.prelude.apply
+    apply_ = _raw_symbol(self.prelude, 'apply')
     node = self._mknode(ti, *map(lambda s: self(s), head))
     for i, extra in enumerate(rest):
       node = self._mknode(
@@ -744,7 +741,7 @@ class ExpressionBuilder(object):
     if trailing:
       raise CurryTypeError('invalid arguments after %r' % 'cons')
     return self._mknode(
-        self.prelude.Cons, self(arg.head), self(arg.tail)
+        _raw_symbol(self.prelude, 'Cons'), self(arg.head), self(arg.tail)
       , target=self.target
       )
 
@@ -752,7 +749,7 @@ class ExpressionBuilder(object):
   def __call__(self, arg, *trailing):
     if trailing:
       raise CurryTypeError('invalid arguments after %r' % 'nil')
-    return self._mknode(self.prelude.Nil, target=self.target)
+    return self._mknode(_raw_symbol(self.prelude, 'Nil'), target=self.target)
 
   @__call__.when(_setgrd)
   def __call__(self, arg, *trailing):
@@ -805,7 +802,7 @@ class ExpressionBuilder(object):
       return self._mknode(
           self.fsyms.Free
         , arg.vid
-        , self._mknode(self.prelude.Unit)
+        , self._mknode(_raw_symbol(self.prelude, 'Unit'))
         , target=self.target
         )
     node = self.unknown(arg)
@@ -829,7 +826,7 @@ class ExpressionBuilder(object):
       dictionary = self.interp._symbol(UNKNOWN_DICTIONARY)
       partial_info = self.fsyms.PartApplic if dictionary.info.arity else None
       node = self._mknode(
-          self.prelude.unknown
+          _raw_symbol(self.prelude, 'unknown')
         , self._mknode(dictionary, partial_info=partial_info)
         )
       marker._share(self.interp, node)
@@ -863,6 +860,6 @@ class ExpressionBuilder(object):
         , target=self.target
         )
     return self._mknode(
-        getattr(self.prelude, '?'), self(arg.lhs), self(arg.rhs)
+        _raw_symbol(self.prelude, '?'), self(arg.lhs), self(arg.rhs)
       , target=self.target
       )

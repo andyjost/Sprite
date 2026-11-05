@@ -23,6 +23,7 @@ answers for it and ``curry.eval`` hands the static type of a goal to the
 converter.  :class:`Description` holds a tree of specs for the DSL and types
 it only when a consumer asks for nodes.
 '''
+from ..objects import _raw_symbol
 from ..utility.locking import Lock as _SpriteLock
 
 import threading
@@ -563,7 +564,7 @@ class TypedBuilder:
       annotated.spec = spec
       return annotated, ()
     if isinstance(arg, X.choice):
-      return self._application(getattr(self.prelude, '?'), [arg.lhs, arg.rhs])
+      return self._application(_raw_symbol(self.prelude, '?'), [arg.lhs, arg.rhs])
     if isinstance(arg, X.typed):
       spec = _typed(arg.exprtype)
       return spec, [(arg.value, spec, 'spec')]
@@ -573,9 +574,9 @@ class TypedBuilder:
     if isinstance(arg, X.ref):
       return Ref(self._ref_var(arg.name)), ()
     if isinstance(arg, X.cons):
-      return self._application(self.prelude.Cons, [arg.head, arg.tail])
+      return self._application(_raw_symbol(self.prelude, 'Cons'), [arg.head, arg.tail])
     if arg is X.nil:
-      return self._application(self.prelude.Nil, ())
+      return self._application(_raw_symbol(self.prelude, 'Nil'), ())
     if arg is X.fail:
       return Raw(arg), ()
     if isinstance(arg, X.fwd):
@@ -619,7 +620,7 @@ class TypedBuilder:
       if not self.X.unboxed_fits(typename, args[0].value):
         return Unboxed(args[0].value, typename), ()
       return Raw([symbol] + args, typeexpr=tcons(typename)), ()
-    scheme = symbol.scheme
+    scheme = symbol._get_scheme()
     if scheme is None and not args:
       # A symbol without a scheme, alone: the goal of a module without a
       # FlatCurry interface, such as a module loaded from a saved file.  It
@@ -775,9 +776,9 @@ class TypedBuilder:
       return self._literal_node(problem, spec, target)
     if isinstance(spec, List):
       if not args:
-        return make(self.prelude.Nil, target=target)
-      node = make(self.prelude.Nil)
-      cons = self.prelude.Cons
+        return make(_raw_symbol(self.prelude, 'Nil'), target=target)
+      node = make(_raw_symbol(self.prelude, 'Nil'))
+      cons = _raw_symbol(self.prelude, 'Cons')
       for item in reversed(args[1:]):
         node = make(cons, item, node)
       return make(cons, args[0], node, target=target)
@@ -826,12 +827,12 @@ class TypedBuilder:
       if not isinstance(symbol, CurryNodeInfo):
         symbol = self.interp._symbol(app.scheme.fullname)
       dicts = [self.dict_node(d) for d in app.dicts]
-    apply_ = self.prelude.apply
+    apply_ = _raw_symbol(self.prelude, 'apply')
     if app.erased:
       # A newtype constructor is erased by the ICurry translation: C e is e
       # and a bare C is the identity.
       if not args:
-        return make(self.prelude.id, partial_info=self.fsyms.PartApplic, target=target)
+        return make(_raw_symbol(self.prelude, 'id'), partial_info=self.fsyms.PartApplic, target=target)
       node, rest = args[0], args[1:]
       if not rest:
         return self._forward(node, target)
@@ -872,13 +873,13 @@ class TypedBuilder:
     value = lit.value
     name = t.name if isinstance(t, fc.TCons) else None
     if name == BOOL:
-      return make(prelude.True_ if value else prelude.False_, target=target)
+      return make(_raw_symbol(prelude, 'True_' if value else 'False_'), target=target)
     if name == INT:
-      return make(prelude.Int, int(value), target=target)
+      return make(_raw_symbol(prelude, 'Int'), int(value), target=target)
     if name == FLOAT:
-      return make(prelude.Float, float(value), target=target)
+      return make(_raw_symbol(prelude, 'Float'), float(value), target=target)
     if name == CHAR:
-      return make(prelude.Char, value, target=target)
+      return make(_raw_symbol(prelude, 'Char'), value, target=target)
     if name == LIST:
       return self.string_node(value, target)
     # A type with a Num or a Fractional instance of its own: the literal
@@ -886,11 +887,13 @@ class TypedBuilder:
     # does in a polymorphic context.
     dictionary = problem.literal_dictionary(lit)
     if dictionary is not None and isinstance(value, numbers.Integral):
-      method = make(prelude.fromInt, self.dict_node(dictionary))
-      return make(prelude.apply, method, make(prelude.Int, int(value)), target=target)
+      method = make(_raw_symbol(prelude, 'fromInt'), self.dict_node(dictionary))
+      return make(_raw_symbol(prelude, 'apply'), method,
+          make(_raw_symbol(prelude, 'Int'), int(value)), target=target)
     if dictionary is not None and isinstance(value, numbers.Real):
-      method = make(prelude.fromFloat, self.dict_node(dictionary))
-      return make(prelude.apply, method, make(prelude.Float, float(value)), target=target)
+      method = make(_raw_symbol(prelude, 'fromFloat'), self.dict_node(dictionary))
+      return make(_raw_symbol(prelude, 'apply'), method,
+          make(_raw_symbol(prelude, 'Float'), float(value)), target=target)
     raise exceptions.CurryTypeError(
         'cannot build the literal %r at type %s' % (value, problem.show(lit.type))
       )
@@ -901,7 +904,7 @@ class TypedBuilder:
     (``Node.create_string``).  The empty string is ``[]``.
     '''
     if not text:
-      return self._mknode(self.prelude.Nil, target=target)
+      return self._mknode(_raw_symbol(self.prelude, 'Nil'), target=target)
     from ..backends.cxx import curryrtbindings
     target = getattr(target, 'target', target)
     return curryrtbindings.Node.create_string(text, target)
@@ -918,7 +921,7 @@ class TypedBuilder:
     node = None if marker is None else marker._shared(self.interp)
     if node is None:
       dictionary = self.dict_node(problem.free_dictionary(spec))
-      node = self._mknode(self.prelude.unknown, dictionary)
+      node = self._mknode(_raw_symbol(self.prelude, 'unknown'), dictionary)
       if marker is not None:
         marker._share(self.interp, node)
     self.count_freevar()
@@ -935,7 +938,7 @@ class TypedBuilder:
     from ..objects.terms import IteratorSource
     cursor = IteratorCursor if isinstance(spec.payload, IteratorSource) else iterate_typed
     items = cursor(self.interp, spec.payload, elemtype, problem.location(spec))
-    return self._mknode(self.prelude._biGenerator, items, target=target)
+    return self._mknode(_raw_symbol(self.prelude, '_biGenerator'), items, target=target)
 
   def _copy_function(self, root, variables=()):
     '''A fresh captured graph, with replayable iterator cursors.'''
@@ -951,7 +954,7 @@ class TypedBuilder:
         copies[node.id()] = node
       elif node.info.name == GENERATOR_NODE and IteratorCursor.of_node(node) is not None:
         cursor = IteratorCursor.of_node(node).fork()
-        copies[node.id()] = self._mknode(self.prelude._biGenerator, cursor)
+        copies[node.id()] = self._mknode(_raw_symbol(self.prelude, '_biGenerator'), cursor)
       else:
         copies[node.id()] = node.copy()
         pending.extend(x for x in node.successors if isinstance(x, backends.Node))
@@ -1075,19 +1078,18 @@ def item_converter(interp, elemtype, surface=False):
       name = elemtype.name
     elif elemtype.name == LIST and elemtype.args == [fc.TCons(CHAR, [])]:
       name = LIST
-  from ..objects.terms import _convert, raw_symbols
+  from ..objects.terms import _convert
   from .terms import instantiate, zonk
   expected = instantiate(elemtype, {})
   def general(item):
-    with raw_symbols():
-      b = TypedBuilder(interp)
-      value = _convert(interp, item) if surface else item
-      node = b.run(b.specs((value,)), zonk(expected))
-      # Retain the element type chosen by earlier items, including nested
-      # positions. An iterator is one homogeneous Curry list.
-      from .unify import unify
-      unify(expected, instantiate(result_type(interp, node), {}))
-      return node
+    b = TypedBuilder(interp)
+    value = _convert(interp, item) if surface else item
+    node = b.run(b.specs((value,)), zonk(expected))
+    # Retain the element type chosen by earlier items, including nested
+    # positions. An iterator is one homogeneous Curry list.
+    from .unify import unify
+    unify(expected, instantiate(result_type(interp, node), {}))
+    return node
   def reject(item, what):
     raise exceptions.CurryTypeError(
         'cannot convert %r to %s' % (item, what)
@@ -1095,23 +1097,23 @@ def item_converter(interp, elemtype, surface=False):
   if name == INT:
     def convert(item):
       if isinstance(item, numbers.Integral) and not isinstance(item, bool):
-        return make(prelude.Int, int(item))
+        return make(_raw_symbol(prelude, 'Int'), int(item))
       return general(item)
   elif name == FLOAT:
     def convert(item):
       if isinstance(item, numbers.Real) and not isinstance(item, bool):
-        return make(prelude.Float, float(item))
+        return make(_raw_symbol(prelude, 'Float'), float(item))
       return general(item)
   elif name == CHAR:
     def convert(item):
       from ..objects.terms import Char
       if isinstance(item, Char) or not surface and isinstance(item, str) and len(item) == 1:
-        return make(prelude.Char, item)
+        return make(_raw_symbol(prelude, 'Char'), item)
       return general(item)
   elif name == BOOL:
     def convert(item):
       if isinstance(item, bool):
-        return make(prelude.True_ if item else prelude.False_)
+        return make(_raw_symbol(prelude, 'True_' if item else 'False_'))
       return general(item)
   elif name == LIST:
     strings_ = TypedBuilder(interp)
@@ -1457,11 +1459,9 @@ def typeof(interp, e, defaulted=False):
   if isinstance(e, Answer):
     return typeof(interp, term(interp, e.value), True)
   if isinstance(e, TermVar) and not defaulted:
-    from ..objects.terms import raw_symbols
-    with raw_symbols():
-      b = TypedBuilder(interp)
-      problem = TypedProblem(b, b.specs((e,)))
-      return signature(problem)
+    b = TypedBuilder(interp)
+    problem = TypedProblem(b, b.specs((e,)))
+    return signature(problem)
   if isinstance(e, Term):
     if getattr(e, '_ambiguous', None) is not None:
       message = 'Ambiguous type variable in type %s' % e._signature
@@ -1476,12 +1476,10 @@ def typeof(interp, e, defaulted=False):
       return e._signature
     if e._defaulted is not None:
       return e._defaulted
-    from ..objects.terms import raw_symbols
-    with raw_symbols():
-      b = TypedBuilder(interp)
-      problem = TypedProblem(b, b.specs((e,)))
-      problem.solve()
-      return problem.defaulted_signature
+    b = TypedBuilder(interp)
+    problem = TypedProblem(b, b.specs((e,)))
+    problem.solve()
+    return problem.defaulted_signature
   e = getattr(e, 'rvalue', e)
   if isinstance(e, backends.Node):
     entry = record_of(interp).get(e)
@@ -1491,7 +1489,7 @@ def typeof(interp, e, defaulted=False):
     problem = TypedProblem(TypedBuilder(interp), Raw(e, walk=True))
   elif isinstance(e, Description):
     problem = TypedProblem(e.builder, e.root, e.exprtype)
-  elif isinstance(e, CurryNodeInfo) and e.scheme is None:
+  elif isinstance(e, CurryNodeInfo) and e._get_scheme() is None:
     # expressions.expr builds a lone symbol without a scheme untyped; its type is
     # unknown, not a variable.
     interp.sigtable.lookup(e, required=True)
