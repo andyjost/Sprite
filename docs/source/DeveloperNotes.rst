@@ -1099,7 +1099,15 @@ suspended until assigned to the shared Job Object implementation. Shutdown
 closes raw pipe ends before buffered wrappers, discarding unflushed command
 input so a full pipe cannot block cleanup even if termination fails.
 Waits run outside the registry lock and cleanup failures are isolated per
-child. Reaping also closes the Windows process handle.
+child. Reaping also closes the Windows process handle. POSIX waits use
+``waitid`` with ``WNOWAIT`` where available, preserving the leader's id until
+all group signals have been sent; without it, no final group kill follows a
+reaping wait.
+
+Sprite ends the POSIX process group or Windows Job Object that it started
+for a command. A descendant that leaves that group or session itself (for
+example with ``setsid``, ``setpgid`` or daemonization) is outside this boundary,
+and Sprite does not chase it.
 
 ``ReadShowTerm`` from CPM ``read-legacy`` uses pure C++ primitives to print
 and read ground data in PAKCS prefix notation. Constructor names are

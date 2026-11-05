@@ -251,14 +251,54 @@ if hasattr(_os, 'register_at_fork'):
   _os.register_at_fork(after_in_child=_reset_commands_after_fork)
 
 
+def _command_exited(process, timeout=0):
+  """Observe exit without releasing the leader's process/group id."""
+  import errno
+  import time
+  if process.returncode is not None:
+    return True
+  if sys.platform != 'win32' and all(hasattr(_os, name) for name in
+                                    ('waitid', 'WNOWAIT', 'WEXITED', 'WNOHANG', 'P_PID')):
+    deadline = time.monotonic() + timeout
+    while True:
+      try:
+        result = _os.waitid(_os.P_PID, process.pid,
+                           _os.WEXITED | _os.WNOWAIT | _os.WNOHANG)
+      except ChildProcessError:
+        # Another waiter already reaped it: record that before any signal.
+        process.poll()
+        return True
+      except OSError as error:
+        if error.errno not in (errno.EINVAL, errno.ENOSYS, errno.ENOTSUP):
+          raise
+        break
+      if result is not None:
+        return True
+      remaining = deadline - time.monotonic()
+      if remaining <= 0:
+        return False
+      time.sleep(min(.01, remaining))
+  # Some systems (including older macOS) lack waitid/WNOWAIT support.
+  # Signals must precede this reaping wait; skip the final group kill after it.
+  if not timeout:
+    return process.poll() is not None
+  import subprocess
+  try:
+    process.wait(timeout=timeout)
+    return True
+  except subprocess.TimeoutExpired:
+    return False
+
+
 def _reap_commands():
   # No worker: a child exiting while idle is reaped at the next launch,
   # handle close or shutdown. Poll never waits for a running child.
   with _command_lock:
     for process in list(_command_pending):
       try:
-        if process.poll() is not None:
+        if _command_exited(process):
           _signal_command(process, kill=True)
+          process.wait(timeout=1)
           if sys.platform == 'win32':
             process._command_job.close()
             process._handle.Close()
@@ -423,14 +463,16 @@ def _standard_stream(index, operation, text, value):
   if operation in ('exec', 'connect'):
     import subprocess
     _reap_commands()
-    process = subprocess.Popen(text, shell=True, stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE, stderr=subprocess.PIPE if operation == 'exec' else None, text=True,
-        encoding='utf-8', errors='replace', bufsize=1,
-        start_new_session=sys.platform != 'win32',
-        creationflags=0x4 if sys.platform == 'win32' else 0)
     if sys.platform == 'win32':
       from ....utility.windowsjob import WindowsJob
-      try:
+    process = None
+    try:
+      process = subprocess.Popen(text, shell=True, stdin=subprocess.PIPE,
+          stdout=subprocess.PIPE, stderr=subprocess.PIPE if operation == 'exec' else None, text=True,
+          encoding='utf-8', errors='replace', bufsize=1,
+          start_new_session=sys.platform != 'win32',
+          creationflags=0x4 if sys.platform == 'win32' else 0)
+      if sys.platform == 'win32':
         process._command_job = WindowsJob(process)
         # Popen closes the suspended primary thread's handle.
         import ctypes
@@ -439,17 +481,24 @@ def _standard_stream(index, operation, text, value):
         resume.argtypes, resume.restype = [wintypes.HANDLE], ctypes.c_int32
         if resume(int(process._handle)) < 0:
           raise OSError('cannot resume command')
-      except BaseException:
-        job = getattr(process, '_command_job', None)
-        if job is not None: job.close()
-        process.kill()
-        process.wait(timeout=1)
-        for stream in (process.stdin, process.stdout, process.stderr):
-          if stream is not None: stream.close()
-        process._handle.Close()
-        raise
-    with _command_lock:
-      _command_processes.add(process)
+      with _command_lock:
+        _command_processes.add(process)
+    except BaseException:
+      if process is None: raise
+      # Each cleanup must run even if another cleanup fails or is interrupted.
+      job = getattr(process, '_command_job', None)
+      cleanups = ([job.close] if job is not None else [])
+      cleanups += [process.kill, lambda: process.wait(timeout=1)]
+      cleanups += [stream.close for stream in
+                   (process.stdin, process.stdout, process.stderr) if stream is not None]
+      if sys.platform == 'win32':
+        cleanups.append(process._handle.Close)
+      for cleanup in cleanups:
+        try: cleanup()
+        except BaseException: pass
+      with _command_lock:
+        _command_processes.discard(process)
+      raise
     ids = []
     streams = ((process.stdin, process.stdout, process.stderr) if operation == 'exec'
                else (_CommandStream(process.stdout, process.stdin),))
@@ -557,6 +606,9 @@ def _signal_command(process, kill=False):
   if sys.platform == 'win32':
     process._command_job.terminate()
   else:
+    # Sprite owns this group only until its leader is reaped. Descendants
+    # leaving the group/session themselves are outside command containment.
+    if process.returncode is not None: return
     import signal
     try:
       _os.killpg(process.pid, signal.SIGKILL if kill else signal.SIGTERM)
@@ -588,13 +640,12 @@ def _shutdown_native():
     try:
       try: _signal_command(process)
       except Exception: pass
-      try: process.wait(timeout=1)
+      try: _command_exited(process, timeout=1)
       except Exception: pass
-      # The shell can exit before its children, including SIGTERM-ignoring
-      # children. Kill the group even when the leader has already exited.
+      # WNOWAIT keeps the exited leader's id reserved through this signal.
       try: _signal_command(process, kill=True)
       except Exception: pass
-      if process.poll() is None:
+      if process.returncode is None:
         process.wait(timeout=1)
       if sys.platform == 'win32':
         process._command_job.close()

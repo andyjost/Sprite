@@ -94,17 +94,126 @@ run command = do
             bindings._standard_stream(token, 'release', '', 0)
           process.wait(timeout=5)
 
+  @unittest.skipUnless(all(hasattr(os, name) for name in ('P_PID', 'WEXITED', 'WNOWAIT', 'WNOHANG')),
+                       'requires non-reaping wait constants')
+  @cytest.posix_only('checks POSIX wait and group signal order')
+  def test_group_signal_precedes_reap(self):
+    from curry.backends.cxx import curryrtbindings as b
+    from unittest import mock
+    for pending in (False, True):
+      with self.subTest(pending=pending):
+        events = []
+        process = mock.Mock(pid=42, returncode=None)
+        def reap(*args, **kwargs):
+          events.append('reap')
+          process.returncode = 0
+          return 0
+        process.wait.side_effect = reap
+        process.poll.side_effect = reap
+        def observe(*args):
+          self.assertEqual(args, (os.P_PID, 42, os.WEXITED | os.WNOWAIT | os.WNOHANG))
+          events.append('observe')
+          return mock.Mock(si_pid=42)
+        with mock.patch.object(b, '_command_processes', {process}), \
+             mock.patch.object(b, '_command_pending', {process} if pending else set()), \
+             mock.patch.object(b, '_command_streams', {}), \
+             mock.patch.object(os, 'waitid', side_effect=observe, create=True), \
+             mock.patch.object(os, 'killpg', side_effect=lambda *args: events.append('signal')), \
+             mock.patch.object(b, 'shutdown_handles'), \
+             mock.patch.object(b._curryrtbindings, '_heap_drain'):
+          (b._reap_commands if pending else b._shutdown_native)()
+        self.assertIn('observe', events)
+        self.assertIn('signal', events)
+        self.assertLess(events.index('observe'), len(events) - 1)
+        self.assertEqual(events[-1], 'reap')
+        self.assertNotIn('signal', events[events.index('reap') + 1:])
+
+  @cytest.posix_only('checks POSIX fallback and reaped group safety')
+  def test_group_signal_skipped_after_reaping(self):
+    from curry.backends.cxx import curryrtbindings as b
+    from unittest import mock
+    import errno
+    for pending in (False, True):
+      for unsupported in (False, True):
+        with self.subTest(pending=pending, unsupported=unsupported):
+          events = []
+          process = mock.Mock(pid=42, returncode=None if unsupported else 0)
+          def reap(*args, **kwargs):
+            events.append('reap')
+            process.returncode = 0
+            return 0
+          process.wait.side_effect = process.poll.side_effect = reap
+          with mock.patch.object(b, '_command_processes', {process}), \
+               mock.patch.object(b, '_command_pending', {process} if pending else set()), \
+               mock.patch.object(b, '_command_streams', {}), \
+               mock.patch.object(os, 'waitid', side_effect=OSError(errno.EINVAL, 'unsupported'), create=True), \
+               mock.patch.object(os, 'killpg', side_effect=lambda *args: events.append('signal')), \
+               mock.patch.object(b, 'shutdown_handles'), \
+               mock.patch.object(b._curryrtbindings, '_heap_drain'):
+            (b._reap_commands if pending else b._shutdown_native)()
+          self.assertEqual(events.count('signal'), int(unsupported and not pending))
+          if 'reap' in events:
+            self.assertNotIn('signal', events[events.index('reap') + 1:])
+
+  def test_windows_launch_failure_cleanup(self):
+    from curry.backends.cxx import curryrtbindings as b
+    from curry.utility import windowsjob
+    from unittest import mock
+    import builtins
+    import io
+    for failure in ('import', 'assignment', 'registration'):
+      with self.subTest(failure=failure):
+        process = mock.Mock(_command_job=None)
+        process.stdin, process.stdout, process.stderr = (io.StringIO() for _ in range(3))
+        process._handle.__int__ = lambda self: 42
+        registry = set() if failure != 'registration' else mock.Mock()
+        if failure == 'registration':
+          registry.add.side_effect = KeyboardInterrupt('registration failed')
+        original_import = builtins.__import__
+        def importing(name, *args, **kwargs):
+          if failure == 'import' and name.endswith('utility.windowsjob'):
+            raise ImportError('job import failed')
+          return original_import(name, *args, **kwargs)
+        job = mock.Mock()
+        job.close.side_effect = OSError('close failed')
+        process.kill.side_effect = OSError('kill failed')
+        kernel = mock.Mock()
+        kernel.NtResumeProcess.return_value = 0
+        with mock.patch.object(sys, 'platform', 'win32'), \
+             mock.patch.object(b, '_reap_commands'), \
+             mock.patch.object(b, '_command_processes', registry), \
+             mock.patch('builtins.__import__', side_effect=importing), \
+             mock.patch('ctypes.WinDLL', return_value=kernel, create=True), \
+             mock.patch.object(windowsjob, 'WindowsJob', side_effect=(
+                 KeyboardInterrupt('assignment failed') if failure == 'assignment' else None),
+                 return_value=job), \
+             mock.patch.object(subprocess, 'Popen', return_value=process) as launch:
+          with self.assertRaises((ImportError, KeyboardInterrupt)):
+            b._standard_stream(0, 'exec', 'command', 0)
+        if failure == 'import':
+          launch.assert_not_called()
+        else:
+          process.kill.assert_called_once_with()
+          process.wait.assert_called_once_with(timeout=1)
+          process._handle.Close.assert_called_once_with()
+          self.assertTrue(all(stream.closed for stream in
+                              (process.stdin, process.stdout, process.stderr)))
+
   def test_shutdown_isolates_child_errors_and_waits_outside_lock(self):
     from curry.backends.cxx import curryrtbindings as b
     from unittest import mock
     broken, stubborn, healthy = mock.Mock(), mock.Mock(), mock.Mock()
-    broken.poll.side_effect = RuntimeError('cannot inspect child')
+    broken.returncode = stubborn.returncode = healthy.returncode = None
+    broken.wait.side_effect = RuntimeError('cannot inspect child')
     stubborn.poll.return_value = None
     healthy.poll.return_value = 0
     def wait(timeout):
       self.assertEqual(timeout, 1)
       self.assertFalse(b._command_lock._is_owned())
-    healthy.wait.side_effect = wait
+    def healthy_wait(timeout):
+      wait(timeout)
+      healthy.returncode = 0
+    healthy.wait.side_effect = healthy_wait
     def timeout_wait(timeout):
       wait(timeout)
       raise subprocess.TimeoutExpired('child', timeout)
@@ -115,6 +224,7 @@ run command = do
     with mock.patch.object(b, '_command_processes', processes), \
          mock.patch.object(b, '_command_pending', processes.copy()), \
          mock.patch.object(b, '_command_streams', {}), \
+         mock.patch.object(b, '_command_exited', side_effect=lambda p, timeout: p.wait(timeout=timeout)), \
          mock.patch.object(b, '_signal_command', side_effect=signal_child) as signal_command, \
          mock.patch.object(b, 'shutdown_handles'), \
          mock.patch.object(b._curryrtbindings, '_heap_drain'):
