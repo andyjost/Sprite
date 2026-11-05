@@ -55,6 +55,72 @@ run command = do
       self.assertIn(output, ('0:HELLO\n', '1:HELLO\n'))
       self.assertEqual(errors, 'error\n')
 
+  def test_last_command_child_is_reaped_while_interpreter_remains_alive(self):
+    from curry.backends.cxx import curryrtbindings as bindings
+    import shlex
+    for operation in ('exec', 'connect'):
+      with self.subTest(operation=operation):
+        script = 'import time; time.sleep(.2)'
+        command = (subprocess.list2cmdline([sys.executable, '-c', script])
+                   if sys.platform == 'win32' else
+                   'exec ' + shlex.quote(sys.executable) + ' -c ' + shlex.quote(script))
+        before = set(bindings._command_processes)
+        tokens = list(map(int, bindings._standard_stream(0, operation, command, 0).split()))
+        process, = bindings._command_processes - before
+        try:
+          started = time.monotonic()
+          for token in tokens:
+            bindings._standard_stream(token, 'prim_hClose', '', 0)
+          self.assertLess(time.monotonic() - started, .15)
+          deadline = time.monotonic() + 5
+          # Do not call poll/wait: that would reap the child in the test.
+          while process in bindings._command_processes and time.monotonic() < deadline:
+            time.sleep(.02)
+          self.assertNotIn(process, bindings._command_processes)
+          if sys.platform == 'win32':
+            import ctypes
+            flags = ctypes.c_ulong()
+            self.assertFalse(ctypes.windll.kernel32.GetHandleInformation(
+                ctypes.c_void_p(int(process._handle)), ctypes.byref(flags)))
+          else:
+            with self.assertRaises(ChildProcessError):
+              os.waitpid(process.pid, os.WNOHANG)
+        finally:
+          for token in tokens:
+            bindings._standard_stream(token, 'release', '', 0)
+          process.wait()
+
+  @cytest.posix_only('the broken pipe reproducer uses POSIX command quoting')
+  def test_buffered_broken_pipe_retirement_drains_every_handle(self):
+    result = cytest.run_in_subprocess('''
+import gc, shlex, sys
+import curry
+from curry.backends.cxx import curryrtbindings as bindings
+curry.path.insert(0, str(__import__('pathlib').Path('data/curry/cpm_index').resolve()))
+module = curry.compile("""import System.IO
+import System.IOExts
+launch :: String -> IO (Handle,Handle,Handle)
+launch = execCmd
+""")
+io = curry.import_('System.IO')
+before = set(bindings._command_streams)
+command = 'exec ' + shlex.quote(sys.executable) + ' -c ' + shlex.quote('pass')
+handles = curry.eval(module.launch(command)).one()
+process = next(iter(bindings._command_processes))
+process.wait()
+curry.eval(io.hPutChar(handles[0], curry.Char('x'))).one()
+del handles
+gc.collect()
+bindings.gc_collect()
+assert curry.eval(io.hIsWritable(io.stdout)).one()
+assert set(bindings._command_streams) == before, bindings._command_streams
+print('retirement drained')
+''', timeout=30)
+    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+    self.assertIn('retirement drained', result.stdout)
+    self.assertIn('Hosted stream finalizer failed', result.stderr)
+    self.assertIn('BrokenPipeError', result.stderr)
+
   def test_binary_file_roundtrip(self):
     curry.path.insert(0, str(BINARY))
     binary = curry.import_('System.IO.BinaryFile')

@@ -6,6 +6,8 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import runpy
+from unittest import mock
 
 
 class TestREPLArguments(cytest.TestCase):
@@ -175,6 +177,7 @@ assert curry.eval(E.getArgs).one() == []
       self.assertEqual((result.returncode, result.stdout, result.stderr),
           (0, 'True\n', ''))
 
+  @cytest.posix_only('executes external shebang commands')
   def test_private_cpm_launcher_selects_sprite_and_avoids_itself(self):
     with tempfile.TemporaryDirectory() as directory:
       root = Path(directory)
@@ -203,6 +206,57 @@ assert curry.eval(E.getArgs).one() == []
             (0, selected + '\n-d\nCURRYBIN=' + str(root / 'bin/curry') + '\ntest\n', ''))
         if selected == 'tools':
           (root / 'tools/cypm').unlink()
+
+  def test_private_cpm_launcher_selection_without_executing_scripts(self):
+    with tempfile.TemporaryDirectory() as directory:
+      root = Path(directory)
+      for name in ('bin', 'tools', 'fallback'):
+        (root / name).mkdir()
+      launcher = root / 'bin/cypm'
+      shutil.copyfile(config.installed_path('bin', 'cypm'), launcher)
+      (root / 'tools/pakcs').touch()
+      for name in ('tools', 'fallback'):
+        (root / name / 'cypm').touch()
+      for selected in ('tools', 'fallback'):
+        with mock.patch.object(config, 'installed_path', side_effect=lambda *p: str(root.joinpath(*p))), \
+             mock.patch.object(os, 'get_exec_path', return_value=[str(root / 'bin'), str(root / 'fallback')]), \
+             mock.patch.object(os, 'access', return_value=True), \
+             mock.patch.object(os, 'execv', side_effect=RuntimeError('selected')) as execute, \
+             mock.patch.dict(os.environ), mock.patch.object(sys, 'path', sys.path[:]), \
+             mock.patch.object(sys, 'argv', [str(launcher), 'test']):
+          os.environ.pop('SPRITE_CPM_FORWARDED', None)
+          with self.assertRaisesRegex(RuntimeError, 'selected'):
+            runpy.run_path(str(launcher), run_name='__main__')
+          command, arguments = execute.call_args.args
+          self.assertEqual(Path(command), (root / selected / 'cypm').resolve())
+          self.assertEqual(arguments[1:], ['-d', 'CURRYBIN=' + str(root / 'bin/curry'), 'test'])
+          self.assertEqual(os.environ['SPRITE_CPM_FORWARDED'], '1')
+        if selected == 'tools':
+          (root / 'tools/cypm').unlink()
+
+  @cytest.posix_only('executes two external shebang launchers')
+  def test_two_private_cpm_launchers_refuse_forwarding_loop(self):
+    with tempfile.TemporaryDirectory() as directory:
+      root = Path(directory)
+      launchers = []
+      for name in ('first', 'second'):
+        prefix = root / name
+        (prefix / 'bin').mkdir(parents=True)
+        (prefix / 'python/curry').mkdir(parents=True)
+        (prefix / 'python/curry/__init__.py').write_text('')
+        (prefix / 'python/curry/config.py').write_text(
+            'def installed_path(*parts): return "missing-pakcs"\n')
+        launcher = prefix / 'bin/cypm'
+        shutil.copyfile(config.installed_path('bin', 'cypm'), launcher)
+        launcher.chmod(0o755)
+        launchers.append(launcher)
+      environment = dict(os.environ, PATH=os.pathsep.join(
+          [str(p.parent) for p in launchers] + [os.environ['PATH']]))
+      environment.pop('SPRITE_CPM_FORWARDED', None)
+      result = subprocess.run([sys.executable, str(launchers[0]), 'test'],
+          env=environment, text=True, capture_output=True, timeout=10)
+      self.assertNotEqual(result.returncode, 0)
+      self.assertIn('Stock CPM is missing', result.stderr)
 
   def test_search_path_and_runtime_settings(self):
     with tempfile.TemporaryDirectory(prefix='repl path ') as directory:

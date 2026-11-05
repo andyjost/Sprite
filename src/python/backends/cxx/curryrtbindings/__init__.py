@@ -232,6 +232,41 @@ _stream_lookahead = _defaultdict(lambda: None)
 _stream_recovered = _defaultdict(lambda: None)
 _command_streams = {}
 _command_processes = set()
+_command_owners = {}
+import threading as _threading
+_command_condition = _threading.Condition()
+_command_pending = set()
+_command_reaper = None
+_command_reaper_stopping = False
+
+
+def _reap_commands():
+  with _command_condition:
+    while not _command_reaper_stopping:
+      for process in list(_command_pending):
+        if process.poll() is not None:
+          if sys.platform == 'win32':
+            process._handle.Close()
+          _command_pending.remove(process)
+          _command_processes.discard(process)
+      _command_condition.wait(.02 if _command_pending else None)
+
+
+def _retire_command(token):
+  global _command_reaper
+  process = _command_owners.pop(token, None)
+  if process is None or process in _command_owners.values():
+    return
+  # A single worker polls only children whose final pipe has been closed.
+  # Evaluation never waits for the child to exit.
+  with _command_condition:
+    _command_pending.add(process)
+    if _command_reaper is None:
+      _command_reaper = _threading.Thread(target=_reap_commands,
+                                        name='command-reaper', daemon=True)
+      _command_reaper.start()
+    _command_condition.notify()
+
 _next_command_stream = 3
 
 def _read_standard_char(stream, index):
@@ -378,14 +413,11 @@ def _standard_stream(index, operation, text, value):
   global _next_command_stream
   if operation in ('exec', 'connect'):
     import subprocess
-    # Retain each process until it exits, reaping completed children at the
-    # next launch. Its pipes have the same explicit close semantics as files.
-    for process in list(_command_processes):
-      if process.poll() is not None: _command_processes.remove(process)
     process = subprocess.Popen(text, shell=True, stdin=subprocess.PIPE,
         stdout=subprocess.PIPE, stderr=subprocess.PIPE if operation == 'exec' else None, text=True,
         encoding='utf-8', errors='replace', bufsize=1)
-    _command_processes.add(process)
+    with _command_condition:
+      _command_processes.add(process)
     ids = []
     streams = ((process.stdin, process.stdout, process.stderr) if operation == 'exec'
                else (_CommandStream(process.stdout, process.stdin),))
@@ -393,14 +425,18 @@ def _standard_stream(index, operation, text, value):
       token = _next_command_stream
       _next_command_stream += 1
       _command_streams[token] = stream
+      _command_owners[token] = process
       ids.append(str(token))
     return ' '.join(ids)
   streams = {0: sys.stdin, 1: sys.stdout, 2: sys.stderr, **_command_streams}
   if operation in ('release', 'prim_hClose') and index >= 3:
     stream = _command_streams.pop(index, None)
-    if stream is not None: stream.close()
-    _stream_lookahead.pop(index, None)
-    _stream_recovered.pop(index, None)
+    try:
+      if stream is not None: stream.close()
+    finally:
+      _stream_lookahead.pop(index, None)
+      _stream_recovered.pop(index, None)
+      _retire_command(index)
     return ''
   stream = streams[index]
   if operation == 'waits':
@@ -485,6 +521,7 @@ def _standard_stream(index, operation, text, value):
 set_stream_hook(_standard_stream)
 import atexit as _atexit
 def _shutdown_native():
+  global _command_reaper_stopping
   # The hot tier registers later, so it quiesces before this drain. The heap
   # and its root registries remain alive for late Python finalizers.
   _curryrtbindings._heap_drain()
@@ -492,8 +529,20 @@ def _shutdown_native():
   for token in list(_command_streams):
     try: _standard_stream(token, 'release', '', 0)
     except (OSError, ValueError): pass
-  for process in _command_processes:
-    process.poll()
+  with _command_condition:
+    for process in list(_command_processes):
+      if process.poll() is None:
+        process.terminate()
+      process.wait()
+      if sys.platform == 'win32':
+        process._handle.Close()
+    _command_processes.clear()
+    _command_pending.clear()
+    _command_reaper_stopping = True
+    _command_condition.notify()
+    reaper = _command_reaper
+  if reaper is not None:
+    reaper.join()
 
 _atexit.register(_shutdown_native)
 

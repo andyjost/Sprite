@@ -61,7 +61,10 @@ jobs:
           key: cpm-index-toolchain-ubuntu-24.04-pakcs${{ env.PAKCS_VERSION }}-v1
       - name: Build the Curry toolchain
         if: steps.toolchain.outputs.cache-hit != 'true'
-        run: .github/scripts/install-curry-toolchain.sh
+        run: |
+          python scripts/cpm-index-run.py --label PAKCS \
+            --url "https://www.curry-lang.org/pakcs/download/pakcs-$PAKCS_VERSION-amd64-Linux.tar.gz" \
+            --acquire bash .github/scripts/install-curry-toolchain.sh
       - name: Install Python packages
         run: python -m pip install --quiet cmake ninja scikit-build-core numpy
       - name: Configure and stage
@@ -88,18 +91,18 @@ jobs:
           for state in src/pakcs currytools/cpm/src/CPM.Main currytools/optimize/BindingOpt; do
             limit_stack "$pakcs_home/$state"
           done
-          timeout 600 "$pakcs_home/bin/cypm" update
+          python scripts/cpm-index-run.py --label CPM-index --url https://cpm.curry-lang.org/PACKAGES/INDEX.tar.gz --acquire timeout 600 "$pakcs_home/bin/cypm" update
           python scripts/cpm-test-overlay.py "$HOME/.cpm/index" "$HOME/sprite-index" --snapshot tests/data/cpm/index-expected.json
           printf 'REPOSITORYPATH=%s\n' "$HOME/sprite-index" >> "$HOME/.cpmrc"
-          timeout 1800 "$pakcs_home/bin/cypm" -d REPOSITORYPATH="$HOME/sprite-index" -d CURRYBIN="$pakcs_home/bin/pakcs" install currypp
+          python scripts/cpm-index-run.py --label currypp --url https://cpm.curry-lang.org/PACKAGES --acquire timeout 1800 "$pakcs_home/bin/cypm" -d REPOSITORYPATH="$HOME/sprite-index" -d CURRYBIN="$pakcs_home/bin/pakcs" install currypp
           limit_stack "$HOME/.cpm/bin/currypp"
           export PATH="$HOME/.cpm/bin:$PATH"
-          timeout 1800 "$pakcs_home/bin/cypm" -d REPOSITORYPATH="$HOME/sprite-index" -d CURRYBIN="$GITHUB_WORKSPACE/install/bin/sprite" checkout currycheck 4.0.0 -o "$HOME/currycheck-framework"
+          python scripts/cpm-index-run.py --label currycheck --url https://cpm.curry-lang.org/PACKAGES --acquire timeout 1800 "$pakcs_home/bin/cypm" -d REPOSITORYPATH="$HOME/sprite-index" -d CURRYBIN="$GITHUB_WORKSPACE/install/bin/sprite" checkout currycheck 4.0.0 -o "$HOME/currycheck-framework"
           python scripts/cpm-test-overlay.py "$HOME/.cpm/index" "$HOME/sprite-index" --snapshot tests/data/cpm/index-expected.json --packages "$HOME/.cpm/packages" "$HOME/currycheck-framework"
           python scripts/cpm-currycheck-prepare.py "$HOME/currycheck-framework"
           (
             cd "$HOME/currycheck-framework"
-            timeout 1800 "$pakcs_home/bin/cypm" -d REPOSITORYPATH="$HOME/sprite-index" -d CURRYBIN="$GITHUB_WORKSPACE/install/bin/sprite" install
+            python "$GITHUB_WORKSPACE/scripts/cpm-index-run.py" --label currycheck --url https://cpm.curry-lang.org/PACKAGES --acquire timeout 1800 "$pakcs_home/bin/cypm" -d REPOSITORYPATH="$HOME/sprite-index" -d CURRYBIN="$GITHUB_WORKSPACE/install/bin/sprite" install
           )
           test -x "$HOME/.cpm/bin/curry-check"
           mkdir "$HOME/framework-bin"
@@ -109,10 +112,11 @@ jobs:
           pakcs_home="$HOME/pakcs-$PAKCS_VERSION"
           export HOME="$RUNNER_TEMP/sprite-cpm-home"
           export PATH="$HOME/framework-bin:$HOME/.cpm/bin:$GITHUB_WORKSPACE/install/bin:$pakcs_home/bin:$PATH"
-          export PYTHONPATH="$GITHUB_WORKSPACE/install/python"
+          export PYTHONPATH="$GITHUB_WORKSPACE/tests/lib:$GITHUB_WORKSPACE/install/python"
           export SPRITE_CPM_INDEX_CHECKER="$HOME/framework-bin"
           cd tests
-          ./run_tests -j 1 unit_cpm_search.py
+          "$GITHUB_WORKSPACE/install/bin/python" -m unittest \
+            unit_cpm_search.TestCPMSearch.test_quantified_properties_use_sprite
       - name: List newer compatible package versions
         continue-on-error: true
         run: |

@@ -45,13 +45,15 @@ def classify(output, code):
       return 'Sprite error: CurryCheck unavailable; compilation only'
     return 'pass'
   if any(text in output for text in ('Could not resolve host', 'Connection timed out',
-                                     'Failed to connect', 'curl: (28)', 'curl: (7)')):
+                                     'Failed to connect', 'curl: (')) or re.search(
+      r'(?:could not|cannot|failed to|unable to) (?:download|fetch|clone|access)|download failed',
+      output, re.I):
     urls = re.findall(r'https?://[^\s\"\']+', output)
     return 'network: ' + (' '.join(dict.fromkeys(urls)) or 'download connection failed')
   if code == 124:
-    kiel = re.findall(r'https?://(?:www\.informatik|git\.ps\.informatik)\.uni-kiel\.de/[^\s\"\']+', output)
-    if kiel:
-      return 'network: ' + ' '.join(dict.fromkeys(kiel))
+    downloads = re.findall(r'(?:Downloading|Cloning|Fetching)[^\n]*?(https?://[^\s\"\']+)', output, re.I)
+    if downloads and not re.search(r'Compiling|Executing all tests|Running CurryCheck', output.split(downloads[-1])[-1]):
+      return 'network: ' + ' '.join(dict.fromkeys(downloads))
     return 'timeout'
   if 'not implemented' in output:
     return 'missing external: ' + next(line.strip() for line in output.splitlines()
@@ -131,32 +133,145 @@ def wait_for_proxy():
   raise ConnectionError('proxy unavailable after thirty minutes; retry this package on resume')
 
 
-def compare(rows, expected):
+def normalize_failure(text):
+  """Remove locations and generated identifiers, preserving diagnostic meaning."""
+  text = re.sub(r'\x1b\[[0-9;]*m', '', text)
+  text = re.sub(r' ?\d+\x08+', '', text).replace('\x08', '')
+  text = re.sub(r'\(module ([^,]+), line \d+\)', r'(module \1)', text)
+  text = re.sub(r'\b(?:TEST|MAIN)\d+\b', '<generated>', text)
+  text = re.sub(r'0x[0-9a-fA-F]+', '<address>', text)
+  text = re.sub(r'(?<![:/\w])/(?:[^\s:]+/)+[^\s:]*', '<path>', text)
+  text = re.sub(r'(?:<scratch>|<worktree>)(?:<path>)?', '<path>', text)
+  text = re.sub(r'(?<=:)\d+(?::\d+)?(?:-\d+(?::\d+)?)?(?=[: ])', '<location>', text)
+  text = re.sub(r'not found in path .*', 'not found in path <search-path>', text)
+  text = re.sub(r'\bline \d+\b', 'line <number>', text)
+  return ' '.join(text.split())
+
+
+def failure_set(stage, output, code=1, outcome=None):
+  """Complete stage failure set; never truncate to the first/last diagnostic."""
+  outcome = outcome or classify(output, code)
+  if outcome == 'pass':
+    return []
+  kind = outcome.split(':', 1)[0]
+  failures = {stage + ': class: ' + kind}
+  # Property headers and all error diagnostics, including every external.
+  markers = ('FAILED', 'Falsified', 'falsified', ': FAILURE:',
+             ': EXECUTION FAILURE:', 'Arguments exhausted after',
+             'not implemented', 'ERROR', 'CRITICAL',
+             'error:', 'Expected module for', 'terminate called', 'what():',
+             'Segmentation fault', 'Assertion', 'Aborted', 'std::bad_alloc',
+             '*** Evaluation suspended!', 'not found', 'not found!')
+  previous = ''
+  for line in output.splitlines():
+    diagnostic = re.search(r'\b(?:Error|Exception)\b|[A-Za-z]+Error:', line)
+    if line.lstrip().startswith(('raise ', 'throw ')):
+      continue
+    if diagnostic or any(marker in line for marker in markers) or re.fullmatch(
+        r"[A-Za-z_][\w.']* failed", line.strip()):
+      if 'Arguments exhausted after' in line or 'Falsified' in line or 'falsified' in line:
+        failures.add(stage + ': diagnostic: ' + normalize_failure(previous))
+      failures.add(stage + ': diagnostic: ' + normalize_failure(line))
+    if line.strip():
+      previous = line
+  if len(failures) == 1:
+    failures.add(stage + ': diagnostic: ' + normalize_failure(outcome))
+  if code < 0 or code >= 128 or code == 124:
+    failures.add(stage + ': termination: ' + str(code))
+  return sorted(failures)
+
+
+def recorded_failure_set(row, logs=None):
+  if row.get('failure_set'):
+    return set(json.loads(row['failure_set']) if isinstance(row['failure_set'], str)
+               else row['failure_set'])
+  if row['result'] == 'pass':
+    return set()
+  if logs is None:
+    raise ValueError('complete failure set required for ' + row['package'])
+  output = (Path(logs) / (row['package'] + '.log')).read_text()
+  # Oracle output must never become part of the Sprite baseline.
+  output = re.split(r'(?m)^PAKCS (?:test|isolated install)\n', output)[0]
+  chunks = re.split(r'(?m)^(checkout|install|test)\n', output)
+  failures = set()
+  for stage, text in zip(chunks[1::2], chunks[2::2]):
+    outcome = row.get(stage + '_outcome', 'pass')
+    if outcome in ('pass', 'not run', ''):
+      continue
+    code = 124 if outcome == 'timeout' else 139 if 'Segmentation fault' in text else 1
+    failures.update(failure_set(stage, text, code, outcome))
+  if not failures:
+    raise ValueError('raw stage evidence required for ' + row['package'])
+  return failures
+
+
+def compare(rows, expected, logs=None):
   failures, improvements = [], []
   for row in rows:
+    if row['result'].startswith(('network:', 'infrastructure:')):
+      continue  # Infrastructure is reported independently with status 2.
     wanted = expected['packages'][row['package']]
     if row['version'] != wanted['version']:
       failures.append(row['package'] + ': wrong pinned version')
     elif wanted['result'] == 'pass' and row['result'] != 'pass':
       failures.append(row['package'] + ': ' + row['result'])
-    elif wanted['result'] in ('exception', 'open', 'network'):
+    elif wanted['result'] in ('exception', 'open'):
       if row['result'] == 'pass':
         improvements.append(row['package'] + ': ' + wanted['result'] + ' now passes')
-      elif wanted['result'] == 'open' and (
-          row['result'].split(':', 1)[0] != wanted['failure_class'] or
-          wanted.get('failure_match', '') not in row['result']):
-        failures.append(row['package'] + ': worse than ' + wanted['issue'] + ': ' + row['result'])
-      elif wanted['result'] == 'network' and not row['result'].startswith('network:'):
-        failures.append(row['package'] + ': ' + row['result'])
+      else:
+        actual = recorded_failure_set(row, logs)
+        baseline = set(wanted['failure_set'])
+        if not actual <= baseline:
+          failures.append(row['package'] + ': new failures: ' + '; '.join(sorted(actual - baseline)))
+        elif actual < baseline:
+          improvements.append(row['package'] + ': failure set shrank')
   return failures, improvements
+
+
+def comparison_status(rows, expected, logs=None):
+  infrastructure = [r for r in rows if r['result'].startswith(('network:', 'infrastructure:'))]
+  failures, improvements = compare(rows, expected, logs)
+  summary = 'CPM index: %d packages, %d regressions, %d infrastructure failures\n' % (
+      len(rows), len(failures), len(infrastructure))
+  summary += ''.join('- ' + line + '\n' for line in [*failures, *improvements])
+  summary += ''.join('- infrastructure: ' + r['package'] + ': ' + r['result'] + '\n'
+                     for r in infrastructure)
+  print(summary, end='')
+  if os.environ.get('GITHUB_STEP_SUMMARY'):
+    with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as stream:
+      stream.write(summary)
+  return 2 if infrastructure else int(bool(failures))
+
+
+def acquisition(command, package, url=None, **kwargs):
+  """Retry failed downloads even when the index host remains available."""
+  for attempt in range(3):
+    result = subprocess.run(command, capture_output=True, text=True, **kwargs)
+    outcome = classify(result.stdout + result.stderr, result.returncode)
+    if not outcome.startswith('network:'):
+      return result
+    if attempt < 2:
+      try:
+        wait_for_proxy()
+      except ConnectionError:
+        break
+      time.sleep(1)
+  print('Infrastructure failure: ' + package + ': ' + outcome +
+        (' (' + url + ')' if url else ''), file=sys.stderr)
+  return result
 
 
 def main():
   parser = argparse.ArgumentParser(description=__doc__)
-  parser.add_argument('--cypm', required=True)
-  parser.add_argument('--sprite', required=True)
-  parser.add_argument('--index', type=Path, required=True)
-  parser.add_argument('--work', type=Path, required=True)
+  parser.add_argument('--compare', type=Path, help='offline raw CSV comparison')
+  parser.add_argument('--logs', type=Path, help='raw stage logs (default: beside CSV)')
+  parser.add_argument('--acquire', nargs=argparse.REMAINDER, help='retry a setup acquisition command')
+  parser.add_argument('--url', help='source URL for setup acquisition diagnostics')
+  parser.add_argument('--label', default='CPM setup', help='package or setup acquisition name')
+  parser.add_argument('--cypm')
+  parser.add_argument('--sprite')
+  parser.add_argument('--index', type=Path)
+  parser.add_argument('--work', type=Path)
   parser.add_argument('--csv', type=Path, default=Path('LANE-INDEX.csv'))
   parser.add_argument('--expected', type=Path, help='test pinned versions and fail on regressions')
   parser.add_argument('--packages', nargs='+', help='run only these package names')
@@ -170,6 +285,11 @@ def main():
   parser.add_argument('--pakcs-checker', type=Path,
                       help='directory containing a PAKCS-built curry-check')
   args = parser.parse_args()
+  if args.acquire:
+    result = acquisition(args.acquire, args.label, args.url)
+    output = result.stdout + result.stderr
+    print(output, end='')
+    return 2 if classify(output, result.returncode).startswith('network:') else result.returncode
   if not 0 <= args.shard < args.shards:
     parser.error('shard must be in [0, shards)')
   expected = json.loads(args.expected.read_text()) if args.expected else None
@@ -179,12 +299,21 @@ def main():
     if not expected.get('packages'):
       parser.error('expected results must contain packages')
     for name, pin in expected['packages'].items():
-      if pin.get('result') not in ('pass', 'exception', 'open', 'network') or (
+      if pin.get('result') not in ('pass', 'exception', 'open') or (
           pin['result'] != 'pass' and not pin.get('reason')) or (
           pin['result'] == 'open' and not all(pin.get(key) for key in
-              ('issue', 'failure_class', 'failure_match'))) or (
-          pin['result'] == 'network' and not pin.get('url')):
+              ('issue', 'failure_class', 'failure_set'))) or (
+          pin['result'] == 'exception' and not all(pin.get(key) for key in
+              ('failure_class', 'failure_set'))):
         parser.error('invalid expected result for ' + name)
+  if args.compare:
+    if expected is None:
+      parser.error('--compare requires --expected')
+    with args.compare.open() as stream:
+      rows = list(csv.DictReader(stream))
+    return comparison_status(rows, expected, args.logs or args.compare.parent)
+  if not all((args.cypm, args.sprite, args.index, args.work)):
+    parser.error('a live run requires --cypm, --sprite, --index and --work')
   selected = select_packages(args.index, expected)
   if args.newer:
     if expected is None:
@@ -212,14 +341,14 @@ def main():
             'install_seconds', 'install_outcome', 'test_seconds',
             'test_outcome', 'syslib_check_setting', 'properties_passed',
             'properties_failed', 'pakcs_result', 'pakcs_seconds',
-            'pakcs_properties_passed', 'pakcs_properties_failed']
+            'pakcs_properties_passed', 'pakcs_properties_failed', 'failure_set']
   rows = []
   if args.resume and args.csv.exists():
     with args.csv.open() as stream:
       selected_ids = {(d['name'], d['version']) for d in selected}
       rows = [r for r in csv.DictReader(stream)
               if (r['package'], r['version']) in selected_ids and
-              not r['result'].startswith(('network:', 'not run:'))]
+              not r['result'].startswith(('network:', 'infrastructure:', 'not run:'))]
   done = {(r['package'], r['version']) for r in rows}
   def sanitize(text):
     text = re.sub(r'\x1b\[[0-9;]*m', '', text)
@@ -253,6 +382,7 @@ def main():
     def write_log():
       log.write_text('\n'.join(outputs), encoding='ascii', errors='backslashreplace')
     status = 'pass'
+    observed_failures = set()
     measurements = {}
     properties = ('not run', 'not run')
     stages = ([] if (directory / 'package.json').exists() else
@@ -261,6 +391,7 @@ def main():
     for stage, arguments, cwd in stages:
       print(name, ver, stage, flush=True)
       stage_started = time.monotonic()
+      download_attempts = 0
       while True:
         attempt_started = time.monotonic()
         remaining = max(1, int(1800 - (time.monotonic() - started)))
@@ -277,30 +408,40 @@ def main():
         if stage == 'install':
           changed = overlay.patch_downloads([Path(os.environ['HOME']) / '.cpm/packages'])
           changed += overlay.patch(directory / '.cpm/packages')
-        if changed and result.returncode != 124 and time.monotonic() - started < 1800:
+        current = classify(output, result.returncode)
+        if current.startswith('network:') and not re.search(r'https?://', current):
+          urls = re.findall(r'https?://[^\s\"\']+', json.dumps(data.get('source', {})))
+          current += '; package source: ' + ' '.join(urls or [
+              'https://cpm.curry-lang.org/PACKAGES/' + name + '-' + ver + '.tar.gz'])
+        if changed and not current.startswith('network:') and result.returncode != 124 and time.monotonic() - started < 1800:
           outputs.append('Applied compatibility overlay to newly acquired manifests.\n')
           continue
-        current = classify(output, result.returncode)
         if current.startswith('network:'):
-          if wait_for_proxy():
-            # An infrastructure outage does not spend the package's budget.
+          download_attempts += 1
+          if download_attempts < 3:
+            try:
+              wait_for_proxy()
+            except ConnectionError:
+              break
+            time.sleep(1)
             outage = time.monotonic() - attempt_started
             started += outage
             stage_started += outage
-            outputs.append('Proxy recovered; retrying the interrupted package stage.\n')
+            outputs.append('Retrying failed acquisition.\n')
             continue
         break
+      observed_failures.update(failure_set(stage, output, result.returncode, current))
       measurements[stage] = (round(time.monotonic() - stage_started, 1), current)
       if stage == 'test':
         properties = property_results(output)
       if current != 'pass':
-        if status == 'pass':
+        if status == 'pass' or current.startswith('network:'):
           status = current
         if stage == 'checkout' or result.returncode == 124 or current.startswith('network:'):
           break
     seconds = round(time.monotonic() - started, 1)
     baseline, baseline_seconds, baseline_properties = 'not run', '', ('not run', 'not run')
-    if args.pakcs and status != 'pass' and (directory / 'package.json').exists():
+    if args.pakcs and not status.startswith('network:') and status != 'pass' and (directory / 'package.json').exists():
       print(name, ver, 'PAKCS test', flush=True)
       baseline_started = time.monotonic()
       baseline_command = [args.cypm, '-d', 'CURRYBIN=' + str(Path(args.pakcs).resolve()),
@@ -334,7 +475,7 @@ def main():
                  *measurements.get('test', ('', 'not run')),
                  ('SPRITE_DISABLE_SYSLIB_CHECKS=' + os.environ['SPRITE_DISABLE_SYSLIB_CHECKS']
                   if 'SPRITE_DISABLE_SYSLIB_CHECKS' in os.environ else ''),
-                 *properties, baseline, baseline_seconds, *baseline_properties])))
+                 *properties, baseline, baseline_seconds, *baseline_properties, json.dumps(sorted(observed_failures))])))
     temporary_csv = args.csv.with_suffix(args.csv.suffix + '.tmp')
     with temporary_csv.open('w') as stream:
       writer = csv.DictWriter(stream, fieldnames=fields)
@@ -343,15 +484,8 @@ def main():
     temporary_csv.replace(args.csv)
     print(name, ver, status, seconds, flush=True)
   if expected:
-    failures, improvements = compare(rows, expected)
-    summary = 'CPM index: %d packages, %d regressions\n\n' % (len(rows), len(failures))
-    summary += '\n'.join('- ' + line for line in [*failures, *improvements]) + '\n'
-    print(summary)
-    if os.environ.get('GITHUB_STEP_SUMMARY'):
-      with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as stream:
-        stream.write(summary)
-    return bool(failures)
-  return 0
+    return comparison_status(rows, expected, args.work)
+  return 2 if any(r['result'].startswith('network:') for r in rows) else 0
 
 
 if __name__ == '__main__':

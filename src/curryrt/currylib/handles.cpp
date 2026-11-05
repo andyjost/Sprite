@@ -16,6 +16,7 @@
 #include <thread>
 #include <future>
 #include <sstream>
+#include <iostream>
 
 using namespace curryrt;
 namespace
@@ -392,7 +393,14 @@ namespace curryrt
       std::lock_guard<std::recursive_mutex> lock(handle_mutex());
       retired.swap(retired_streams());
     }
-    for(int id: retired) host()(id, "release", "", 0);
+    for(int id: retired)
+    {
+      try { host()(id, "release", "", 0); }
+      catch(std::exception const & error)
+      { std::cerr << "Hosted stream finalizer failed: " << error.what() << '\n'; }
+      catch(...)
+      { std::cerr << "Hosted stream finalizer failed: unknown error\n"; }
+    }
     return host()(stream, operation, text, value);
   }
 }

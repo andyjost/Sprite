@@ -129,18 +129,81 @@ class TestCPMIndex(cytest.TestCase):
   def test_open_issue_allows_only_the_recorded_failure(self):
     pin = {'version': '1.0.0', 'result': 'open', 'issue': '#TBD',
            'reason': 'Command primitive absent', 'failure_class': 'missing external',
-           'failure_match': 'prim_command'}
+           'failure_set': survey.failure_set('test', 'missing external: prim_command',
+                                              outcome='missing external: prim_command')}
     expected = {'packages': {'sample': pin}}
     row = {'package': 'sample', 'version': '1.0.0',
            'result': 'missing external: prim_command'}
+    row['failure_set'] = pin['failure_set']
     self.assertEqual(survey.compare([row], expected), ([], []))
-    for result in ('timeout', 'network: https://example.org',
+    for result in ('timeout',
                    'missing external: another_primitive'):
       row['result'] = result
+      row['failure_set'] = survey.failure_set('test', result, outcome=result)
       self.assertEqual(len(survey.compare([row], expected)[0]), 1)
     row['result'] = 'pass'
     self.assertEqual(survey.compare([row], expected),
                      ([], ['sample: open now passes']))
+
+  def test_complete_failure_sets_and_improvements(self):
+    original = ('first (module Sample, line 1): EXECUTION FAILURE:\n'
+                'error: A.one: not implemented\n'
+                'second (module Sample, line 2): EXECUTION FAILURE:\n'
+                'error: A.two: not implemented\n')
+    baseline = survey.failure_set('test', original)
+    self.assertTrue(any('A.one' in f for f in baseline))
+    self.assertTrue(any('A.two' in f for f in baseline))
+    for kind in ('exception', 'open'):
+      pin = {'version': '1.0.0', 'result': kind, 'failure_set': baseline}
+      expected = {'packages': {'sample': pin}}
+      row = {'package': 'sample', 'version': '1.0.0', 'result': 'missing external'}
+      row['failure_set'] = survey.failure_set('test', original.replace('line 1', 'line 99'))
+      self.assertEqual(survey.compare([row], expected), ([], []))
+      for output, code in [(original + 'extra: FAILED!\n', 1),
+                           ('error: A.three: not implemented', 1),
+                           ('Segmentation fault', 139), ('', 124)]:
+        row['failure_set'] = survey.failure_set('test', output, code)
+        self.assertTrue(survey.compare([row], expected)[0])
+      row['failure_set'] = survey.failure_set('test', original.split('second')[0])
+      self.assertEqual(survey.compare([row], expected), ([], ['sample: failure set shrank']))
+      row['result'] = 'pass'
+      self.assertEqual(survey.compare([row], expected), ([], ['sample: ' + kind + ' now passes']))
+
+  def test_acquisition_retries_with_healthy_index_and_reports_infrastructure(self):
+    url = 'https://example.org/package.tar.gz'
+    failed = mock.Mock(returncode=22, stdout=url, stderr='curl: (22) HTTP error')
+    passed = mock.Mock(returncode=0, stdout='ready', stderr='')
+    for results, attempts in [([failed, passed], 2), ([failed] * 3, 3)]:
+      with mock.patch.object(survey.subprocess, 'run', side_effect=results) as run, \
+           mock.patch.object(survey, 'wait_for_proxy', return_value=False), \
+           mock.patch.object(survey.time, 'sleep'):
+        result = survey.acquisition(['download'], 'sample')
+        self.assertIs(result, results[-1])
+        self.assertEqual(run.call_count, attempts)
+    row = {'package': 'sample', 'version': '1.0.0', 'result': 'network: ' + url}
+    for kind in ('pass', 'open', 'exception'):
+      expected = {'packages': {'sample': {'version': '1.0.0', 'result': kind}}}
+      self.assertEqual(survey.compare([row], expected), ([], []))
+      self.assertEqual(survey.comparison_status([row], expected), 2)
+    with mock.patch.object(sys, 'argv', ['survey', '--acquire', 'download']), \
+         mock.patch.object(survey, 'acquisition', return_value=failed):
+      self.assertEqual(survey.main(), 2)
+
+  def test_workflow_validates_framework_without_open_reproducers(self):
+    import re
+    import unittest
+    workflow = (ROOT / '.github/workflows/cpm-index.yml').read_text()
+    step = workflow.split('name: Verify quantified properties run on Sprite', 1)[1]
+    step = step.split('      - name:', 1)[0]
+    self.assertNotIn('./run_tests -j 1 unit_cpm_search.py', step)
+    targets = re.findall(r'unit_cpm_search\.[A-Za-z_.]+', step)
+    self.assertTrue(targets)
+    suite = unittest.defaultTestLoader.loadTestsFromNames(targets)
+    for group in suite:
+      for test in group:
+        method = getattr(test, test._testMethodName)
+        self.assertFalse(getattr(method, '__unittest_expecting_failure__', False))
+    self.assertEqual(suite.countTestCases(), 1)
 
   def test_network_retains_source_url(self):
     self.assertEqual(survey.classify('curl: (7) Failed to connect\nRecovered from cache', 0), 'pass')
@@ -196,6 +259,14 @@ class TestCPMIndex(cytest.TestCase):
       cypm.write_text('#!' + sys.executable + '\n' + '''
 import json, os, pathlib, sys
 args = sys.argv[1:]
+if 'install' in args and os.environ.get('FAKE_DOWNLOAD_FAILURES') and not any(a.startswith('BININSTALLPATH=') for a in args):
+    counter = pathlib.Path.cwd() / 'attempts'
+    count = int(counter.read_text()) + 1 if counter.exists() else 1
+    counter.write_text(str(count))
+    if count <= int(os.environ['FAKE_DOWNLOAD_FAILURES']):
+        print('https://example.org/sample.tar.gz')
+        print('curl: (22) HTTP error')
+        sys.exit(1)
 if 'checkout' in args:
     target = pathlib.Path(args[args.index('-o') + 1])
     target.mkdir()
@@ -255,3 +326,16 @@ elif 'test' in args:
         retried, = list(csv.DictReader(stream))
       self.assertTrue(retried['result'].startswith('test failure:'), retried)
 
+      curl = root / 'curl'
+      curl.write_text('#!/bin/sh\nexit 0\n')
+      curl.chmod(0o755)
+      for failures, attempts, code in [(1, 2, 1), (9, 3, 2)]:
+        (home / 'work/sample/attempts').unlink(missing_ok=True)
+        network = subprocess.run(result.args, env=dict(os.environ, HOME=str(home),
+            PATH=str(root) + os.pathsep + os.environ['PATH'],
+            FAKE_DOWNLOAD_FAILURES=str(failures)), capture_output=True, text=True)
+        self.assertEqual(network.returncode, code, network.stdout + network.stderr)
+        self.assertEqual((home / 'work/sample/attempts').read_text(), str(attempts))
+        if code == 2:
+          self.assertIn('0 regressions, 1 infrastructure failures', network.stdout)
+          self.assertIn('sample: network: https://example.org/sample.tar.gz', network.stdout)
