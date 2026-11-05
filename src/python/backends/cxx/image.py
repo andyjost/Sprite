@@ -312,8 +312,24 @@ class Encoder:
 
 class Resolver:
   def __init__(self, interp, module):
-    self.interp = interp
     self.module = module
+    self.references = {}
+    self.tags = {}
+    for dep in tuple(interp.modules.values()):
+      h = getHandle(dep)
+      if not isinstance(h.icurry, icurry.IModule):
+        continue
+      for name, symbol in h.symbols.items():
+        fullname = h.fullname + '.' + name
+        self.references[fullname] = ('R', symbol.icurry.modulename, symbol.name)
+      for datatype in h.icurry.types.values():
+        for ctor in datatype.constructors:
+          fullname = h.fullname + '.' + ctor.name
+          self.tags[fullname] = interp.symbol(fullname).info.tag
+    self.refresh()
+
+  def refresh(self):
+    module = self.module
     self.local = set(module.functions) | {
         ctor.name for datatype in module.types.values()
         for ctor in datatype.constructors}
@@ -322,8 +338,7 @@ class Resolver:
     prefix = self.module.fullname + '.'
     if name.startswith(prefix) and name[len(prefix):] in self.local:
       return ('R', self.module.fullname, name[len(prefix):])
-    info = self.interp.symbol(name)
-    return ('R', info.icurry.modulename, info.name)
+    return self.references[name]
 
   def tag(self, name):
     ref = self.symbol(name)
@@ -332,7 +347,7 @@ class Resolver:
         for tag, ctor in enumerate(datatype.constructors):
           if ctor.name == ref[2]:
             return tag
-    return self.interp.symbol(name).info.tag
+    return self.tags[name]
 
   def datatype(self, name):
     ref = self.symbol(name)
@@ -353,16 +368,17 @@ def write(interp, module, currypath=None, path=None, imports=None):
       if function_primitive(native, f, module) is not None}
   from .toolchain import registered_names
   registry = registered_names(module.filename)
+  resolver = Resolver(interp, module)
   with _productlock.locked(path):
     try:
       _check(interp, module.filename, path, imports, registry)
       return path
     except (OSError, ValueError, KeyError, exceptions.CurryError):
       pass
-    return _write(interp, module, path, imports, builtins, registry)
+    return _write(interp, module, path, imports, builtins, registry, resolver)
 
 
-def _write(interp, module, path, imports, builtins, registry):
+def _write(interp, module, path, imports, builtins, registry, resolver):
   if os.path.realpath(path) in _attached_paths:
     selected = _destination.select(module.filename, force=True)
     path = filename(selected)
@@ -393,7 +409,6 @@ def _write(interp, module, path, imports, builtins, registry):
       out.metadata(ctor.metadata)
   out.word(len(module.functions))
   codes = []
-  resolver = Resolver(interp, module)
   for function in module.functions.values():
     out.text(function.name)
     out.word(function.arity)
@@ -499,6 +514,7 @@ def _ensure(interp, icyfile, currypath=None, importing=False):
   # module's passes, bytecode emission and publication need serialization.
   from .toolchain import registered_names
   registry = registered_names(source)
+  resolver = Resolver(interp, raw)
   with _productlock.locked(path):
     try:
       header = _check(interp, source, path, registry=registry)
@@ -507,8 +523,9 @@ def _ensure(interp, icyfile, currypath=None, importing=False):
     except (OSError, ValueError, KeyError, exceptions.CurryError):
       pass
     optimize(interp, raw, currypath, summaries=summaries)
+    resolver.refresh()
     imports = {name: imports[name] for name in raw.imports}
-    path = _write(interp, raw, path, imports, builtins, registry)
+    path = _write(interp, raw, path, imports, builtins, registry, resolver)
     return path, _check(interp, source, path, imports, registry)
 
 

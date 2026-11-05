@@ -175,8 +175,8 @@ def _hot_loop():
 
 
 def _emit_messages(messages):
-  for level, message, args in messages:
-    getattr(logger, logging.getLevelName(level).lower())(message, *args)
+  from ...toolchain import _productlock
+  _productlock.emit_messages(messages, logger)
 
 
 def _compile_groups(jit, items, post=False):
@@ -884,12 +884,12 @@ class _CachedModule:
         lockpath = (os.path.join(directory, 'cache.py') if path == self.private
             else os.path.splitext(path)[0] + '.py')
         with contextlib.ExitStack() as locks:
-          locks.enter_context(_productlock.locked(lockpath))
+          locks.enter_context(_productlock.locked(lockpath, messages=messages))
           # Local writers take the private lock second, so a fallback writer
           # cannot publish between our merge and removal of that generation.
           if path == self.local and self.private:
             locks.enter_context(_productlock.locked(
-                os.path.join(os.path.dirname(self.private), 'cache.py')))
+                os.path.join(os.path.dirname(self.private), 'cache.py'), messages=messages))
           # A process must never overwrite a slot belonging to another image.
           if path == self.local and image.read(self.path) != self.header:
             continue

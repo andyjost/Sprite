@@ -145,6 +145,17 @@ class EvaluationTotals(object):
       self._purge()
       self._running_refs[key] = weakref.ref(rts, forget)
       self._version += 1
+    if hasattr(rts, '_counts'):
+      # The native pull saves these under its existing heap section, also
+      # on errors and exhaustion. Delegation adds no per-value heap call.
+      try:
+        yield from values
+      finally:
+        self._add_counts(rts, *rts._counts)
+        close = getattr(values, 'close', None)
+        if close is not None:
+          close()
+      return
     # Snapshot while consuming, before suspending at a yield. Closing a
     # suspended generator (including cyclic GC) must not enter the heap.
     counts = (0, 0, None)
