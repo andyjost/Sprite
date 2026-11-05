@@ -489,6 +489,9 @@ objects use the process registry. Interpreted modules belong to their
 interpreter, including reserved importers and Prelude under ``interpret=all``.
 Lookup checks the interpreter's selected modules before the process registry.
 Reset retires that interpreter's runtime tables and preserves loaded objects.
+Reload drops that interpreter's queued and posted LLVM hot work, refreshes
+the attachment generation of still-loaded interpreted functions, and resets
+their bytecode call counters; already compiled LLVM steps keep their code.
 
 The module image
 ================

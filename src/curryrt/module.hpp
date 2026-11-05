@@ -25,6 +25,8 @@ namespace curryrt
       std::unordered_map<std::string, std::weak_ptr<Module>> modules;
     };
     ModuleRegistry();
+    // Under the heap gate and LLVM JIT lock, rearm live bytecode after reload.
+    void refresh(std::string const & excluded);
     std::shared_ptr<Storage> storage;
   };
 

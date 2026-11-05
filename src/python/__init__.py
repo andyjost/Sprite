@@ -198,7 +198,11 @@ def typeof(value, *, defaulted=False):
   return _interpreter_.typeof(value, defaulted=defaulted)
 
 def reload(module, *, text=None):
-  """Reload a module, dropping queued and posted hot work for its interpreter."""
+  """Reload a module, dropping its interpreter's queued and posted hot work.
+
+  Still-loaded interpreted functions become hot again after the threshold's
+  count of calls.
+  """
   return _session.reload(_interpreter_, module, text=text)
 
 

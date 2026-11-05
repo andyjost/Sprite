@@ -203,6 +203,11 @@ def invalidate(state):
   # lock: the apply may wait for the heap.
   curryrt.icurry_apply_posted()
 
+def refresh(state, excluded):
+  # Reload owns the heap before entering; this binding never waits for it.
+  with _lock:
+    curryrt.icurry_refresh(state, excluded)
+
 def _compile_groups_locked(jit, items, post, messages, work=None):
   # Group and publish by image, but let a waiting resolver enter between
   # optimizer batches. No binding here may acquire the heap under _lock.

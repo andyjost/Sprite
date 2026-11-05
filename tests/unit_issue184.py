@@ -250,6 +250,80 @@ with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') 
     assert first.eval(again.f(10)).one() == 12
 ''')
 
+  def test_llvm_reload_rearms_loaded_functions(self):
+    self._llvm_reload_rearms(False)
+
+  def test_llvm_reload_preserves_other_hot_work(self):
+    self._llvm_reload_rearms(True)
+
+  def _llvm_reload_rearms(self, other):
+    try:
+      import llvmlite
+    except ImportError:
+      self.skipTest('llvmlite is unavailable')
+    output = self.run_child(r'''
+import os, sys, tempfile, threading, time
+from pathlib import Path
+os.environ['SPRITE_JIT_THRESHOLD'] = '4'
+import curry
+from curry.interpreter import Interpreter
+from curry.backends.cxx import curryrtbindings as rt, llvmjit
+from curry.objects.handle import getHandle
+flags = {'interpret': 'all', 'jit': 'hot', 'jit_backend': 'llvm', 'inline_budget': 0}
+first = Interpreter(flags=flags)
+second = Interpreter(flags=flags) if %r else first
+curry._interpreter_ = first
+with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') as work:
+    for name, body in [('ReloadRearmM', 'f :: Int\nf = 1\n'),
+                       ('ReloadRearmN', 'g :: Int -> Int\ng n = 17\nh :: Int -> Int\nh n = 23\nk :: Int -> Int\nk n = 29\n')]:
+        (Path(work) / (name + '.curry')).write_text('module ' + name + ' where\n' + body)
+    first.path.insert(0, work)
+    if second is not first:
+        second.path.insert(0, work)
+    prelude = getHandle(first.prelude)
+    names = set(prelude.symbols) | set(rt.registered_names('Prelude'))
+    count = sum(prelude.backend_handle.get_infotable(name) is not None for name in names)
+    print('Prelude tables visited:', count)
+    m = first.import_('ReloadRearmM')
+    n = second.import_('ReloadRearmN')
+    def call(function, value, count):
+        for _ in range(count):
+            assert second.eval(function(0)).one() == value
+    def swapped(function):
+        deadline = time.monotonic() + 3
+        while not rt.icurry_is_jit(function.info):
+            rt.icurry_apply_posted()
+            assert time.monotonic() < deadline, (function, llvmjit.statistics())
+            time.sleep(0.005)
+    call(n.g, 17, 4)
+    swapped(n.g)
+    # Hold taken work without making the reload caller own a JIT lock.
+    entered, release = threading.Event(), threading.Event()
+    original = llvmjit._compile_groups_locked
+    def held(*args, **kw):
+        entered.set()
+        assert release.wait(10)
+        return original(*args, **kw)
+    llvmjit._compile_groups_locked = held
+    call(n.k, 29, 5)
+    assert entered.wait(3), llvmjit.statistics()
+    old = rt.icurry_work(n.h.info)
+    try:
+        curry.reload(m, text='f :: Int\nf = 2\n')
+        current = rt.icurry_work(n.h.info)
+        assert old.valid == (second is not first)
+        assert rt.icurry_is_jit(n.g.info), 'reload discarded compiled code'
+    finally:
+        release.set()
+    call(n.h, 23, 5)
+    swapped(n.h)
+    assert current.valid, 'still-loaded bytecode retained a stale generation'
+    call(n.k, 29, 4)
+    swapped(n.k)
+    assert second.eval(n.g(0)).one() == 17
+''' % other)
+    print(output, end='')
+
   def test_llvm_reset_discards_taken_work(self):
     self._llvm_reset_work(False)
 

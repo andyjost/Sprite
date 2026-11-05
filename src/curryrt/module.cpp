@@ -108,6 +108,25 @@ namespace curryrt
     std::vector<DataType *> owned_types;
   };
 
+  void ModuleRegistry::refresh(std::string const & excluded)
+  {
+    auto generation = storage->generation.load();
+    for(auto const & entry: storage->modules)
+    {
+      if(entry.first == excluded) continue;
+      auto module = entry.second.lock();
+      if(!module) continue;
+      for(auto const & symbol: module->impl->symbols)
+      {
+        auto info = symbol.second;
+        auto bc = const_cast<Bytecode *>(icurry_bytecode(info));
+        if(!bc || bc->owner != storage || icurry_is_jit(info)) continue;
+        bc->generation = generation;
+        bc->calls = 0;
+      }
+    }
+  }
+
   std::vector<std::string> Module::builtin_module_names()
   {
     std::vector<std::string> names;

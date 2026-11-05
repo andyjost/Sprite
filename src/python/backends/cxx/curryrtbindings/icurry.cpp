@@ -343,6 +343,9 @@ namespace curryrt { namespace python
       .def_property_readonly("valid", &ICurryWork::valid);
     mod.def("icurry_work", &icurry_work);
     mod.def("icurry_invalidate", &icurry_invalidate);
+    // The reload caller already owns the heap before taking LLVM's lock.
+    mod.def("icurry_refresh", [](InterpreterState & state, std::string const & excluded)
+        { state.modules.refresh(excluded); });
     mod.def("icurry_take_hot", &icurry_take_hot
       , "The interpreted functions whose call count reached the threshold of "
         "the hot tier since the last call; the list is cleared."
