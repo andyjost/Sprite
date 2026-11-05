@@ -14,11 +14,13 @@ methods of a global interpreter created at import.
 session. Its initial flags follow the same order: defaults,
 ``SPRITE_ROTATION``, ``SPRITE_INTERPRETER_FLAGS``, then the argument.
 
-Fork the process only while Sprite has no evaluation, compilation, JIT work
-or native handle operation running in any thread; an idle child starts fresh
+Fork the process only while Sprite has no evaluation, compilation, queued or
+running JIT work or native handle operation in any thread; an idle child starts fresh
 workers and synchronization state without cleaning up the parent's resources.
 A child forked while Sprite is busy raises ``curry.exceptions.ForkError`` on
-later Sprite calls and when a callback returns into the interrupted evaluation.
+later Sprite calls and when a callback returns into the interrupted evaluation;
+if that callback runs on the large-stack worker, the child reports the error to
+standard error and exits with status 1.
 
 .. _interpreter-flags:
 

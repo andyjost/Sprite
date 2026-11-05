@@ -9,6 +9,8 @@
 #include <cerrno>
 #include <chrono>
 #include <condition_variable>
+#include <cstdlib>
+#include <cstring>
 #include <exception>
 #include <mutex>
 #include "curryrt/platform.hpp"
@@ -158,6 +160,7 @@ namespace curryrt
 
     void * worker_main(void * arg)
     {
+      auto const owner = platform::process_id();
       auto & w = *static_cast<Worker *>(arg);
       is_worker = true;
       char base;
@@ -173,8 +176,37 @@ namespace curryrt
         RuntimeState & rts = *w.job;
         reserved_room = std::min(rts.worker_stack, w.reserved) - STACK_MARGIN;
         lock.unlock();
-        try { w.value = rts.procD(); }
-        catch(...) { w.error = std::current_exception(); }
+        Expr value;
+        std::exception_ptr error;
+        try { value = rts.procD(); }
+        catch(...) { error = std::current_exception(); }
+        if(owner != platform::process_id())
+        {
+          // Only this worker survived the callback's fork. Its Python
+          // evaluation caller exists in the parent, so there is no caller
+          // to receive an exception here. Report the boundary error without
+          // stdio locks or exit handlers, then end the child process.
+#ifndef _WIN32
+          ForkError const boundary_error;
+          auto const message = boundary_error.what();
+          auto report = [](char const * text, size_t size)
+          {
+            while(size)
+            {
+              auto written = ::write(STDERR_FILENO, text, size);
+              if(written > 0) { text += written; size -= written; }
+              else if(written < 0 && errno == EINTR) continue;
+              else break;
+            }
+          };
+          report("ForkError: ", 11);
+          report(message, std::strlen(message));
+          report("\n", 1);
+#endif
+          std::_Exit(EXIT_FAILURE);
+        }
+        w.value = value;
+        w.error = std::move(error);
         lock.lock();
         w.job = nullptr;
         w.done = true;
@@ -637,6 +669,9 @@ namespace curryrt
       if(!interrupted)
         try { host_poll(); }
         catch(...) { interrupted = std::current_exception(); rts.cancelled = true; }
+      // A fork on the waiting caller can return from a host callback too.
+      // Its unique_lock is still unlocked; never reacquire the old worker.
+      fork_check();
       lock.lock();
     }
     heap_handoff(caller);

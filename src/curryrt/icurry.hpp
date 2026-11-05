@@ -44,6 +44,7 @@
 // branch runs to its own end.
 namespace curryrt
 {
+  struct ForkWork;
   void icurry_after_fork();
   enum Opcode : uint32_t
   {
@@ -199,6 +200,9 @@ namespace curryrt
     Bytecode const * bytecode;
     std::shared_ptr<ModuleRegistry::Storage> owner;
     size_t generation;
+    // Only hot-queue tickets carry activity. Copies retain the same count
+    // through dequeue and posting; finish releases it at completion/drop.
+    std::shared_ptr<ForkWork> activity;
     bool valid() const { return owner->generation.load() == generation; }
   };
   ICurryWork icurry_work(InfoTable *);
@@ -206,6 +210,7 @@ namespace curryrt
   void icurry_set_hot_threshold(InterpreterState &, uint32_t);
   uint32_t icurry_hot_threshold(InterpreterState const &);
   std::vector<ICurryWork> icurry_take_hot();
+  void icurry_finish_hot(std::vector<ICurryWork> const &);
 
   // The posted swaps of the hot tier.  The thread of the JIT posts a step for
   // a table (icurry_post_step); a scheduler applies the posted swaps at the

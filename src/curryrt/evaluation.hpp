@@ -1,4 +1,5 @@
 #pragma once
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <thread>
@@ -13,9 +14,13 @@ namespace curryrt
   void fork_work_end(long long owner) noexcept;
   struct ForkWork
   {
-    long long owner;
+    std::atomic<long long> owner;
     ForkWork() : owner(fork_work_begin()) {}
-    ~ForkWork() { fork_work_end(owner); }
+    void finish() noexcept
+    {
+      if(auto pid = owner.exchange(0)) fork_work_end(pid);
+    }
+    ~ForkWork() { finish(); }
     ForkWork(ForkWork const &) = delete;
     ForkWork & operator=(ForkWork const &) = delete;
   };

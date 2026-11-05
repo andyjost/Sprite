@@ -841,26 +841,27 @@ namespace curryrt
     shared().hot_jobs[key] = std::move(job);
   }
 
-  void cxx_hot(InfoTable const * info)
+  bool cxx_hot(InfoTable const * info)
   {
     std::lock_guard<std::mutex> lock(shared().mutex);
     auto module = shared().hot_modules.find(info);
     if(module == shared().hot_modules.end())
-      return;
+      return false;
     auto job = shared().hot_jobs.find(module->second);
     if(job == shared().hot_jobs.end())
-      return;
+      return true;
     TieredJob taken = std::move(job->second);
     shared().hot_jobs.erase(job);
     std::string error;
     if(!start_worker(&error))
     {
       fail_job(std::move(taken), std::move(error));
-      return;
+      return true;
     }
     fork_work_begin();
     shared().queue.push_back(std::move(taken));
     shared().work_cv.notify_one();
+    return true;
   }
 
   void tiered_apply_pending(bool in_evaluation)

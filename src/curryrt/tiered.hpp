@@ -176,7 +176,8 @@ namespace curryrt
 
   // Register a module job until one of its functions reaches the threshold.
   void cxx_arm(TieredJob);
-  void cxx_hot(InfoTable const *);
+  // True when the table belongs to this backend, even after its job was taken.
+  bool cxx_hot(InfoTable const *);
 
   // Applies the finished jobs on the calling thread, which must be the
   // thread that evaluates.  Returns at once when no job finished.  Never

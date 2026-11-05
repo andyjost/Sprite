@@ -43,12 +43,12 @@ def fork_check(action):
     ctypes.CDLL(None).exit(status)
   wait_child(pid)
 
-def wait_child(pid):
+def wait_child(pid, exitcode=0):
   deadline = time.monotonic() + 3
   while True:
     done, status = os.waitpid(pid, os.WNOHANG)
     if done:
-      assert os.waitstatus_to_exitcode(status) == 0, ('child failed', status)
+      assert os.waitstatus_to_exitcode(status) == exitcode, ('child failed', status)
       return
     if time.monotonic() >= deadline:
       os.kill(pid, signal.SIGKILL)
@@ -290,8 +290,6 @@ assert parked.wait(10)
 parent_worker = llvmjit._hot_thread
 llvmjit._hot_loop = original_loop
 goal = module.inc(41)
-# Leave a hot request queued in the parent; the child must count afresh.
-assert curry.eval(module.inc(1)).one() == 2
 def child():
   assert curry.eval(goal).one() == 42
   def compiled():
@@ -308,6 +306,130 @@ finally:
 assert not parent_worker.is_alive()
 curry.reset(jit='off')
 assert curry.eval(curry.term(7)).one() == 7
+''')
+
+  def test_worker_callback_fork_ends_with_error(self):
+    self.run_case(r'''
+from curry.backends.generic.eval.evaluator import Evaluator
+curry.reset(interpret='all', jit='off', stack_limit=65536, worker_stack=64 << 20)
+module = curry.compile('deep :: Int -> [Int] -> Int\n'
+    'deep n xs = length [1..n] + head xs')
+caller = threading.get_ident()
+parent = os.getpid()
+children = []
+error_r, error_w = os.pipe()
+def values():
+  # The strict first operand exhausts the caller's stack before head demands us.
+  assert ev.rts._escalated, 'callback ran before escalation'
+  assert threading.get_ident() != caller, 'callback ran on caller stack'
+  pid = os.fork()
+  if pid:
+    children.append(pid)
+  else:
+    os.close(error_r)
+    os.dup2(error_w, 2)
+    os.close(error_w)
+  yield 42
+ev = Evaluator(cytest.raw.interp(),
+    cytest.raw.expr(module.deep, 3000, iter(values()), typed=True))
+answers = [cytest.raw.interp().topython(value) for value in ev.evaluate()]
+assert os.getpid() == parent, 'worker child continued evaluation'
+assert answers == [3042], answers
+assert len(children) == 1
+os.close(error_w)
+try:
+  # No Python evaluation caller survives in this child: terminate with the error.
+  wait_child(children[0], exitcode=1)
+  error = os.read(error_r, 4096).decode()
+  assert 'ForkError: Sprite was busy when the process forked' in error, error
+finally:
+  os.close(error_r)
+assert curry.eval(curry.term(7)).one() == 7
+''')
+
+  def test_busy_queued_hot_request_rejects_child(self):
+    self.run_case(r'''
+module = curry.compile('inc :: Int -> Int\ninc x = x + 1\n'
+    'dec :: Int -> Int\ndec x = x - 1')
+# Drive the native hot queue without starting LLVM's consumer.
+rt.icurry_set_hot_threshold(curry._interpreter_._its, 1)
+assert curry.eval(module.inc(1)).one() == 2
+fork_check(lambda: rejected(curry.reset))
+hot = rt.icurry_take_hot()
+assert hot, 'no hot request queued'
+del hot
+# Dropping the dequeued tickets must release their work record.
+fork_check(lambda: curry.eval(curry.term(7)).one())
+assert curry.eval(module.inc(41)).one() == 42
+# Reset also drops requests still in the native queue.
+assert curry.eval(module.dec(43)).one() == 42
+fork_check(lambda: rejected(curry.reset))
+curry.reset(interpret='all', jit='off')
+fork_check(lambda: curry.eval(curry.term(7)).one())
+''')
+
+  def test_busy_dequeued_hot_request_rejects_child(self):
+    self.run_case(r'''
+from types import SimpleNamespace
+module = curry.compile('inc :: Int -> Int\ninc x = x + 1')
+rt.icurry_set_hot_threshold(curry._interpreter_._its, 1)
+assert curry.eval(module.inc(1)).one() == 2
+entered, resume = threading.Event(), threading.Event()
+take_hot, compile_groups = rt.icurry_take_hot, llvmjit._compile_groups
+class Stopped(BaseException): pass
+def paused_take():
+  hot = take_hot()
+  if not hot:
+    raise Stopped()
+  entered.set()
+  assert resume.wait(10)
+  return hot
+# Exercise the real loop through its dequeue hook, without requiring LLVM.
+rt.icurry_take_hot = paused_take
+llvmjit._compile_groups = lambda *args, **kwds: []
+llvmjit._jit = SimpleNamespace(hot=0, errors=0, last_error=None)
+llvmjit._hot_enabled = True
+errors = []
+def consume():
+  try:
+    llvmjit._hot_loop()
+  except Stopped:
+    pass
+  except BaseException as error:
+    errors.append(error)
+thread = threading.Thread(target=consume)
+thread.start()
+assert entered.wait(10), 'hot loop did not dequeue'
+try:
+  fork_check(lambda: rejected(curry.reset))
+finally:
+  resume.set()
+  thread.join(10)
+  rt.icurry_take_hot = take_hot
+  llvmjit._compile_groups = compile_groups
+  llvmjit._hot_enabled = False
+  llvmjit._jit = None
+assert not thread.is_alive() and not errors, errors
+# A compile that drops the work must also finish its busy record.
+fork_check(lambda: curry.eval(curry.term(7)).one())
+assert curry.eval(module.inc(41)).one() == 42
+''')
+
+  def test_completed_cxx_hot_request_is_idle(self):
+    self.run_case(r'''
+module = curry.compile('identity :: Int -> Int\nidentity x = x')
+# An armed native job owns this table. A failed compiler command completes
+# without changing its step, so a second threshold can exercise the same table.
+rt.cxx_arm(curry._interpreter_._its, module.__name__,
+    [sys.executable, '-c', 'raise SystemExit(1)'], [], '', '', '',
+    [('identity', '', module.identity.info)])
+for threshold in (1, 2):
+  rt.icurry_set_hot_threshold(curry._interpreter_._its, threshold)
+  assert curry.eval(module.identity(42)).one() == 42
+  assert rt.tiered_wait(10)
+  rt.tiered_poll()
+  assert not rt.icurry_take_hot(), 'C++ request also queued for LLVM'
+  fork_check(lambda: curry.eval(curry.term(7)).one())
 ''')
 
   @unittest.skipUnless(llvmjit.available(), 'requires the LLVM JIT')

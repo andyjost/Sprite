@@ -103,7 +103,7 @@ namespace curryrt
     auto bc = icurry_bytecode(info);
     if(!bc || !bc->owner)
       throw std::invalid_argument("icurry_work: table has no owned bytecode");
-    return {info, bc, bc->owner, bc->generation};
+    return {info, bc, bc->owner, bc->generation, {}};
   }
   void icurry_set_hot_threshold(InterpreterState & state, uint32_t threshold)
     { state.hot_threshold = threshold; }
@@ -117,6 +117,12 @@ namespace curryrt
     return hot;
   }
 
+  void icurry_finish_hot(std::vector<ICurryWork> const & hot)
+  {
+    for(auto const & work: hot)
+      if(work.activity) work.activity->finish();
+  }
+
   tag_type icurry_step(RuntimeState * rts, Configuration * C)
   {
     Cursor const _0 = C->cursor();
@@ -126,9 +132,13 @@ namespace curryrt
     {
       if(++bc->calls == threshold)
       {
-        cxx_hot(_0->info);
-        std::lock_guard<std::mutex> lock(*g_hot_mutex);
-        g_hot->push_back(icurry_work(const_cast<InfoTable *>(_0->info)));
+        if(!cxx_hot(_0->info))
+        {
+          auto work = icurry_work(const_cast<InfoTable *>(_0->info));
+          work.activity = std::make_shared<ForkWork>();
+          std::lock_guard<std::mutex> lock(*g_hot_mutex);
+          g_hot->push_back(std::move(work));
+        }
       }
     }
     uint32_t const * const code = bc->code.data();

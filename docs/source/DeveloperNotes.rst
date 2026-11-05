@@ -40,10 +40,13 @@ per heap, while Python work outside native metadata/heap operations can run
 in parallel on a free-threaded interpreter. Curry evaluations are serialized.
 
 Process fork is supported only while no evaluation, compilation, JIT work
-or native handle operation is in flight in any thread.
+or native handle operation is in flight in any thread; hot requests count
+continuously from enqueue through completion or discard, including after dequeue.
 Python and native preparation hooks record activity before the fork;
 a busy child raises ``curry.exceptions.ForkError`` on subsequent Sprite
-calls, including the return from a callback into an interrupted evaluation.
+calls, including the return from a callback into an interrupted evaluation;
+if only the large-stack worker survives, it reports ``ForkError`` to standard
+error and exits the child with status 1 without entering inherited worker state.
 An idle child abandons inherited workers, jobs, compiler PIDs, locks and
 ticker state and starts its own state as needed.
 Child exit and collection never wait on inherited work, signal the parent's

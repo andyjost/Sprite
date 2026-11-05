@@ -191,6 +191,10 @@ def _hot_loop():
       jit.errors += 1
       jit.last_error = '%s: %s' % (type(exc).__name__, exc)
       logger.exception('The hot tier of the JIT failed; the functions stay interpreted')
+    finally:
+      # The native queue's tickets keep work counted through dequeue, work-map
+      # construction and compilation. Posted copies share the same record.
+      curryrt.icurry_finish_hot(hot)
 
 
 def _emit_messages(messages):

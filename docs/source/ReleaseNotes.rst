@@ -7,7 +7,8 @@ Unreleased
 
 - Support process fork at an idle Sprite boundary with fresh child workers
   and locks, preserve parent-owned compiler processes and temporary directories,
-  and raise the public ``ForkError`` in children forked while Sprite is busy.
+  and raise the public ``ForkError`` in children forked while Sprite is busy;
+  a callback fork on the large-stack worker reports the error and exits the child.
 - Give each interpreter its own runtime module registry; share static runtime
   builtin tables and loaded compiled objects across resets (#184).
   Interpreted reserved importers keep their interpreter's dependencies; compiled

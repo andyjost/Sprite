@@ -352,6 +352,9 @@ namespace curryrt { namespace python
       , "The interpreted functions whose call count reached the threshold of "
         "the hot tier since the last call; the list is cleared."
       , py::return_value_policy::reference, curryrt::python::fork_access{});
+    mod.def("icurry_finish_hot", &icurry_finish_hot
+      , "Finishes hot-request activity after compilation or discard."
+      , curryrt::python::fork_access{});
     mod.def("icurry_set_hot_threshold", &icurry_set_hot_threshold
       , "Sets the call count at which an interpreted function joins the hot "
         "list; 0 turns the count off.", curryrt::python::fork_access{});
