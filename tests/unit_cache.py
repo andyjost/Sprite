@@ -6,7 +6,7 @@ from curry import cache, config, toolchain
 from curry.toolchain import _curry2icurry, _filenames, _frontend, _interfaces, _productcache, _system
 from curry.utility.binding import binding
 from unittest import mock
-import contextlib, importlib, json, os, re, shutil, sqlite3, tempfile
+import contextlib, contextvars, importlib, json, os, re, shutil, sqlite3, tempfile, threading
 
 SUBDIR = os.path.join('.curry', config.intermediate_subdir())
 
@@ -539,6 +539,50 @@ class TestSlot(cytest.TestCase):
       self.assertEqual(checks.call_count, 4)
     self.assertIsNone(_curry2icurry._load_completions.get())
 
+  def test_completion_checks_expire_in_copied_context(self):
+    slot = self.slot('M')
+    self.convert(slot, self.products('M'))
+    self.assertTrue(self.slot('M'))
+    @_curry2icurry.with_completion_checks
+    def load():
+      self.assertTrue(_curry2icurry.source_matches(slot.file_in, slot.file_out))
+      return contextvars.copy_context()
+    with mock.patch.object(_curry2icurry, '_source_matches',
+        wraps=_curry2icurry._source_matches) as checks:
+      copied = load()
+      self.assertEqual(checks.call_count, 1)
+      self.assertTrue(copied.run(_curry2icurry.source_matches, slot.file_in, slot.file_out))
+      self.assertEqual(checks.call_count, 2, 'expired context reused completion')
+      copied.run(load)
+      self.assertEqual(checks.call_count, 3, 'later load reused copied completion')
+
+  def test_completion_checks_reject_inherited_thread_context(self):
+    slot = self.slot('M')
+    self.convert(slot, self.products('M'))
+    self.assertTrue(self.slot('M'))
+    results = []
+    @_curry2icurry.with_completion_checks
+    def child_load():
+      results.append(_curry2icurry.source_matches(slot.file_in, slot.file_out))
+      results.append(_curry2icurry.source_matches(slot.file_in, slot.file_out))
+    @_curry2icurry.with_completion_checks
+    def load():
+      self.assertTrue(_curry2icurry.source_matches(slot.file_in, slot.file_out))
+      def child():
+        results.append(_curry2icurry.source_matches(slot.file_in, slot.file_out))
+        child_load()
+      # Explicit inheritance also exercises Python versions without Thread(context=).
+      copied = contextvars.copy_context()
+      thread = threading.Thread(target=copied.run, args=(child,))
+      thread.start()
+      thread.join()
+      self.assertTrue(_curry2icurry.source_matches(slot.file_in, slot.file_out))
+    with mock.patch.object(_curry2icurry, '_source_matches',
+        wraps=_curry2icurry._source_matches) as checks:
+      load()
+      self.assertEqual(results, [True, True, True])
+      self.assertEqual(checks.call_count, 3, 'thread reused its parent completion')
+
   def test_completion_receipt_checks_every_member(self):
     slot = self.slot('M')
     self.convert(slot, self.products('M'))
@@ -893,6 +937,37 @@ class TestSlot(cytest.TestCase):
 
 class TestCompile(cytest.TestCase):
   '''The cache under curry.compile and the toolchain, with the front end.'''
+
+  def test_converter_retries_changed_source_until_settled(self):
+    if config.curry2icurry_tool() != 'frontend':
+      self.skipTest('the configured route is not the front end')
+    from curry.interpreter import Interpreter
+    with cache_file(), tempfile.TemporaryDirectory() as root:
+      source = write(os.path.join(root, 'SettledInput.curry'),
+          'module SettledInput where\nvalue :: Int\nvalue = 1\n')
+      translate = _frontend.curry2icurry
+      calls = []
+      def change_once(file_in, file_out, currypath, quiet=False):
+        calls.append(file_in)
+        self.assertLessEqual(len(calls), 2, 'conversion did not settle')
+        translate(file_in, file_out, currypath, quiet)
+        if len(calls) == 1:
+          write(source, 'module SettledInput where\nvalue :: Int\nvalue = 42\n')
+      with mock.patch.object(_frontend, 'curry2icurry', side_effect=change_once):
+        icy = toolchain.curry2icurry(source, [root])
+      self.assertEqual(len(calls), 2)
+      self.assertTrue(_curry2icurry.source_matches(source, icy))
+      with open(icy + '.source') as stream:
+        receipt = json.load(stream)
+      self.assertEqual(receipt['source'], _curry2icurry.source_digest(source))
+      self.assertEqual(receipt['products'], _curry2icurry.product_receipts(icy))
+      interp = Interpreter(flags={'interpret': 'all', 'jit': 'off'})
+      interp.path.insert(0, root)
+      try:
+        module = interp.import_('SettledInput')
+        self.assertEqual(list(interp.eval(module.value)), [42])
+      finally:
+        interp.reset()
 
   def test_hierarchical_import_after_dependency_edit(self):
     from curry.interpreter import Interpreter

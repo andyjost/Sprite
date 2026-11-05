@@ -236,6 +236,8 @@ The ICurry cache keys a compile by the source and dependency inputs before
 and after it, refusing storage when an existing input differs; only previously
 missing interfaces may enter the resulting key. An edit reverted while the
 compile runs is outside the rules, like editing a loaded module without reload.
+An edit during a load or a compile that keeps the file's size and modification
+time is outside the rules.
 Import scanning shares the comment-aware header tokenizer, including comments
 between import tokens.
 

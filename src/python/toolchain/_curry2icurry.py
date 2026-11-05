@@ -340,15 +340,29 @@ def receipt_source(text):
 _load_completions = ContextVar('load_completions', default=None)
 
 
+class _CompletionScope:
+  def __init__(self):
+    self.owner = threading.current_thread()
+    self.active = True
+    self.checks = {}
+
+  def is_current(self):
+    return self.active and self.owner is threading.current_thread()
+
+
 def with_completion_checks(function):
   @wraps(function)
   def wrapped(*args, **kwds):
-    if _load_completions.get() is not None:
+    scope = _load_completions.get()
+    if scope is not None and scope.is_current():
       return function(*args, **kwds)
-    token = _load_completions.set({})
+    scope = _CompletionScope()
+    token = _load_completions.set(scope)
     try:
       return function(*args, **kwds)
     finally:
+      scope.active = False
+      scope.checks.clear()
       _load_completions.reset(token)
   return wrapped
 
@@ -366,7 +380,8 @@ def source_matches(curryfile, icyfile):
   generation = _findcurry.generation_for_source(curryfile)
   if generation is not None:
     return True
-  checks = _load_completions.get()
+  scope = _load_completions.get()
+  checks = scope.checks if scope is not None and scope.is_current() else None
   library = in_system_library(curryfile)
   paths = (curryfile, icyfile + '.source')
   if not library:

@@ -1218,6 +1218,20 @@ class Cpp2So(object):
       if header.root != config.installed_path('include'):
         yield '-I%s' % header.root
 
+  @staticmethod
+  def _missing_pch_fallback(cmd):
+    for index, flag in enumerate(cmd[:-1]):
+      path = cmd[index + 1]
+      if flag == '-include-pch':
+        member = path
+      elif flag == '-include' and os.path.dirname(path).endswith('.gch'):
+        member = path + '.gch'
+      else:
+        continue
+      if not os.path.exists(member):
+        return cmd[:index] + ['-include', 'cstddef'] + cmd[index + 2:]
+    return None
+
   def _compileCommand(self, file_in, file_out, currypath=None):
     cxx = config.cxx_tool()
     if cxx is None:
@@ -1359,7 +1373,15 @@ class Cpp2So(object):
         if logger.isEnabledFor(logging.DEBUG):
           logger.debug('Command: %s', ' '.join(cmd))
         compile_start = time.monotonic()
-        _system.pexec(cmd, env=msvc.environment())
+        try:
+          _system.pexec(cmd, env=msvc.environment())
+        except exceptions.CompileError:
+          # Shared-root cleanup can remove the exact PCH after preparation.
+          # Retry once with textual headers, disabling implicit PCH selection.
+          fallback = self._missing_pch_fallback(cmd)
+          if fallback is None:
+            raise
+          _system.pexec(fallback, env=msvc.environment())
         logger.info('Compiled %r in %.3f s', file_out, time.monotonic() - compile_start)
         # Invalidate the old stamp only for publication. Never unlink the
         # live object while a reader may open it; rename the complete one.
