@@ -1,5 +1,6 @@
 """Selection and regression decisions for the serial CPM index job."""
 import cytest # from ./lib; must be first
+from contextlib import closing
 import csv
 import importlib.util
 import json
@@ -41,7 +42,7 @@ class TestCPMIndex(cytest.TestCase):
       survey.overlay.overlay(source, target, snapshot)
       self.assertFalse((target / 'sample/1.1.0').exists())
       self.assertEqual(pinned.read_bytes(), original)
-      with sqlite3.connect(target / 'REPOSITORY_CACHE.db') as connection:
+      with closing(sqlite3.connect(target / 'REPOSITORY_CACHE.db')) as connection:
         self.assertEqual(connection.execute('SELECT count(*) FROM IndexEntry').fetchone(), (1,))
       data['synopsis'] = 'Changed pinned metadata'
       pinned.write_text(json.dumps(data))
