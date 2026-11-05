@@ -89,6 +89,62 @@ for _ in range(2):
     assert list(first.eval(getattr(first.prelude, '+')(3, 4))) == [7]
 ''' % mode)
 
+  def test_show_ordering_after_reset(self):
+    for mode in ('new', 'all'):
+      with self.subTest(mode=mode):
+        self.run_child(r'''
+import os
+os.environ['SPRITE_INTERPRETER_FLAGS'] = 'interpret:%s,jit:off'
+import curry
+held = curry.eval(curry.parse('compare (1 :: Int) 2')).one()
+assert curry.show(held) == 'LT'
+curry.reset()
+current = curry.eval(curry.parse('compare (1 :: Int) 2')).one()
+assert curry.show(current) == 'LT'
+''' % mode)
+
+  def test_show_ordering_in_other_interpreter_after_reset(self):
+    for mode in ('new', 'all'):
+      with self.subTest(mode=mode):
+        self.run_child(r'''
+import curry
+from curry.interpreter import Interpreter
+flags = {'interpret': %r, 'jit': 'off'}
+first = Interpreter(flags=flags)
+second = Interpreter(flags=flags)
+held = first.eval(first.prelude.compare(1, 2)).one()
+assert curry.show(held) == 'LT'
+first.reset()
+current = second.eval(second.prelude.compare(1, 2)).one()
+assert curry.show(current) == 'LT'
+''' % mode)
+
+  def test_constructor_class_identity_and_stale_term_use(self):
+    for mode in ('new', 'all'):
+      with self.subTest(mode=mode):
+        self.run_child(r'''
+import curry
+import unittest
+from curry.interpreter import Interpreter
+interp = Interpreter(flags={'interpret': %r, 'jit': 'off'})
+held = type(interp.prelude.LT)
+interp.reset()
+current = type(interp.prelude.LT)
+assert not (held == current)
+assert not (current == held)
+assert held == held
+assert current == current
+assert not (current == type(interp.prelude.GT))
+assert not (current == object())
+term = interp.eval(interp.prelude.LT).one()
+assert current == term
+check = unittest.TestCase()
+for use in (lambda: held(), lambda: hash(held),
+            lambda: curry.show(held), lambda: held == term):
+    with check.assertRaises(curry.StaleError):
+        use()
+''' % mode)
+
   def test_reset_does_not_hide_a_shared_dependency(self):
     self.run_child(r'''
 from curry.interpreter import Interpreter

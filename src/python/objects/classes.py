@@ -58,8 +58,12 @@ class _ConstructorMeta(type):
   def __repr__(cls): return repr(constructor_term(cls))
   def __hash__(cls): return hash(constructor_term(cls))
   def __eq__(cls, other):
-    # Type comparisons (including ABC caches) do not compare Curry values.
-    if not isinstance(other, (Term, _ConstructorMeta)):
+    # Type comparisons, the ABC caches among them, never read a held class
+    # as a Curry term: with the Prelude's tables owned by the process, a
+    # class held before a reset hashes like the current one.
+    if isinstance(other, _ConstructorMeta):
+      return cls is other
+    if not isinstance(other, Term):
       return False
     return constructor_term(cls) == constructor_term(other)
   def __bool__(cls): return bool(constructor_term(cls))
