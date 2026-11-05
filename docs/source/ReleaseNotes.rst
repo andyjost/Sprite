@@ -23,9 +23,6 @@ Unreleased
   enclosing search, unlike PAKCS's rejection of outside bindings.
   ``rewriteSome`` consumes only the first answer.
 
-0.9.0a3 (2026-11-01)
-====================
-
 - Implement the two ``ReadShowTerm`` primitives of CPM ``read-legacy`` for
   PAKCS prefix serialization and reading FlatCurry data files.
 - Fix a deadlock between LLVM hot compilation and reset or cached function
