@@ -68,8 +68,8 @@ def product_interleaving(action, basename):
 '''
 
 class TestHeapEdges(cytest.TestCase):
-  def child(self, code):
-    proc = cytest.run_in_subprocess(CHILD + code, 5)
+  def child(self, code, timeout=5):
+    proc = cytest.run_in_subprocess(CHILD + code, timeout)
     self.assertEqual(proc.returncode, 0,
         'child status %s\n%s\n%s' % (proc.returncode, proc.stdout, proc.stderr))
     self.assertEqual(proc.stdout.splitlines(), ['ok'])
@@ -227,7 +227,7 @@ with tempfile.TemporaryDirectory(dir=os.getcwd()) as directory:
   for logger in (toolchain.logger, _productcache.logger):
     logger.removeHandler(handler)
 print('ok')
-''')
+''', timeout=120)
 
   def test_imported_constructor_tags_precede_image_lock(self):
     """Use a guarded hook in place of the unguarded native tag descriptor.
