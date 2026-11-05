@@ -66,11 +66,11 @@ def _open(path):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     return os.open(path, os.O_RDWR | os.O_CREAT, 0o666)
   except OSError as exc:
-    logger.debug('No lock for %r (%s)', path, exc)
+    log(logger, logging.DEBUG, 'No lock for %r (%s)', path, exc)
     return None
 
 @contextlib.contextmanager
-def locked(filename):
+def _locked(filename):
   """Hold the file-production lock. Yield whether acquiring it waited."""
   owner_pid = os.getpid()
   path = os.path.realpath(lockfile(filename))
@@ -105,7 +105,7 @@ def locked(filename):
             if exc.errno not in (errno.EACCES, errno.EAGAIN, errno.EDEADLK):
               raise
             if not waited:
-              logger.info('Waiting for another process that compiles %s (the lock %s)',
+              log(logger, logging.INFO, 'Waiting for another process that compiles %s (the lock %s)',
                           os.path.basename(filename), path)
             waited = True
             time.sleep(0.05)
@@ -128,11 +128,11 @@ def locked(filename):
           fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
           waited = True
-          logger.info('Waiting for another process that compiles %s (the lock %s)',
+          log(logger, logging.INFO, 'Waiting for another process that compiles %s (the lock %s)',
               os.path.basename(filename), path)
           fcntl.flock(fd, fcntl.LOCK_EX)
       except OSError as exc:
-        logger.debug('No advisory lock for %r (%s)', path, exc)
+        log(logger, logging.DEBUG, 'No advisory lock for %r (%s)', path, exc)
         raise
       held[path] = fd
       try:
@@ -154,3 +154,34 @@ def locked(filename):
           del _locks[path]
         else:
           _locks[path] = mutex, users - 1
+
+
+def log(logger, level, message, *args):
+  """Append unformatted diagnostics to the enclosing holder's message list."""
+  messages = getattr(_local, 'messages', None)
+  if messages is None:
+    getattr(logger, logging.getLevelName(level).lower())(message, *args)
+  else:
+    messages.append((logger, level, message, args))
+
+
+def emit_messages(messages, logger=None):
+  """Emit only after all enclosing locks release; retain each source logger."""
+  for record in messages:
+    target, level, message, args = (logger, *record) if len(record) == 3 else record
+    getattr(target, logging.getLevelName(level).lower())(message, *args)
+
+
+@contextlib.contextmanager
+def locked(filename, messages=None):
+  """Collect diagnostics until the outermost product/JIT locks are released."""
+  outer = getattr(_local, 'messages', None)
+  pending = outer if outer is not None else messages if messages is not None else []
+  _local.messages = pending
+  try:
+    with _locked(filename) as waited:
+      yield waited
+  finally:
+    _local.messages = outer
+    if outer is None and messages is None:
+      emit_messages(pending)

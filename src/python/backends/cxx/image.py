@@ -63,7 +63,7 @@ def read(path):
   return header
 
 
-def _facts(interp, source, imports):
+def _facts(interp, source, imports, registry=None):
   source = _destination.canonical(source)
   from ...toolchain._frontend import ROUTE_VERSION
   from . import toolchain
@@ -73,7 +73,7 @@ def _facts(interp, source, imports):
       _filenames.icurryfilename(source))
   return dict(source=icy_digest, route=ROUTE_VERSION,
       budget=interp.flags['inline_budget'], imports=imports,
-      registry=toolchain.registered_names(source))
+      registry=toolchain.registered_names(source) if registry is None else registry)
 
 
 def writable(source):
@@ -140,10 +140,10 @@ def generation_digest(generation):
       or generation.product_digest('.icy'))
 
 
-def _check(interp, source, path, imports=None):
+def _check(interp, source, path, imports=None, registry=None):
   header = read(path)
   # Check local facts before resolving any dependency of an old source.
-  facts = _facts(interp, source, {})
+  facts = _facts(interp, source, {}, registry)
   if any(header.get(k) != facts[k] for k in ('source', 'route', 'budget', 'registry')):
     raise ValueError('stale module image')
   if imports is not None and header['imports'] != imports:
@@ -315,8 +315,24 @@ class Encoder:
 
 class Resolver:
   def __init__(self, interp, module):
-    self.interp = interp
     self.module = module
+    self.references = {}
+    self.tags = {}
+    for dep in tuple(interp.modules.values()):
+      h = getHandle(dep)
+      if not isinstance(h.icurry, icurry.IModule):
+        continue
+      for name, symbol in h.symbols.items():
+        fullname = h.fullname + '.' + name
+        self.references[fullname] = ('R', symbol.icurry.modulename, symbol.name)
+      for datatype in h.icurry.types.values():
+        for ctor in datatype.constructors:
+          fullname = h.fullname + '.' + ctor.name
+          self.tags[fullname] = interp.symbol(fullname).info.tag
+    self.refresh()
+
+  def refresh(self):
+    module = self.module
     self.local = set(module.functions) | {
         ctor.name for datatype in module.types.values()
         for ctor in datatype.constructors}
@@ -325,8 +341,7 @@ class Resolver:
     prefix = self.module.fullname + '.'
     if name.startswith(prefix) and name[len(prefix):] in self.local:
       return ('R', self.module.fullname, name[len(prefix):])
-    info = self.interp.symbol(name)
-    return ('R', info.icurry.modulename, info.name)
+    return self.references[name]
 
   def tag(self, name):
     ref = self.symbol(name)
@@ -335,7 +350,7 @@ class Resolver:
         for tag, ctor in enumerate(datatype.constructors):
           if ctor.name == ref[2]:
             return tag
-    return self.interp.symbol(name).info.tag
+    return self.tags[name]
 
   def datatype(self, name):
     ref = self.symbol(name)
@@ -354,16 +369,19 @@ def write(interp, module, currypath=None, path=None, imports=None):
   native = curryrt.Module.find_or_create(module.fullname)
   builtins = {f.name for f in module.functions.values()
       if function_primitive(native, f, module) is not None}
+  from .toolchain import registered_names
+  registry = registered_names(module.filename)
+  resolver = Resolver(interp, module)
   with _productlock.locked(path):
     try:
-      _check(interp, module.filename, path, imports)
+      _check(interp, module.filename, path, imports, registry)
       return path
     except (OSError, ValueError, KeyError, exceptions.CurryError):
       pass
-    return _write(interp, module, path, imports, builtins)
+    return _write(interp, module, path, imports, builtins, registry, resolver)
 
 
-def _write(interp, module, path, imports, builtins):
+def _write(interp, module, path, imports, builtins, registry, resolver):
   if os.path.realpath(path) in _attached_paths:
     selected = _destination.select(module.filename, force=True)
     path = filename(selected)
@@ -394,7 +412,6 @@ def _write(interp, module, path, imports, builtins):
       out.metadata(ctor.metadata)
   out.word(len(module.functions))
   codes = []
-  resolver = Resolver(interp, module)
   for function in module.functions.values():
     out.text(function.name)
     out.word(function.arity)
@@ -417,7 +434,7 @@ def _write(interp, module, path, imports, builtins):
   out.word(len(module.functions))
   for function in module.functions.values():
     out.metadata(function.metadata)
-  header = _facts(interp, module.filename, imports)
+  header = _facts(interp, module.filename, imports, registry)
   parsed_digest = getattr(module, '_source_digest', header['source'])
   if parsed_digest != header['source']:
     raise _InputChanged('ICurry changed during image translation')
@@ -507,6 +524,9 @@ def _ensure(interp, icyfile, currypath=None, importing=False):
   path = _publication_path(interp, source, path, imports)
   # Imports and native summary reads precede the file lock. Only this
   # module's passes, bytecode emission and publication need serialization.
+  from .toolchain import registered_names
+  registry = registered_names(source)
+  resolver = Resolver(interp, raw)
   with contextlib.ExitStack() as locks:
     try:
       locks.enter_context(_productlock.locked(path))
@@ -519,15 +539,16 @@ def _ensure(interp, icyfile, currypath=None, importing=False):
     if raw._source_digest != digest(icyfile):
       raise _InputChanged('ICurry changed after parsing')
     try:
-      header = _check(interp, source, path)
+      header = _check(interp, source, path, registry=registry)
       return path, _check(interp, source, path,
-          {name: imports[name] for name in header['imports']})
+          {name: imports[name] for name in header['imports']}, registry)
     except (OSError, ValueError, KeyError, exceptions.CurryError):
       pass
     optimize(interp, raw, currypath, summaries=summaries)
+    resolver.refresh()
     imports = {name: imports[name] for name in raw.imports}
-    path = _write(interp, raw, path, imports, builtins)
-    return path, _check(interp, source, path, imports)
+    path = _write(interp, raw, path, imports, builtins, registry, resolver)
+    return path, _check(interp, source, path, imports, registry)
 
 
 def load(interp, icyfile, currypath=None):
