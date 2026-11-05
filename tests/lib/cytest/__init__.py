@@ -522,4 +522,6 @@ def write_module_image(path, description, translate=True):
   except ValueError:
     pass # malformed synthetic inputs are diagnosed by their test
   if translate:
+    if os.path.isfile(source):
+      _curry2icurry.write_source_receipt(icyfile, _curry2icurry.source_digest(source))
     image.ensure(raw.interp(), icyfile, search)
