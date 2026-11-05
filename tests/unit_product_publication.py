@@ -64,18 +64,20 @@ class TestPublication(cytest.TestCase):
     self.assertEqual(target.read_bytes(), source.read_bytes())
 
   def test_export_interrupted_copy_keeps_destination(self):
-    source = self.base / 'source.cpp'
-    target = self.base / 'target.cpp'
-    source.write_bytes(b'new complete output')
-    target.write_bytes(b'previous output')
     def interrupt(source, target, **kwargs):
       pathlib.Path(target).write_bytes(b'partial')
       raise OSError('interrupted copy')
-    with mock.patch.object(_productcache.shutil, 'copyfile', side_effect=interrupt):
-      with self.assertRaisesRegex(OSError, 'interrupted copy'):
-        with _makecurry.ToolchainContext(str(source), output=str(target)):
-          pass
-    self.assertEqual(target.read_bytes(), b'previous output')
+    for suffix in ('.cpp', config.module_object_suffix()):
+      with self.subTest(suffix=suffix):
+        source = self.base / ('source' + suffix)
+        target = self.base / ('target' + suffix)
+        source.write_bytes(b'new complete output')
+        target.write_bytes(b'previous output')
+        with mock.patch.object(_productcache.shutil, 'copy2', side_effect=interrupt):
+          with self.assertRaisesRegex(OSError, 'interrupted copy'):
+            with _makecurry.ToolchainContext(str(source), output=str(target)):
+              pass
+        self.assertEqual(target.read_bytes(), b'previous output')
 
   def test_export_accepts_arbitrary_output_name(self):
     source = self.base / 'source.cpp'
@@ -114,6 +116,24 @@ class TestPublication(cytest.TestCase):
       os.utime(header, ns=(stamp.st_atime_ns, stamp.st_mtime_ns))
       new = toolchain.PrecompiledHeader(str(self.base), 'c++', ['-O3'])
       self.assertFalse(new.is_current(), 'changed headers accepted old PCH')
+
+  def test_pch_header_names(self):
+    header = self.base / 'header.hpp'
+    header.write_bytes(b'layout')
+    absolute = os.path.normcase(os.path.abspath(header))
+    cases = [
+        (str(self.base), None, 'header.hpp'),
+        (str(self.base / 'include'), None, absolute),
+        (str(self.base / 'include'), ValueError('different drives'), absolute)]
+    relpath = os.path.relpath
+    for include, error, name in cases:
+      with self.subTest(include=include, error=error), \
+          mock.patch.object(toolchain.PrecompiledHeader, 'header_files',
+              return_value=[str(header)]), \
+          mock.patch.object(config, 'installed_path', return_value=include), \
+          mock.patch.object(os.path, 'relpath', side_effect=error or relpath):
+        expected = hashlib.sha256(name.encode('utf-8') + b'\0layout\0').hexdigest()
+        self.assertEqual(toolchain.PrecompiledHeader.header_digest(), expected)
 
   def test_lock_open_failure_refuses_publication(self):
     with mock.patch.object(_productlock, '_open', return_value=None):

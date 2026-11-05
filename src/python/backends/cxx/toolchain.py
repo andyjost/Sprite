@@ -600,8 +600,16 @@ class PrecompiledHeader(object):
   @classmethod
   def header_digest(cls):
     result = hashlib.sha256()
+    include = config.installed_path('include')
     for path in cls.header_files():
-      result.update(os.path.relpath(path, config.installed_path('include')).encode('utf-8'))
+      try:
+        name = os.path.relpath(path, include)
+      except ValueError: # Windows paths on different drives
+        name = os.path.normcase(os.path.abspath(path))
+      else:
+        if name == os.pardir or name.startswith(os.pardir + os.sep):
+          name = os.path.normcase(os.path.abspath(path))
+      result.update(name.encode('utf-8'))
       result.update(b'\0')
       with open(path, 'rb') as stream:
         result.update(stream.read())
