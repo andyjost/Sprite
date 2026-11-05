@@ -5,6 +5,10 @@ Release Notes
 Unreleased
 ==========
 
+- Add a weekly CPM index workflow with pinned package expectations,
+  regression checks, and downloadable package results and logs. Fix
+  CurryCheck driver loading and saved application options, and implement
+  the CPM clock and UTC conversion used for random seeds.
 - Serve loaded modules from memory until reload or reset, without product
   snapshots; product-file readers verify the digests recorded at load.
 - Library modules follow Curry path order; only runtime builtin module names

@@ -35,7 +35,15 @@ namespace
     Node * result = unit();
     try
     {
-      if(op == "prim_system")
+      if(op == "getClockTime")
+      {
+        auto ctor = package_constructor("Data.Time", "CTime");
+        if(!ctor) throw std::runtime_error("Data.Time.CTime is not loaded");
+        auto now = std::chrono::system_clock::now().time_since_epoch();
+        auto seconds = std::chrono::duration_cast<std::chrono::seconds>(now).count();
+        result = Node::create(ctor, int_(seconds));
+      }
+      else if(op == "prim_system")
       {
         int status = std::system(extract_string(root[0].target).c_str());
         if(status == -1) throw std::system_error(errno, std::generic_category());
@@ -118,6 +126,44 @@ namespace
       node = node->info->tag == T_FWD ? NodeU{node}.fwd->target : NodeU{node}.setgrd->value;
     if(!node) throw std::runtime_error("ReadShowTerm: null term");
     return node;
+  }
+
+  tag_type utc_step(RuntimeState *, Configuration * C)
+  {
+    Cursor root = C->cursor();
+    try
+    {
+      auto clock = data_node(root[0].target);
+      if(clock->info != package_constructor("Data.Time", "CTime"))
+        throw std::runtime_error("Data.Time: expected CTime");
+      auto seconds = std::stoll(integer_string(data_node(clock->successor_node(0))));
+      auto days = seconds / 86400;
+      auto daytime = seconds % 86400;
+      if(daytime < 0) { daytime += 86400; --days; }
+      // Gregorian calendar with March first, in complete 400-year eras.
+      auto shifted = days + 719468;
+      auto era = (shifted >= 0 ? shifted : shifted - 146096) / 146097;
+      auto day_of_era = shifted - era * 146097;
+      auto year_of_era = (day_of_era - day_of_era / 1460 +
+          day_of_era / 36524 - day_of_era / 146096) / 365;
+      auto year = year_of_era + era * 400;
+      auto day_of_year = day_of_era - (365 * year_of_era +
+          year_of_era / 4 - year_of_era / 100);
+      auto march_month = (5 * day_of_year + 2) / 153;
+      auto day = day_of_year - (153 * march_month + 2) / 5 + 1;
+      auto month = march_month + (march_month < 10 ? 3 : -9);
+      year += month <= 2;
+      auto ctor = package_constructor("Data.Time", "CalendarTime");
+      if(!ctor) throw std::runtime_error("Data.Time.CalendarTime is not loaded");
+      root->forward_to(Node::create(ctor, int_(year), int_(month), int_(day),
+          int_(daytime / 3600), int_((daytime / 60) % 60), int_(daytime % 60), int_(0)));
+      return T_FWD;
+    }
+    catch(std::exception const & error)
+    {
+      C->set_error(nullptr, error.what(), ErrorKind::evaluation);
+      return E_ERROR;
+    }
   }
 
   struct TermPrinter
@@ -509,6 +555,10 @@ namespace
     primitive("System.Directory", "prim_renameFile", 2);
     primitive("System.Process", "prim_system", 1);
     primitive("System.Process", "prim_sleep", 1);
+    primitive("Data.Time", "getClockTime", 0);
+    static InfoTable const utc(T_FUNC, 1, sizeof(Node1), F_STATIC_OBJECT,
+        "prim_toUTCTime", "p", utc_step, nullptr);
+    Module::register_primitive("Data.Time.prim_toUTCTime", &utc);
     static InfoTable const show(T_FUNC, 1, sizeof(Node1), F_STATIC_OBJECT,
         "prim_showTerm", "p", readshow_step, nullptr);
     static InfoTable const reads(T_FUNC, 2, sizeof(Node2), F_STATIC_OBJECT,

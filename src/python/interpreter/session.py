@@ -229,7 +229,7 @@ def _replace_module(interp, module, source, text, imports):
   return module
 
 
-def save(interp, module, path, *, main=None):
+def save(interp, module, path, *, main=None, program_arguments=False):
   check_module(module)
   path = os.fspath(path)
   backend = interp.flags['backend']
@@ -301,8 +301,8 @@ with tempfile.TemporaryDirectory(prefix='sprite-program-') as work:
       stream.write(base64.b64decode(data))
     module = _load_saved(curry._interpreter_, path)
   from curry.__main__ import moduleMain
-  moduleMain(__file__, module.__name__, goal=%r, goalscheme=%r)
-''' % (sys.executable, backend, products, goal, scheme)
+  moduleMain(__file__, module.__name__, goal=%r, goalscheme=%r, program_arguments=%r)
+''' % (sys.executable, backend, products, goal, scheme, program_arguments)
         if sys.platform == 'win32':
           _save_windows_program(interp, path, program, work)
         else:

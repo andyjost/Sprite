@@ -3,6 +3,7 @@
 #include "curryrt/currylib/prelude.hpp"
 #include "curryrt/module.hpp"
 #include "curryrt/utf8.hpp"
+#include "curryrt/bigint.hpp"
 #include <algorithm>
 #include <fstream>
 #include <filesystem>
@@ -14,6 +15,7 @@
 #include <mutex>
 #include <thread>
 #include <future>
+#include <sstream>
 
 using namespace curryrt;
 namespace
@@ -22,7 +24,7 @@ namespace
   struct Handle
   {
     int standard = -1;
-    bool readable = false, writable = false, closed = false;
+    bool readable = false, writable = false, closed = false, binary = false;
     std::fstream file;
     void close()
     {
@@ -36,6 +38,11 @@ namespace
   {
     static auto mutex = new std::recursive_mutex;
     return *mutex;
+  }
+  std::vector<int> & retired_streams()
+  {
+    static auto streams = new std::vector<int>;
+    return *streams;
   }
   auto & open_handles()
   {
@@ -92,11 +99,12 @@ namespace
       if(op == "handle_eq")
         return finish(C, handle(root[0].target) == handle(root[1].target) ?
             true_() : false_(), false);
-      if(op == "prim_openFile")
+      if(op == "prim_openFile" || op == "prim_openBinaryFile")
       {
         std::string path = extract_string(root[0].target);
         auto mode = root[1].target->info->tag - T_CTOR;
         auto h = std::make_unique<Handle>();
+        h->binary = op == "prim_openBinaryFile";
         h->readable = mode == 0;
         h->writable = mode != 0;
         h->file.open(std::filesystem::u8path(path), std::ios::binary | (mode == 0 ? std::ios::in :
@@ -107,6 +115,29 @@ namespace
         open_handles().insert(h.get());
         h.release();
         return finish(C, node);
+      }
+      if(op == "prim_execCmd")
+      {
+        auto command = extract_string(root[0].target);
+        lock.unlock();
+        std::istringstream ids(standard_stream(-1, "exec", command, 0));
+        Node * nodes[3];
+        for(int i = 0; i < 3; ++i)
+        {
+          auto h = std::make_unique<Handle>();
+          if(!(ids >> h->standard) || h->standard < 3)
+            throw std::runtime_error("invalid command stream");
+          h->readable = i != 0;
+          h->writable = i == 0;
+          std::lock_guard<std::recursive_mutex> guard(handle_mutex());
+          nodes[i] = Node::create(&handle_info, h.get());
+          gc_register_handle(nodes[i]);
+          open_handles().insert(h.get());
+          h.release();
+        }
+        auto tuple = Module::find_symbol("Prelude", "(,,)");
+        if(!tuple) throw std::runtime_error("Prelude tuple constructor is not loaded");
+        return finish(C, Node::create(tuple, nodes[0], nodes[1], nodes[2]));
       }
       if(op == "prim_hWaitForInputs")
       {
@@ -127,12 +158,19 @@ namespace
           if(h->closed || (h->standard < 0 && !h->readable))
             throw std::runtime_error("handle is closed or not readable");
           if(h->standard < 0) return finish(C, int_(i));
-          streams += char('0' + h->standard);
+          if(!streams.empty()) streams += ',';
+          streams += std::to_string(h->standard);
         }
         lock.unlock();
         return finish(C, int_(std::stoll(standard_stream(0, "waits", streams, timeout))));
       }
       auto h = handle(root[0].target);
+      if((op == "prim_hGetByte" || op == "prim_hPutByte") && !h->binary)
+        throw std::runtime_error("stream is not binary");
+      if(h->binary && (op == "prim_hGetChar" || op == "prim_hPutChar"))
+        throw std::runtime_error("stream is not text");
+      if(h->closed && op != "prim_hClose")
+        throw std::runtime_error("stream does not exist (closed handle)");
       if(h->standard >= 0)
       {
         std::string text;
@@ -150,6 +188,7 @@ namespace
         }
         if(op == "prim_hWaitForInput") value = NodeU{root[1].target}.int_->value;
         int standard = h->standard;
+        if(op == "prim_hClose" && standard >= 3) h->closed = true;
         lock.unlock();
         auto result = standard_stream(standard, op, text, value);
         if(op == "prim_hGetChar")
@@ -171,6 +210,13 @@ namespace
         return finish(C, unit());
       }
       if(h->closed) throw std::runtime_error("stream does not exist (closed handle)");
+      if(op == "prim_hGetByte")
+      {
+        if(!h->readable) throw std::runtime_error("stream is not readable");
+        auto value = h->file.get();
+        if(value == EOF && !h->file.eof()) throw std::runtime_error("file read failed");
+        return finish(C, int_(value == EOF ? -1 : value));
+      }
       if(op == "prim_hIsReadable") return finish(C, h->readable ? true_() : false_());
       if(op == "prim_hIsWritable") return finish(C, h->writable ? true_() : false_());
       if(op == "prim_hIsTerminalDevice") return finish(C, false_());
@@ -187,6 +233,14 @@ namespace
         h->file.clear();
         if(h->readable) h->file.seekg(offset, direction);
         else h->file.seekp(offset, direction);
+      }
+      else if(op == "prim_hPutByte")
+      {
+        if(!h->writable) throw std::runtime_error("stream is not writable");
+        auto value = root[1].target;
+        if(is_bigint(value) || NodeU{value}.int_->value < 0 || NodeU{value}.int_->value > 255)
+          throw std::runtime_error("byte is outside 0..255");
+        h->file.put(static_cast<char>(NodeU{value}.int_->value));
       }
       else if(op == "prim_hPutChar")
       {
@@ -227,8 +281,9 @@ namespace
   void release(Handle * h)
   {
     std::lock_guard<std::recursive_mutex> lock(handle_mutex());
-    if(h->standard < 0)
+    if(h->standard < 0 || h->standard >= 3)
     {
+      if(h->standard >= 3 && !h->closed) retired_streams().push_back(h->standard);
       open_handles().erase(h);
       h->close();
       delete h;
@@ -240,6 +295,7 @@ namespace
     for(auto h: open_handles())
     {
       if(visit) visit();
+      if(h->standard >= 3 && !h->closed) retired_streams().push_back(h->standard);
       h->close();
     }
   }
@@ -262,6 +318,19 @@ namespace
           F_STATIC_OBJECT | (monadic ? F_MONADIC : 0), entry.first, format, step, nullptr);
       Module::register_primitive(std::string("System.IO.") + entry.first, info);
     }
+    for(auto entry: {std::pair<char const *, int>{"prim_openBinaryFile", 2},
+                    {"prim_hGetByte", 1}, {"prim_hPutByte", 2}})
+    {
+      auto format = new char[entry.second + 1];
+      std::fill_n(format, entry.second, 'p'); format[entry.second] = 0;
+      auto info = new InfoTable(T_FUNC, entry.second,
+          sizeof(void *) * std::max(entry.second + 1, 2),
+          F_STATIC_OBJECT | F_MONADIC, entry.first, format, step, nullptr);
+      Module::register_primitive(std::string("System.IO.BinaryFile.") + entry.first, info);
+    }
+    auto command = new InfoTable(T_FUNC, 1, sizeof(Node1),
+        F_STATIC_OBJECT | F_MONADIC, "prim_execCmd", "p", step, nullptr);
+    Module::register_primitive("System.IOExts.prim_execCmd", command);
     return 0;
   }
   int const registered = register_handles();
@@ -313,6 +382,12 @@ namespace curryrt
                               std::string const & text, long long value)
   {
     if(!host()) throw std::runtime_error("standard stream host is unavailable");
+    std::vector<int> retired;
+    {
+      std::lock_guard<std::recursive_mutex> lock(handle_mutex());
+      retired.swap(retired_streams());
+    }
+    for(int id: retired) host()(id, "release", "", 0);
     return host()(stream, operation, text, value);
   }
 }

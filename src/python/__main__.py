@@ -252,7 +252,7 @@ class SavedMain(Main):
     args.module = True
     return args
 
-def moduleMain(filename, module_name, goal=None, goalscheme=None):
+def moduleMain(filename, module_name, goal=None, goalscheme=None, program_arguments=False):
   '''
   Main program for a Curry module saved with ``curry.save``.  Reads the
   command line of the saved program as ``sprite-exec`` does (issue #35): -g
@@ -265,7 +265,12 @@ def moduleMain(filename, module_name, goal=None, goalscheme=None):
       os.path.basename(filename), module_name, default_goal=goal
     , goalscheme=goalscheme
     )
-  mainobj(sys.argv[1:])
+  argv = sys.argv[1:]
+  if program_arguments:
+    # REPL :save creates a command-line application, such as CurryCheck.
+    # Its options belong to Curry; curry.save retains the runner interface.
+    argv = ['--'] + (argv[1:] if argv[:1] == ['--'] else argv)
+  mainobj(argv)
 
 if __name__ == '__main__':
   main(PROGRAM_NAME)

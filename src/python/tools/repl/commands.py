@@ -23,7 +23,11 @@ def load(repl, arg):
   Loads the module that the file name or module name ``arg`` names, as
   :load does.  Sets ``repl.module`` and ``repl.loaded``.
   '''
-  repl.module = curry.import_(arg)
+  # :load accepts a local source basename even when CPM's path contains
+  # only package source directories. Import it through the file API.
+  source = arg if arg.endswith('.curry') else arg + '.curry'
+  target = os.path.abspath(source) if os.path.isfile(source) else arg
+  repl.module = curry.import_(target)
   curry.program_name = curry.info(repl.module).name
   repl.loaded = arg
   repl.loaded_name = repl.module.__name__
@@ -173,7 +177,8 @@ def cmdSave(repl):
         imports=imports(repl))
     goal = 'spriteSavedMain'
   filename = repl.loaded_name
-  curry.save(module, filename, main=goal)
+  from ...interpreter.session import save
+  save(curry._interpreter_, module, filename, main=goal, program_arguments=True)
   os.chmod(filename, os.stat(filename).st_mode | 0o111)
 
 

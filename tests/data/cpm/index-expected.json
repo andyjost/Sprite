@@ -1,0 +1,1152 @@
+{
+  "complete": false,
+  "blocked_reason": "The configured survey proxy is unavailable. Finish the survey and resolve the reported design questions before enabling CI.",
+  "index": {
+    "date": "2026-11-04",
+    "sha256": "4380eee34d12d0f5be6b80ec07007c2fe09fdf90472ba59e7448a503287e8684",
+    "digest_algorithm": "SHA256 of sorted relative manifest names, NUL, manifest bytes, NUL",
+    "versions": {
+      "abstract-curry": [
+        "1.0.0",
+        "2.0.0",
+        "3.0.0",
+        "4.0.0"
+      ],
+      "abstract-haskell": [
+        "2.0.0",
+        "3.0.0"
+      ],
+      "addtypes": [
+        "0.0.1",
+        "2.0.0",
+        "3.0.0",
+        "3.2.0",
+        "4.0.0"
+      ],
+      "allvalues": [
+        "3.0.0",
+        "4.0.0"
+      ],
+      "ansi-terminal": [
+        "0.0.1",
+        "3.0.0"
+      ],
+      "array": [
+        "0.0.1",
+        "3.0.0"
+      ],
+      "assoc-legacy": [
+        "1.0.0"
+      ],
+      "base": [
+        "1.0.0",
+        "1.1.0",
+        "3.0.0",
+        "3.1.0",
+        "3.2.0",
+        "3.3.0",
+        "3.4.0"
+      ],
+      "benchmark-papers": [
+        "0.0.1",
+        "2.0.0",
+        "3.0.0"
+      ],
+      "bindata": [
+        "1.0.0",
+        "1.1.0",
+        "1.2.0",
+        "3.0.0"
+      ],
+      "binint": [
+        "0.0.1",
+        "2.0.0",
+        "3.0.0",
+        "3.1.0"
+      ],
+      "boxes": [
+        "0.0.1",
+        "0.0.2",
+        "2.0.0",
+        "3.0.0"
+      ],
+      "bpmn2bpel": [
+        "0.0.1",
+        "0.1.0",
+        "3.0.0",
+        "3.1.0"
+      ],
+      "call-analysis": [
+        "0.0.1",
+        "2.0.0",
+        "3.0.0",
+        "3.2.0",
+        "3.3.0"
+      ],
+      "casc": [
+        "0.0.1",
+        "2.0.0"
+      ],
+      "cass": [
+        "0.0.1",
+        "2.0.0",
+        "3.0.0",
+        "3.0.1",
+        "3.1.0",
+        "4.0.0",
+        "4.1.0",
+        "5.0.0"
+      ],
+      "cass-analysis": [
+        "0.0.1",
+        "0.0.2",
+        "0.0.3",
+        "0.0.4",
+        "2.0.0",
+        "3.0.0",
+        "3.0.1",
+        "3.1.0",
+        "4.0.0",
+        "5.0.0"
+      ],
+      "ccti": [
+        "0.0.1"
+      ],
+      "cdbi": [
+        "1.0.0",
+        "1.1.0",
+        "2.0.0",
+        "3.0.0",
+        "3.1.0",
+        "3.2.0"
+      ],
+      "chr-curry": [
+        "0.0.1",
+        "1.0.0",
+        "2.0.0",
+        "2.1.0",
+        "3.0.0",
+        "3.2.0"
+      ],
+      "clp-pakcs": [
+        "1.0.0",
+        "1.1.0",
+        "3.0.0",
+        "3.2.0"
+      ],
+      "clpbool": [
+        "0.0.1",
+        "2.0.0",
+        "2.1.0"
+      ],
+      "clpfd-smt": [
+        "0.0.1",
+        "0.0.2"
+      ],
+      "combinatorial": [
+        "1.0.0",
+        "3.0.0",
+        "3.2.0"
+      ],
+      "containers": [
+        "3.0.0"
+      ],
+      "contract-prover": [
+        "0.0.1",
+        "1.0.0",
+        "3.0.0",
+        "4.0.0"
+      ],
+      "contracts": [
+        "0.0.1",
+        "3.0.0",
+        "3.1.0"
+      ],
+      "coosy": [
+        "1.0.0",
+        "2.0.0",
+        "3.0.0",
+        "3.1.0"
+      ],
+      "cpc": [
+        "0.0.1"
+      ],
+      "cpm": [
+        "0.0.1",
+        "0.0.2",
+        "0.0.3",
+        "0.0.4",
+        "0.1.0",
+        "0.1.1",
+        "0.2.0",
+        "0.2.1",
+        "0.2.2",
+        "0.2.3",
+        "1.0.0",
+        "2.0.0",
+        "2.1.0",
+        "2.1.1",
+        "2.2.0",
+        "3.0.0",
+        "3.1.0",
+        "3.2.0",
+        "3.3.0"
+      ],
+      "cpm-manage": [
+        "0.0.1",
+        "0.0.2",
+        "0.0.3",
+        "2.0.0",
+        "2.1.0",
+        "2.2.0",
+        "3.0.0"
+      ],
+      "cpm-query": [
+        "0.1.0",
+        "1.0.0"
+      ],
+      "cpns": [
+        "0.0.1",
+        "3.0.0"
+      ],
+      "cryptohash": [
+        "0.0.1",
+        "3.0.0"
+      ],
+      "csv": [
+        "1.0.0",
+        "3.0.0"
+      ],
+      "curry-ast": [
+        "2.0.0",
+        "2.1.0",
+        "2.2.0",
+        "3.0.0",
+        "3.1.0"
+      ],
+      "curry-interface": [
+        "1.0.0",
+        "2.0.0",
+        "2.0.1"
+      ],
+      "curry-repl": [
+        "0.0.1",
+        "1.0.0",
+        "1.1.0",
+        "1.1.1",
+        "1.2.0"
+      ],
+      "curry-resources": [
+        "1.0.0"
+      ],
+      "curry-source": [
+        "1.0.0",
+        "1.1.0",
+        "1.2.0",
+        "1.3.0"
+      ],
+      "curry2js": [
+        "0.2.0",
+        "2.0.0"
+      ],
+      "currybrowse": [
+        "0.5.0",
+        "2.0.0",
+        "3.0.0",
+        "4.0.0"
+      ],
+      "currycheck": [
+        "1.0.0",
+        "1.0.1",
+        "1.1.0",
+        "2.0.0",
+        "3.0.0",
+        "3.2.0",
+        "4.0.0"
+      ],
+      "currydoc": [
+        "0.8.2",
+        "0.8.3",
+        "2.0.0",
+        "3.0.0",
+        "3.1.0",
+        "3.2.0",
+        "4.0.0",
+        "4.1.0",
+        "5.0.0"
+      ],
+      "currypath": [
+        "0.0.1",
+        "3.0.0"
+      ],
+      "currypp": [
+        "0.3.0",
+        "0.3.1",
+        "0.3.2",
+        "2.0.0",
+        "2.1.0",
+        "3.0.0",
+        "3.1.0",
+        "3.2.0"
+      ],
+      "db-pakcs": [
+        "1.0.0"
+      ],
+      "det-parse": [
+        "0.0.1",
+        "3.0.0"
+      ],
+      "dimacs": [
+        "0.0.1",
+        "3.0.0"
+      ],
+      "directory": [
+        "3.0.0"
+      ],
+      "distribution": [
+        "3.0.0"
+      ],
+      "dsdcurry": [
+        "1.0.0"
+      ],
+      "easycheck": [
+        "0.0.1",
+        "3.0.0",
+        "3.2.0"
+      ],
+      "ertools": [
+        "1.0.0",
+        "2.0.0",
+        "3.0.0"
+      ],
+      "exact-print": [
+        "1.0.0",
+        "2.0.0"
+      ],
+      "execpath": [
+        "0.0.1",
+        "3.0.0"
+      ],
+      "extra": [
+        "3.0.0"
+      ],
+      "failfree": [
+        "0.0.1",
+        "1.0.0",
+        "3.0.0",
+        "4.0.0"
+      ],
+      "filepath": [
+        "3.0.0"
+      ],
+      "finite-map": [
+        "0.0.1",
+        "3.0.0"
+      ],
+      "fl-parser": [
+        "1.0.0",
+        "3.0.0"
+      ],
+      "flatcurry": [
+        "1.0.0",
+        "2.0.0",
+        "3.0.0",
+        "3.1.0",
+        "4.0.0",
+        "5.0.0"
+      ],
+      "flatcurry-addtypes": [
+        "1.0.0"
+      ],
+      "flatcurry-annotated": [
+        "1.0.0",
+        "2.0.0",
+        "3.0.0",
+        "3.3.0",
+        "4.0.0"
+      ],
+      "flatcurry-compact": [
+        "0.0.1",
+        "3.0.0",
+        "4.0.0"
+      ],
+      "flatcurry-elim-newtype": [
+        "1.0.0"
+      ],
+      "flatcurry-smt": [
+        "1.0.0",
+        "2.0.0"
+      ],
+      "flatcurry-transform": [
+        "0.0.1",
+        "0.0.2"
+      ],
+      "flatcurry-type-annotated": [
+        "3.3.0",
+        "3.4.0",
+        "4.0.0"
+      ],
+      "flatcurry-typed": [
+        "3.0.0"
+      ],
+      "flatcurry-xml": [
+        "1.0.0"
+      ],
+      "frontend-exec": [
+        "0.0.1",
+        "3.0.0",
+        "3.3.0"
+      ],
+      "global": [
+        "3.0.0",
+        "3.1.0",
+        "3.2.0"
+      ],
+      "global-variables": [
+        "1.0.0",
+        "1.1.0"
+      ],
+      "golang": [
+        "1.0.0"
+      ],
+      "graph-inductive": [
+        "1.0.0",
+        "2.0.0",
+        "3.0.0"
+      ],
+      "graphviz": [
+        "1.0.0",
+        "2.0.0",
+        "3.0.0"
+      ],
+      "gui": [
+        "1.0.0",
+        "2.0.0",
+        "3.0.0"
+      ],
+      "html": [
+        "1.0.0",
+        "1.1.0",
+        "2.0.0",
+        "2.1.0"
+      ],
+      "html-cgi": [
+        "0.0.1"
+      ],
+      "html2": [
+        "0.0.1",
+        "0.1.0",
+        "1.0.0",
+        "3.0.0",
+        "3.3.0",
+        "3.4.0",
+        "3.5.0",
+        "3.5.1",
+        "3.5.2",
+        "3.6.0"
+      ],
+      "icurry": [
+        "2.0.0",
+        "3.0.0",
+        "3.0.1",
+        "3.1.0",
+        "3.2.0",
+        "3.3.0"
+      ],
+      "importusage": [
+        "0.0.1",
+        "1.0.0",
+        "3.0.0",
+        "4.0.0"
+      ],
+      "inversion": [
+        "3.0.0"
+      ],
+      "io-extra": [
+        "3.0.0"
+      ],
+      "javascript": [
+        "1.0.0",
+        "2.0.0",
+        "3.0.0"
+      ],
+      "json": [
+        "0.0.2",
+        "0.0.3",
+        "2.0.0",
+        "3.0.0",
+        "4.0.0"
+      ],
+      "julia": [
+        "0.0.1",
+        "3.0.0"
+      ],
+      "keydb": [
+        "1.0.0",
+        "2.0.0",
+        "3.0.0",
+        "3.1.0"
+      ],
+      "mail-utils": [
+        "1.0.0",
+        "2.0.0",
+        "3.0.0"
+      ],
+      "makefile": [
+        "0.0.1",
+        "0.0.2",
+        "0.0.3",
+        "2.0.0",
+        "3.0.0"
+      ],
+      "markdown": [
+        "1.0.0",
+        "1.1.0",
+        "2.0.0",
+        "3.0.0",
+        "3.1.0",
+        "3.2.0",
+        "3.3.0"
+      ],
+      "ninja": [
+        "1.0.0",
+        "3.0.0"
+      ],
+      "nonstrictunif-optimize": [
+        "0.0.1",
+        "2.0.0",
+        "3.0.0",
+        "3.1.0"
+      ],
+      "opt-parse": [
+        "0.0.3",
+        "3.0.0"
+      ],
+      "peano": [
+        "1.0.0",
+        "1.1.0"
+      ],
+      "peval": [
+        "1.0.0",
+        "2.0.0"
+      ],
+      "peval-noshare": [
+        "0.0.1",
+        "0.1.0"
+      ],
+      "pflp": [
+        "1.0.0",
+        "1.0.1",
+        "2.0.0",
+        "2.1.0"
+      ],
+      "plural-arguments": [
+        "0.0.1",
+        "2.0.0",
+        "3.0.0",
+        "3.1.0"
+      ],
+      "ports": [
+        "1.0.0",
+        "1.1.0",
+        "3.0.0"
+      ],
+      "printf": [
+        "0.0.1",
+        "3.0.0"
+      ],
+      "process": [
+        "3.0.0"
+      ],
+      "profiling": [
+        "1.0.0",
+        "1.1.0",
+        "3.0.0"
+      ],
+      "profiling-pakcs": [
+        "1.0.0",
+        "1.1.0"
+      ],
+      "prolog": [
+        "1.0.0",
+        "2.0.0",
+        "3.0.0"
+      ],
+      "prolog2curry": [
+        "1.0.0",
+        "1.1.0",
+        "1.2.0",
+        "1.3.0"
+      ],
+      "property-prover": [
+        "1.0.0",
+        "1.1.0",
+        "2.0.0"
+      ],
+      "propertyfile": [
+        "0.0.1",
+        "3.0.0"
+      ],
+      "queue": [
+        "0.0.1",
+        "3.0.0"
+      ],
+      "random": [
+        "0.0.1",
+        "3.0.0"
+      ],
+      "read-legacy": [
+        "3.0.0"
+      ],
+      "redblacktree": [
+        "0.0.1",
+        "3.0.0"
+      ],
+      "regexp": [
+        "1.0.0",
+        "1.1.0",
+        "3.0.0",
+        "4.0.0",
+        "4.1.0"
+      ],
+      "residuation-analysis": [
+        "0.0.1",
+        "3.0.0"
+      ],
+      "rewriting": [
+        "0.0.1",
+        "2.0.0",
+        "2.1.0",
+        "3.0.0"
+      ],
+      "roman": [
+        "0.0.1",
+        "2.0.0"
+      ],
+      "runcurry": [
+        "0.0.1",
+        "1.0.0",
+        "3.0.0"
+      ],
+      "rw-data": [
+        "1.0.0",
+        "1.1.0"
+      ],
+      "rw-data-generator": [
+        "1.0.0",
+        "2.0.0"
+      ],
+      "scc": [
+        "0.0.1",
+        "3.0.0"
+      ],
+      "searchtree": [
+        "1.0.0",
+        "1.1.0",
+        "3.0.0"
+      ],
+      "searchtree-extra": [
+        "1.0.0"
+      ],
+      "searchtree-unsafe": [
+        "1.0.0",
+        "3.0.0"
+      ],
+      "setfunction-synthesis": [
+        "0.0.1"
+      ],
+      "setfunctions": [
+        "0.0.1",
+        "3.0.0"
+      ],
+      "showflatcurry": [
+        "0.0.1",
+        "1.0.0",
+        "3.0.0",
+        "4.0.0"
+      ],
+      "smtlib": [
+        "0.0.1",
+        "3.0.0"
+      ],
+      "smtlib-solver": [
+        "0.0.1",
+        "3.0.0"
+      ],
+      "socket": [
+        "0.0.1",
+        "0.1.0",
+        "3.0.0"
+      ],
+      "sourceproggui": [
+        "0.0.1",
+        "1.0.0",
+        "3.0.0"
+      ],
+      "spicey": [
+        "1.0.0",
+        "1.1.0",
+        "2.0.0",
+        "2.1.0",
+        "3.0.0",
+        "3.1.0",
+        "3.2.0",
+        "3.3.0",
+        "3.4.0",
+        "4.0.0",
+        "4.1.0",
+        "4.2.0"
+      ],
+      "string-trie": [
+        "0.0.1",
+        "0.0.2"
+      ],
+      "stylechecker": [
+        "1.0.0",
+        "1.1.0",
+        "2.0.0"
+      ],
+      "time": [
+        "3.0.0"
+      ],
+      "transbooleq": [
+        "0.2.0",
+        "2.0.0",
+        "3.0.0",
+        "3.1.0",
+        "3.2.0",
+        "3.3.0"
+      ],
+      "transformers": [
+        "2.0.0",
+        "3.0.0"
+      ],
+      "traversal": [
+        "1.0.0",
+        "3.0.0"
+      ],
+      "ui": [
+        "1.0.0",
+        "2.0.0"
+      ],
+      "url": [
+        "1.0.0",
+        "3.0.0"
+      ],
+      "url-base": [
+        "0.1.0"
+      ],
+      "verify": [
+        "0.0.1",
+        "0.0.2",
+        "2.0.0",
+        "3.0.0",
+        "3.1.0"
+      ],
+      "verify-non-fail": [
+        "1.0.0",
+        "1.1.0",
+        "1.2.0",
+        "2.0.0",
+        "3.0.0"
+      ],
+      "wl-pprint": [
+        "0.0.1",
+        "3.0.0"
+      ],
+      "wui": [
+        "1.0.0",
+        "1.1.0",
+        "2.0.0"
+      ],
+      "wui2": [
+        "0.0.1",
+        "1.0.0",
+        "3.0.0",
+        "3.1.0"
+      ],
+      "xml": [
+        "0.0.1",
+        "2.0.0",
+        "3.0.0"
+      ],
+      "xmldata": [
+        "0.0.1",
+        "2.0.0",
+        "3.0.0"
+      ]
+    }
+  },
+  "shard_count": 8,
+  "shard_assignment": "Provisional: greedy measured package time; unrun packages use a 60-second placeholder. Remeasure before marking complete.",
+  "packages": {
+    "abstract-curry": {
+      "version": "4.0.0",
+      "result": "pass",
+      "shard": 4,
+      "observed": "pass"
+    },
+    "allvalues": {
+      "version": "4.0.0",
+      "result": "exception",
+      "shard": 6,
+      "observed": "missing external",
+      "reason": "Requires the PAKCS foreign strong-encapsulation primitives Control.AllValues.allValues and oneValue."
+    },
+    "array": {
+      "version": "3.0.0",
+      "result": "pass",
+      "shard": 4,
+      "observed": "pass"
+    },
+    "base": {
+      "version": "3.4.0",
+      "result": "pass",
+      "shard": 6,
+      "observed": "Sprite error"
+    },
+    "bindata": {
+      "version": "3.0.0",
+      "result": "pass",
+      "shard": 7,
+      "observed": "pass"
+    },
+    "binint": {
+      "version": "3.1.0",
+      "result": "pass",
+      "shard": 6,
+      "observed": "pass"
+    },
+    "chr-curry": {
+      "version": "3.2.0",
+      "result": "pass",
+      "shard": 7,
+      "observed": "pass"
+    },
+    "clp-pakcs": {
+      "version": "3.2.0",
+      "result": "exception",
+      "shard": 6,
+      "observed": "missing external",
+      "reason": "Requires the PAKCS Prolog CLP(R) solver."
+    },
+    "clpbool": {
+      "version": "2.0.0",
+      "result": "exception",
+      "shard": 3,
+      "observed": "missing external",
+      "reason": "Requires the PAKCS Prolog CLP(B) solver."
+    },
+    "combinatorial": {
+      "version": "3.2.0",
+      "result": "pass",
+      "shard": 3,
+      "observed": "pass"
+    },
+    "containers": {
+      "version": "3.0.0",
+      "result": "pass",
+      "shard": 4,
+      "observed": "pass"
+    },
+    "contract-prover": {
+      "version": "4.0.0",
+      "result": "exception",
+      "shard": 6,
+      "observed": "test failure",
+      "reason": "Requires the absent system solver z3; verification fails with PAKCS 3.10.0 too."
+    },
+    "coosy": {
+      "version": "3.1.0",
+      "result": "pass",
+      "shard": 7,
+      "observed": "pass"
+    },
+    "cpm": {
+      "version": "3.3.0",
+      "result": "pass",
+      "shard": 1,
+      "observed": "pass"
+    },
+    "curry-interface": {
+      "version": "2.0.1",
+      "result": "pass",
+      "shard": 7,
+      "observed": "pass"
+    },
+    "curry-source": {
+      "version": "1.3.0",
+      "result": "pass",
+      "shard": 6,
+      "observed": "pass"
+    },
+    "currycheck": {
+      "version": "4.0.0",
+      "result": "pass",
+      "shard": 3,
+      "observed": "pass"
+    },
+    "currypp": {
+      "version": "3.2.0",
+      "result": "pass",
+      "shard": 0,
+      "observed": "Sprite error"
+    },
+    "db-pakcs": {
+      "version": "1.0.0",
+      "result": "exception",
+      "shard": 3,
+      "observed": "front-end error",
+      "reason": "Requires PAKCS-only Prolog database primitives; its metadata also rejects PAKCS 3.10.0."
+    },
+    "dimacs": {
+      "version": "3.0.0",
+      "result": "exception",
+      "shard": 5,
+      "observed": "test failure",
+      "reason": "Its tests require the absent system solver z3; the solver actions fail with PAKCS 3.10.0 too."
+    },
+    "directory": {
+      "version": "3.0.0",
+      "result": "pass",
+      "shard": 5,
+      "observed": "pass"
+    },
+    "dsdcurry": {
+      "version": "1.0.0",
+      "result": "pass",
+      "shard": 7,
+      "observed": "front-end error"
+    },
+    "easycheck": {
+      "version": "3.2.0",
+      "result": "pass",
+      "shard": 5,
+      "observed": "pass"
+    },
+    "exact-print": {
+      "version": "2.0.0",
+      "result": "pass",
+      "shard": 7,
+      "observed": "pass"
+    },
+    "failfree": {
+      "version": "4.0.0",
+      "result": "exception",
+      "shard": 4,
+      "observed": "test failure",
+      "reason": "Requires the absent system solver z3; verification fails with PAKCS 3.10.0 too."
+    },
+    "filepath": {
+      "version": "3.0.0",
+      "result": "pass",
+      "shard": 7,
+      "observed": "pass"
+    },
+    "finite-map": {
+      "version": "3.0.0",
+      "result": "pass",
+      "shard": 6,
+      "observed": "pass"
+    },
+    "flatcurry": {
+      "version": "5.0.0",
+      "result": "pass",
+      "shard": 6,
+      "observed": "pass"
+    },
+    "flatcurry-xml": {
+      "version": "1.0.0",
+      "result": "pass",
+      "shard": 5,
+      "observed": "test failure"
+    },
+    "global": {
+      "version": "3.2.0",
+      "result": "pass",
+      "shard": 5,
+      "observed": "missing external"
+    },
+    "global-variables": {
+      "version": "1.0.0",
+      "result": "pass",
+      "shard": 2,
+      "observed": "missing external"
+    },
+    "icurry": {
+      "version": "3.3.0",
+      "result": "pass",
+      "shard": 5,
+      "observed": "not run"
+    },
+    "inversion": {
+      "version": "3.0.0",
+      "result": "pass",
+      "shard": 4,
+      "observed": "pass"
+    },
+    "io-extra": {
+      "version": "3.0.0",
+      "result": "pass",
+      "shard": 5,
+      "observed": "missing external"
+    },
+    "json": {
+      "version": "4.0.0",
+      "result": "pass",
+      "shard": 7,
+      "observed": "network"
+    },
+    "keydb": {
+      "version": "3.1.0",
+      "result": "pass",
+      "shard": 4,
+      "observed": "network"
+    },
+    "plural-arguments": {
+      "version": "3.1.0",
+      "result": "pass",
+      "shard": 7,
+      "observed": "network"
+    },
+    "printf": {
+      "version": "3.0.0",
+      "result": "pass",
+      "shard": 7,
+      "observed": "pass"
+    },
+    "property-prover": {
+      "version": "2.0.0",
+      "result": "exception",
+      "shard": 2,
+      "observed": "test failure",
+      "reason": "Requires the absent system solver z3; verification fails with PAKCS 3.10.0 too."
+    },
+    "queue": {
+      "version": "3.0.0",
+      "result": "pass",
+      "shard": 5,
+      "observed": "not run"
+    },
+    "redblacktree": {
+      "version": "3.0.0",
+      "result": "pass",
+      "shard": 2,
+      "observed": "not run"
+    },
+    "regexp": {
+      "version": "4.1.0",
+      "result": "pass",
+      "shard": 4,
+      "observed": "not run"
+    },
+    "runcurry": {
+      "version": "3.0.0",
+      "result": "pass",
+      "shard": 7,
+      "observed": "not run"
+    },
+    "rw-data": {
+      "version": "1.1.0",
+      "result": "pass",
+      "shard": 3,
+      "observed": "not run"
+    },
+    "rw-data-generator": {
+      "version": "2.0.0",
+      "result": "pass",
+      "shard": 1,
+      "observed": "not run"
+    },
+    "searchtree": {
+      "version": "3.0.0",
+      "result": "pass",
+      "shard": 0,
+      "observed": "not run"
+    },
+    "searchtree-unsafe": {
+      "version": "3.0.0",
+      "result": "pass",
+      "shard": 6,
+      "observed": "not run"
+    },
+    "setfunctions": {
+      "version": "3.0.0",
+      "result": "pass",
+      "shard": 5,
+      "observed": "not run"
+    },
+    "spicey": {
+      "version": "4.2.0",
+      "result": "pass",
+      "shard": 2,
+      "observed": "not run"
+    },
+    "string-trie": {
+      "version": "0.0.2",
+      "result": "pass",
+      "shard": 4,
+      "observed": "not run"
+    },
+    "time": {
+      "version": "3.0.0",
+      "result": "pass",
+      "shard": 7,
+      "observed": "not run"
+    },
+    "transbooleq": {
+      "version": "3.3.0",
+      "result": "pass",
+      "shard": 3,
+      "observed": "not run"
+    },
+    "transformers": {
+      "version": "3.0.0",
+      "result": "pass",
+      "shard": 1,
+      "observed": "not run"
+    },
+    "traversal": {
+      "version": "3.0.0",
+      "result": "pass",
+      "shard": 0,
+      "observed": "not run"
+    },
+    "ui": {
+      "version": "1.0.0",
+      "result": "pass",
+      "shard": 6,
+      "observed": "not run"
+    },
+    "verify": {
+      "version": "3.1.0",
+      "result": "pass",
+      "shard": 5,
+      "observed": "not run"
+    },
+    "wui": {
+      "version": "1.1.0",
+      "result": "pass",
+      "shard": 2,
+      "observed": "not run"
+    },
+    "wui2": {
+      "version": "3.1.0",
+      "result": "pass",
+      "shard": 4,
+      "observed": "not run"
+    },
+    "xml": {
+      "version": "3.0.0",
+      "result": "pass",
+      "shard": 7,
+      "observed": "not run"
+    },
+    "xmldata": {
+      "version": "3.0.0",
+      "result": "pass",
+      "shard": 3,
+      "observed": "not run"
+    }
+  }
+}

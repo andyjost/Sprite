@@ -471,6 +471,20 @@ path rules as other ordinary library modules. CurryCheck runs on Sprite.
 The local prerequisite for property execution is the ``sqlite3`` program
 that CurryCheck needs.
 
+The weekly ``CPM index`` workflow (also available through
+``workflow_dispatch``) runs the package versions pinned in
+``tests/data/cpm/index-expected.json`` with the test-only index overlay.
+Dependency resolution uses the recorded snapshot too. An incomplete
+expectation file blocks execution until the survey is completed. The job prepares a
+private CurryCheck 4.0.0 with ``scripts/cpm-currycheck-prepare.py`` to select
+explicit test-data generators for Sprite and read Prelude types from the
+pinned interface; package properties are unchanged.
+It uploads the package results and logs, fails on regressions of packages
+expected to pass, and reports exceptions that now pass. Known exceptions
+are classified as failures also reproduced with PAKCS 3.10.0, dependencies
+on PAKCS-only features, or missing system tools. Download failures remain
+separate network results. Newer compatible versions are listed for review.
+
 The script adds ``"sprite": ">= 0.9.0"`` to every compatibility list that
 names PAKCS. CPM also reads metadata from downloaded packages; ``--packages``
 applies the same change to those scratch copies after checkout. It preserves

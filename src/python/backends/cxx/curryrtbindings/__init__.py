@@ -223,10 +223,14 @@ def _flush_stdout():
     pass
 
 
-# One character of lookahead per current Python standard stream. Replacing a
+# One character of lookahead per hosted stream. Replacing a standard
 # stream drops its old lookahead. File handles use native binary UTF-8 streams.
-_stream_lookahead = [None, None, None]
-_stream_recovered = [None, None, None]
+from collections import defaultdict as _defaultdict
+_stream_lookahead = _defaultdict(lambda: None)
+_stream_recovered = _defaultdict(lambda: None)
+_command_streams = {}
+_command_processes = set()
+_next_command_stream = 3
 
 def _read_standard_char(stream, index):
   from collections import deque
@@ -345,16 +349,41 @@ def _standard_stream(index, operation, text, value):
   import io
   import select
   import time
-  streams = (sys.stdin, sys.stdout, sys.stderr)
+  global _next_command_stream
+  if operation == 'exec':
+    import subprocess
+    # Retain each process until it exits, reaping completed children at the
+    # next launch. Its pipes have the same explicit close semantics as files.
+    for process in list(_command_processes):
+      if process.poll() is not None: _command_processes.remove(process)
+    process = subprocess.Popen(text, shell=True, stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+        encoding='utf-8', errors='replace', bufsize=1)
+    _command_processes.add(process)
+    ids = []
+    for stream in (process.stdin, process.stdout, process.stderr):
+      token = _next_command_stream
+      _next_command_stream += 1
+      _command_streams[token] = stream
+      ids.append(str(token))
+    return ' '.join(ids)
+  streams = {0: sys.stdin, 1: sys.stdout, 2: sys.stderr, **_command_streams}
+  if operation in ('release', 'prim_hClose') and index >= 3:
+    stream = _command_streams.pop(index, None)
+    if stream is not None: stream.close()
+    _stream_lookahead.pop(index, None)
+    _stream_recovered.pop(index, None)
+    return ''
   stream = streams[index]
   if operation == 'waits':
-    selected = [streams[int(i)] for i in text]
+    indices = list(map(int, text.split(','))) if text else []
+    selected = [streams[i] for i in indices]
     if not selected:
       if value > 0: time.sleep(value / 1000)
       return '-1'
     for i, item in enumerate(selected):
-      pending = _stream_lookahead[int(text[i])]
-      recovered = _stream_recovered[int(text[i])]
+      pending = _stream_lookahead[indices[i]]
+      recovered = _stream_recovered[indices[i]]
       if item.closed: raise ValueError('stream does not exist (closed handle)')
       if not item.readable(): raise ValueError('stream is not readable')
       if pending is not None and pending[0] is item: return str(i)
@@ -362,7 +391,7 @@ def _standard_stream(index, operation, text, value):
       if isinstance(item, io.StringIO): return str(i)
       # A text wrapper may already hold decoded input although its descriptor
       # is empty. Probe the same reader without blocking, retaining the char.
-      if _peek_standard_char(item, int(text[i]), nonblocking=True) is not None:
+      if _peek_standard_char(item, indices[i], nonblocking=True) is not None:
         return str(i)
       import stat
       if stat.S_ISREG(_os.fstat(item.fileno()).st_mode): return str(i)
@@ -432,6 +461,11 @@ def _shutdown_native():
   # and its root registries remain alive for late Python finalizers.
   _curryrtbindings._heap_drain()
   shutdown_handles()
+  for token in list(_command_streams):
+    try: _standard_stream(token, 'release', '', 0)
+    except (OSError, ValueError): pass
+  for process in _command_processes:
+    process.poll()
 
 _atexit.register(_shutdown_native)
 

@@ -137,6 +137,27 @@ assert curry.eval(E.getArgs).one() == []
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout,
             'other main\n' if expression else 'one\n-q\ntwo words\n')
+        arguments = ['--keep', '--verbose=4', '-t', '-g', 'main', 'two words']
+        result = subprocess.run([str(program), *arguments],
+            text=True, capture_output=True, timeout=120)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, 'other main\n' if expression else
+                         '\n'.join(arguments) + '\n')
+
+  def test_load_local_basename_with_explicit_package_path(self):
+    with tempfile.TemporaryDirectory() as directory:
+      root = Path(directory)
+      dependencies = root / 'dependencies'
+      dependencies.mkdir()
+      (root / 'LocalDriver.curry').write_text(
+          'module LocalDriver where\nvalue :: Int\nvalue = 42\n')
+      result = subprocess.run([sys.executable, '-m', 'curry.tools.repl',
+          '--nocypm', ':set', 'path', str(dependencies),
+          ':load', 'LocalDriver', ':eval', 'value', ':quit'], cwd=root,
+          env=dict(os.environ, CURRYPATH=str(dependencies)),
+          text=True, capture_output=True, timeout=120)
+      self.assertEqual((result.returncode, result.stdout, result.stderr),
+                       (0, '42\n', ''))
 
   def test_entrypoints(self):
     commands = [[config.installed_path('bin', 'sprite')],
