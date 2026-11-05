@@ -158,17 +158,8 @@ def _getdb():
 # the entries of the old format are then left alone in their own table.
 # Format 3 added the texts of the two interface files to the row.
 # Format 4 adds imported interface digests to the key and provenance to rows.
-KEY_FORMAT = 4
-
-# An import declaration.  The scan is lenient: a match inside a comment or a
-# string adds a module to the closure, which can only make the key more
-# sensitive.  Every import declaration matches, so no module the Curry front
-# end reads is left out.  A module name may begin with a lowercase letter: a
-# module compiled from a string (sprite__interactive_N), which curry.compile
-# prepends as an import, does.
-_IMPORT = re.compile(
-    r"\bimport\s+(?:qualified\s+)?([A-Za-z_][\w']*(?:\.[A-Za-z_][\w']*)*)"
-  )
+# Format 5 uses comment-aware imports and rejects changed compile inputs.
+KEY_FORMAT = 5
 
 class SourceInfo(object):
   '''The digest and the import names of one Curry source file.'''
@@ -176,7 +167,17 @@ class SourceInfo(object):
     self.path = path
     self.digest = hashlib.sha256(data).hexdigest()
     text = data.decode('utf-8', errors='replace')
-    self.imports = list(dict.fromkeys(_IMPORT.findall(text)))
+    from .toolchain._filenames import _header_tokens
+    tokens = iter(_header_tokens(text))
+    imports = []
+    for token in tokens:
+      if token == 'import':
+        name = next(tokens, None)
+        if name == 'qualified':
+          name = next(tokens, None)
+        if name is not None:
+          imports.append(name)
+    self.imports = list(dict.fromkeys(imports))
 
 @synchronized(_memo_lock)
 def _sourceinfo(path):
@@ -317,7 +318,18 @@ def import_closure(curryfile, currypath=()):
       break
   return closure
 
-def icurry_cache_key(curryfile, currypath=(), options=(), tool=None):
+def _input_snapshot(curryfile, currypath):
+  from .toolchain import _interfaces
+  own = _sourceinfo(curryfile)
+  closure = import_closure(curryfile, currypath)
+  sources = {name: (info.path, info.digest) for name, info in closure.items()}
+  sources[''] = (own.path, own.digest)
+  names = {'Prelude'} | set(own.imports) | set(closure)
+  paths = _interfaces.search_path(curryfile, currypath)
+  interfaces = {name: _interfaces.digest(name, paths) for name in sorted(names)}
+  return sources, interfaces
+
+def icurry_cache_key(curryfile, currypath=(), options=(), tool=None, snapshot=None):
   '''
   The key under which the ICurry of ``curryfile`` is cached.
 
@@ -361,20 +373,18 @@ def icurry_cache_key(curryfile, currypath=(), options=(), tool=None):
   put(' '.join(options))
   modulename = os.path.basename(curryfile)[:-len('.curry')]
   put('' if config.is_anonymous_modname(modulename) else modulename)
-  put(_sourceinfo(curryfile).digest)
-  closure = import_closure(curryfile, currypath)
-  for name, info in sorted(closure.items()):
+  sources, interfaces = snapshot or _input_snapshot(curryfile, currypath)
+  put(sources[''][1])
+  for name, (_, digest) in sorted(sources.items()):
+    if not name:
+      continue
     put(name)
-    put(info.digest)
+    put(digest)
   # Interfaces can be regenerated or shipped separately from the sources
   # (notably pinned ICurry), so source texts alone cannot name them.
-  from .toolchain import _interfaces
-  names = {'Prelude'} | set(_sourceinfo(curryfile).imports)
-  names.update(closure)
-  paths = _interfaces.search_path(curryfile, currypath)
-  for name in sorted(names):
+  for name, digest in sorted(interfaces.items()):
     put(name)
-    put(_interfaces.digest(name, paths) or 'missing interface')
+    put(digest or 'missing interface')
   return hasher.hexdigest()
 
 # ---------------------------------------------------------------------------
@@ -558,9 +568,9 @@ class Curry2ICurryCache(object):
       self.modulename = os.path.splitext(os.path.basename(file_out))[0]
       self.anonymous = config.is_anonymous_modname(self.modulename)
       try:
-        with open(file_in, 'rb') as stream:
-          self.source_digest = hashlib.sha256(stream.read()).hexdigest()
-        self.key = icurry_cache_key(file_in, currypath, options, tool)
+        self.snapshot = _input_snapshot(file_in, currypath)
+        self.source_digest = self.snapshot[0][''][1]
+        self.key = icurry_cache_key(file_in, currypath, options, tool, self.snapshot)
         self.db.execute(
             'CREATE TABLE IF NOT EXISTS [%s]('
             'key TEXT PRIMARY KEY, name TEXT NOT NULL, text TEXT NOT NULL'
@@ -619,9 +629,7 @@ class Curry2ICurryCache(object):
           , name, self.modulename
           )
         return
-      self._write(text, interfaces)
-      if imports is not None:
-        write_file(self.file_out + '.imports', imports)
+      self._write(text, interfaces, imports)
       self.found = True
       with _memo_lock:
         Curry2ICurryCache.stats['hit'] += 1
@@ -630,18 +638,21 @@ class Curry2ICurryCache(object):
     def __bool__(self):
       return self.found
 
-    def _write(self, text, interfaces):
+    def _write(self, text, interfaces, imports=None):
       '''
       Writes the interface files beside the output file, an empty file for a
       NULL column, and then the ICurry text to the output file.  Every write
       goes through a temporary file.
       '''
+      from .toolchain import _curry2icurry
+      _curry2icurry.invalidate_receipt(self.file_out)
       for suffix in INTERFACE_SUFFIXES:
         write_file(
             interface_filename(self.file_out, suffix), interfaces[suffix] or ''
           )
       write_file(self.file_out, text)
-      write_file(self.file_out + '.source', self.source_digest)
+      write_file(self.file_out + '.imports', imports or '{}')
+      _curry2icurry.write_source_receipt(self.file_out, self.source_digest)
 
     def update(self):
       '''
@@ -666,8 +677,24 @@ class Curry2ICurryCache(object):
         }
       # The first front-end run may have created interfaces of imports.
       # Publish under their resulting content, never the pre-run absence.
-      self.key = icurry_cache_key(*self.key_args)
+      if not self._refresh_key():
+        return
       self._store(name, text, None, interfaces)
+
+    def _refresh_key(self):
+      try:
+        current = _input_snapshot(self.file_in, self.key_args[1])
+      except OSError:
+        self.inputs_changed = True
+        return False
+      sources, interfaces = self.snapshot
+      if current[0] != sources or any(value is not None and
+          current[1].get(name) != value for name, value in interfaces.items()):
+        logger.info('not caching %s: inputs changed during compilation', self.file_in)
+        self.inputs_changed = True
+        return False
+      self.key = icurry_cache_key(*self.key_args, snapshot=current)
+      return True
 
     def update_error(self, err):
       '''
@@ -681,6 +708,8 @@ class Curry2ICurryCache(object):
       stderr = getattr(err, 'stderr', None)
       if not is_program_error(stderr):
         logger.debug('not caching the failure of %s', self.file_in)
+        return
+      if not self._refresh_key():
         return
       self._store(self.modulename, '', stderr)
 

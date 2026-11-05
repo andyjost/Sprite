@@ -89,12 +89,10 @@ def locked(filename):
       return
     if fcntl is None:
       if msvcrt is None:
-        yield waited
-        return
+        raise OSError('process locking is unavailable')
       fd = _open(path)
       if fd is None:
-        yield waited
-        return
+        raise OSError('cannot open product lock')
       try:
         # One byte at offset zero identifies the process lock. Closing the
         # descriptor releases it, including when the process exits early.
@@ -121,8 +119,7 @@ def locked(filename):
       return
     fd = _open(path)
     if fd is None:
-      yield waited
-      return
+      raise OSError('cannot open product lock')
     with _registry_lock:
       _descriptors.add(fd)
     try:
@@ -136,8 +133,7 @@ def locked(filename):
           fcntl.flock(fd, fcntl.LOCK_EX)
       except OSError as exc:
         logger.debug('No advisory lock for %r (%s)', path, exc)
-        yield waited
-        return
+        raise
       held[path] = fd
       try:
         yield waited

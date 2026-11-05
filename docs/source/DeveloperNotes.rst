@@ -126,7 +126,7 @@ Audit of shared state
 
    * - Product locks
      - ``toolchain/_productlock.py``
-     - Per-path RLock ownership plus flock; recursion is thread-local. Registry entries are reference-counted while in use. Fork callbacks close inherited descriptors and reset locks; unwinding an inherited context does not release a parent lock. Existing unwritable/no-flock fallback retains thread exclusion and atomic publication.
+     - Per-path RLock ownership plus flock; recursion is thread-local. Registry entries are reference-counted while in use. Fork callbacks close inherited descriptors and reset locks; unwinding an inherited context does not release a parent lock. Failure to open or acquire the process lock refuses publication.
 
    * - Generated source and objects
      - ``toolchain/_makecurry.py; backends/{generic,cxx}/toolchain.py; materialize.py``
@@ -201,6 +201,11 @@ another producer that finds a current published product takes it. Failed
 compilation retains the previous published object and stamp. Publication
 invalidates the old stamp, renames the completed object, then publishes its
 new stamp; a missing stamp makes the object stale.
+Restoring a cached object follows the same order. Its ABI receipt also hashes
+the object bytes. Exporting a product with ``sprite-make -o`` copies to a
+unique sibling and publishes by rename, including the Windows object
+publication operation for native objects. An exported canonical object loses
+its old stamp before replacement and must be certified by a subsequent build.
 The ICurry sidecar, generated C++ and ABI stamp record imported interface
 digests (and imported ICurry for C++ inlining), so changed imports make
 the corresponding products stale too.
@@ -213,6 +218,22 @@ thread/process lock pins store/restore/prune operations. Lock order there
 is module product lock, then cache-root lock. No cache-root lock leads to
 an interpreter import or native heap entry. An external deletion of an
 entire cache is handled as a miss/I/O failure, as before.
+Each compiled-cache entry includes a versioned manifest with the size and
+SHA-256 of every member. Restore verifies the requested members before
+placing anything; corrupt entries miss and a later store replaces them.
+Restoration preserves timestamps: validated pipeline order selects products.
+
+The ICurry completion receipt (``M.icy.source``) is a versioned JSON record
+of the Curry source digest and the digests of ICurry, both interfaces and
+the import receipt. A producer removes the previous completion receipt
+before replacing any member and publishes the new receipt last. A reader
+rejects a missing receipt or any mismatched member, including after a source
+revert. Pinned installed-library products retain their existing receipts;
+verified pins copied into private compile jobs receive a local completion manifest.
+The ICurry cache snapshots source and dependency contents before compilation
+and refuses storage if any existing input changed; only previously missing
+interfaces may enter the resulting key. Import scanning shares the
+comment-aware header tokenizer, including comments between import tokens.
 
 The trap hook already holds the heap and may take a product lock. The
 reverse order does not exist. Python interpreter/cache/counter mutexes are
@@ -248,12 +269,14 @@ Readers retry a failed open when the product snapshot changed, with at most
 three attempts. Tiered publication tries the product lock without blocking;
 a busy lock leaves the private object in use and the publication to the
 holder of the lock.
-A tiered reload on POSIX uses a distinct spelling of the canonical path,
+A foreground reload on POSIX uses a distinct spelling of the canonical path,
 so that ``dlopen`` opens the new file instead of returning the old mapping;
 it creates no link and no copy. Windows normalizes that spelling. An
 unchanged DLL rejoins its existing registry entry on reload. A background
-compile never publishes over a mapped canonical object: it adopts its
-new private generation instead. Attached images also retain their files;
+compile adopts its completed private generation even after publishing a
+copy for later processes. This pins the checked object through adoption
+when another producer replaces the canonical pathname. It never publishes
+over a mapped canonical object. Attached images also retain their files;
 a replacement image uses a fresh private source generation.
 The tests cover mapped readers, collection of live and dead generations and
 read-only products. Neither a generation nor an old private ``.tiered`` copy
@@ -563,17 +586,31 @@ provenance. No module JSON or parsed-module cache remains. Read-only
 product directories and text modules use process-private images. A foreign
 inline budget also uses a private image. Inspection and saved C++ read the
 ICurry text and optimize it against image summaries.
+Image translation retains the SHA-256 of the exact bytes parsed, compares
+it again under the publication lock and retries changed input. The image
+header uses that captured digest rather than labeling an older tree with
+the current file's digest.
+
+Precompiled-header member identity includes the header closure's content
+digest as well as compiler options. GCC's forced include selects the exact
+member, so another generation with compatible options cannot substitute
+for it. Header timestamps remain a conservative rebuild and cleanup hint.
+If precompilation is disabled or fails, a forced textual standard header
+precedes runtime includes so GCC cannot fall back to an implicit stale PCH.
 
 Persistent LLVM objects
 =======================
 
 The LLVM backend writes one ``M.jit`` beside ``M.img``. Its envelope starts
-with the eight ASCII bytes ``SPRTJIT4`` and a little-endian uint32 index
-length, followed by a compact ASCII JSON index and a list of independently
+with the eight ASCII bytes ``SPRTJIT5``, a little-endian uint32 index
+length and the 32-byte SHA-256 of the index, followed by a compact ASCII
+JSON index and a list of independently
 zlib-compressed objects from ``TargetMachine.emit_object``. Older format
 envelopes are cache misses. The index holds the cache key and each object's
 compressed size, SHA-256 digest of the compressed bytes and one record of
 function name, exported step symbol and constant-slot indices. The header
+checksum protects that mapping; resolution checks the image's function name,
+step-symbol ordinal and constant-slot bounds before linking. The header
 also records the envelope's size and modification time: an even whole second
 expressed in nanoseconds, which survives installation copies and FAT32's
 two-second resolution. A copy that does not preserve this time misses at

@@ -2,7 +2,7 @@ from ..icurry import readcurry, types as icurry_types
 from .. import config
 from . import _filenames, _findcurry, _makecurry
 from ..utility import formatDocstring
-import logging, os
+import hashlib, io, logging, os
 
 __all__ = ['loadcurry', 'loadicurry']
 logger = logging.getLogger(__name__)
@@ -15,11 +15,15 @@ def loadicurry(filename):
   generation = _findcurry.generation_for_source(source)
   if generation is not None:
     _findcurry.verify_product(generation, filename)
+  _findcurry.verify_loaded_product(filename)
   try:
-    module = readcurry.load(filename)
+    with open(filename, 'rb') as stream:
+      data = stream.read()
+    module = readcurry.load(io.StringIO(data.decode('utf-8')))
   except (AttributeError, TypeError) as exc:
     raise ValueError('invalid ICurry text: %s' % filename) from exc
   module.filename = source
+  module._source_digest = hashlib.sha256(data).hexdigest()
   return module
 
 

@@ -118,8 +118,7 @@ class PreRewriteCase(cytest.TestCase):
     converter = _curry2icurry.Curry2ICurryConverter(curry2icurry='frontend')
     converter.place_interfaces(curryfile, icy)
     _interfaces.write(icy, [self.tmpdir], frontend=True)
-    with open(icy + '.source', 'w', encoding='ascii') as stream:
-      stream.write(_curry2icurry.source_digest(curryfile))
+    _curry2icurry.write_source_receipt(icy, _curry2icurry.source_digest(curryfile))
     self.assertNotIn(b'constrEq', readbytes(fcy))
     self.assertNotIn(b'constrEq', readbytes(icy))
     self.assertTrue(filesys.newer(icy, curryfile))
@@ -182,7 +181,7 @@ class TestStaleness(PreRewriteCase):
           fcy, icy = self.pre_rewrite_pair(source)
           before = readbytes(icy)
           self.assertNotIn(b'_SET0', before)
-          self.assertEqual(readbytes(icy + '.source').decode('ascii'),
+          self.assertEqual(_curry2icurry.receipt_source(readbytes(icy + '.source').decode('ascii')),
                            _curry2icurry.source_digest(source))
           self.assertTrue(_interfaces.is_current(icy, [self.tmpdir]))
           self.assertTrue(_curry2icurry.icurry_is_stale(icy, [self.tmpdir]))
@@ -824,6 +823,7 @@ class TestImportedInterfaces(PreRewriteCase):
     cache.write_file(icy + '.source', _curry2icurry.source_digest(source))
     self.assertTrue(_curry2icurry.icurry_is_stale(icy, [self.tmpdir]))
     _interfaces.write(icy, [self.tmpdir])
+    _curry2icurry.write_source_receipt(icy, _curry2icurry.source_digest(source))
     self.assertFalse(_curry2icurry.icurry_is_stale(icy, [self.tmpdir]))
     from curry.backends.cxx import toolchain as cxx
     cppstep = cxx.Cpp2So(cytest.raw.interp())
@@ -837,6 +837,7 @@ class TestImportedInterfaces(PreRewriteCase):
       self.assertTrue(_curry2icurry.icurry_is_stale(icy, [self.tmpdir]))
       self.assertNotEqual(key, cppstep.product_key(icy, [self.tmpdir]))
       _interfaces.write(icy, [self.tmpdir])
+      _curry2icurry.write_source_receipt(icy, _curry2icurry.source_digest(source))
       self.assertFalse(_curry2icurry.icurry_is_stale(icy, [self.tmpdir]))
     for text in ('', '{', '{"version":0,"imports":{}}',
                  '{"version":1,"imports":{}}'):

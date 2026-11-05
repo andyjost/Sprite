@@ -405,11 +405,11 @@ class TestKey(cytest.TestCase):
         'important :: Int\n'
         'important = 1\n'
       ).encode('utf-8'))
-    # The scan is lenient: an import in a comment counts.  Duplicates drop.
+    # Comments are skipped and duplicates drop.
     # A module name may begin with a lowercase letter.
     self.assertEqual(
         info.imports
-      , [ 'Data.Maybe', 'Data.List', 'Control.SetFunctions', 'Nope'
+      , [ 'Data.Maybe', 'Data.List', 'Control.SetFunctions'
         , 'sprite__interactive_0', 'hello'
         ]
       )
@@ -470,13 +470,65 @@ class TestSlot(cytest.TestCase):
     self.assertTrue(again)
     self.assertEqual(files(again.file_out), products)
     with open(again.file_out + '.source') as stream:
-      self.assertEqual(stream.read(), _curry2icurry.source_digest(again.file_in))
+      self.assertEqual(json.load(stream)['source'], _curry2icurry.source_digest(again.file_in))
     self.assertEqual(
         cache.Curry2ICurryCache.stats
       , {'hit': stats['hit'] + 1, 'miss': stats['miss'] + 1}
       )
     # Another text is a miss.
     self.assertFalse(self.slot('M', text='f :: Int\nf = 2\n'))
+
+  def test_update_rejects_source_changed_during_compile(self):
+    slot = self.slot('M', text='f = 1\n')
+    write(slot.file_in, 'f = 2\n')
+    self.convert(slot, self.products('M'))
+    self.assertFalse(self.slot('M', text='f = 2\n'),
+        'old output stored under edited source key')
+
+  def test_update_rejects_dependency_changed_during_compile(self):
+    dependency = os.path.join(self.tmpdir, 'B.curry')
+    write(dependency, 'module B where\nf = 1\n')
+    slot = self.slot('M', text='import B\nf = B.f\n', currypath=[self.tmpdir])
+    write(dependency, 'module B where\nf = 2\n')
+    self.convert(slot, self.products('M'))
+    self.assertFalse(self.slot('M', text='import B\nf = B.f\n', currypath=[self.tmpdir]))
+
+  def test_interrupted_hit_then_source_revert(self):
+    first = self.slot('M', text='f = 1\n')
+    self.convert(first, self.products('M', 'one'))
+    self.assertTrue(self.slot('M', text='f = 1\n'))
+    second = self.slot('M', text='f = 2\n', subdir='other')
+    self.convert(second, self.products('M', 'two'))
+    write_file = cache.write_file
+    def interrupt(path, content):
+      write_file(path, content)
+      if path == first.file_out:
+        raise RuntimeError('interrupted after ICurry rename')
+    with mock.patch.object(cache, 'write_file', side_effect=interrupt):
+      with self.assertRaisesRegex(RuntimeError, 'interrupted'):
+        self.slot('M', text='f = 2\n')
+    write(first.file_in, 'f = 1\n')
+    self.assertFalse(_curry2icurry.source_matches(first.file_in, first.file_out),
+        'old receipt certified mixed publication')
+
+  def test_completion_receipt_checks_every_member(self):
+    slot = self.slot('M')
+    self.convert(slot, self.products('M'))
+    self.assertTrue(self.slot('M'))
+    self.assertTrue(_curry2icurry.source_matches(slot.file_in, slot.file_out))
+    for suffix in ('.icy', '.fint', '.icurry', '.icy.imports'):
+      path = slot.file_out[:-4] + suffix
+      with self.subTest(suffix=suffix):
+        with open(path, 'rb') as stream:
+          original = stream.read()
+        stamp = os.stat(path)
+        with open(path, 'wb') as stream:
+          stream.write(b'X' + original[1:])
+        os.utime(path, ns=(stamp.st_atime_ns, stamp.st_mtime_ns))
+        self.assertFalse(_curry2icurry.source_matches(slot.file_in, slot.file_out))
+        with open(path, 'wb') as stream:
+          stream.write(original)
+        self.assertTrue(_curry2icurry.source_matches(slot.file_in, slot.file_out))
 
   def test_hit_after_a_miss_on_a_reverted_text(self):
     '''

@@ -28,7 +28,7 @@ route.
 '''
 import cytest # from ./lib; must be first
 from curry import cache, config, toolchain
-from curry.toolchain import _curry2icurry, _frontend, _system, flat2icurry as f2i
+from curry.toolchain import _curry2icurry, _frontend, _interfaces, _system, flat2icurry as f2i
 from curry.toolchain.flat2icurry import __main__ as cli
 from curry.toolchain.flat2icurry import (
     bindingopt as bo, flatcurry as fc, rewrite, setlift as sl
@@ -663,7 +663,8 @@ class TestFiles(cytest.TestCase):
     _frontend.flat2icy(fcy, icy, _frontend.searchdirs(self.curryfile, [self.tmpdir]))
     converter = _curry2icurry.Curry2ICurryConverter(curry2icurry='frontend')
     converter.place_interfaces(self.curryfile, icy)
-    cache.write_file(icy + '.source', _curry2icurry.source_digest(self.curryfile))
+    _interfaces.write(icy, [self.tmpdir], frontend=True)
+    _curry2icurry.write_source_receipt(icy, _curry2icurry.source_digest(self.curryfile))
     self.assertNotIn(sl.SUFFIX.encode('utf-8'), readbytes(fcy))
     self.assertNotIn(sl.SUFFIX.encode('utf-8'), readbytes(icy))
     self.assertTrue(filesys.newer(icy, self.curryfile))

@@ -17,6 +17,27 @@ class TestImage(cytest.TestCase):
   def setUp(self):
     curry.reset(backend='cxx', interpret='all', jit='off')
 
+  def test_icurry_replaced_after_parse(self):
+    from curry.toolchain import _loadcurry
+    with tempfile.TemporaryDirectory() as directory:
+      source = os.path.join(directory, 'ImageParseRace.curry')
+      with open(source, 'w') as stream:
+        stream.write('module ImageParseRace where\nanswer :: Int\nanswer = 41\n')
+      icyfile = toolchain.curry2icurry(source, curry.path)
+      with open(icyfile) as stream:
+        original = stream.read()
+      replacement = original.replace('41', '42')
+      self.assertNotEqual(original, replacement)
+      load = _loadcurry.loadicurry
+      def replace_after_parse(path):
+        raw = load(path)
+        image.cache.write_file(icyfile, replacement)
+        return raw
+      with mock.patch.object(_loadcurry, 'loadicurry', side_effect=replace_after_parse):
+        image.ensure(curry._interpreter_, icyfile)
+      module = curry._interpreter_.import_(image.load(curry._interpreter_, icyfile))
+      self.assertEqual(curry.eval(module.answer).one(), 42)
+
   def test_summary_declarations_are_lazy(self):
     module = curry.import_('Prelude')
     raw = getHandle(module).icurry

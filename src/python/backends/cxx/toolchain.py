@@ -456,13 +456,14 @@ def registered_names(source):
 
 def input_record(interp, source):
   from ...toolchain._frontend import ROUTE_VERSION
+  from ...toolchain._curry2icurry import receipt_source
   generation = _findcurry.generation_for_source(source, interp) if source else None
   try:
     if generation is not None:
-      recorded = generation.texts.get('.icy.source', b'').decode('ascii').strip() or None
+      recorded = receipt_source(generation.texts.get('.icy.source', b'').decode('ascii')) or None
     else:
       with open(_filenames.icurryfilename(source) + '.source', encoding='ascii') as stream:
-        recorded = stream.read().strip()
+        recorded = receipt_source(stream.read())
   except (OSError, ValueError, AttributeError):
     recorded = None
   return dict(source=recorded, registry=registered_names(source),
@@ -541,24 +542,16 @@ class PrecompiledHeader(object):
   '''
   The precompiled form of curryrt/curryrt.hpp.
 
-  The files live in <root>/curryrt/curryrt.hpp.gch/.  The root is the installed
-  include directory unless SPRITE_CXX_PCH_ROOT says otherwise (see
-  config.cxx_pch_root).  g++ accepts a directory of that name in place of one
-  file and uses the member that matches its options.  So each flavor (the
-  optimized build, the debug build, custom CXXFLAGS) gets its own member,
-  named after the optimization flags and a hash of the compiler and the full
-  flag list.  clang on macOS writes a member of its own format with the same
-  command and takes it by name with -include-pch (Cpp2So._pchflags); the
-  directory and the members serve both the same.
+  The files live in <root>/curryrt/curryrt.hpp.gch/. The root is the installed
+  include directory unless SPRITE_CXX_PCH_ROOT says otherwise. Each member
+  names the compiler, flags and the digest of the header closure. GCC uses
+  -include to select this exact member through its .gch sibling, and clang
+  uses -include-pch. An older member with matching compiler options cannot
+  substitute for the selected content generation.
 
-  A member is stale when it is older than any header, its sources.  The
-  comparison uses modification times: make stage links the installed headers
-  to the sources, and make install copies a header only when the source is
-  newer, so a build that changes no header keeps the member.  A stale member
-  of another flavor is removed when a flavor prepares its own (see
-  remove_stale_members): g++ never compares a member with the headers, and
-  it takes the first member of the directory whose options agree with the
-  compilation.
+  A member is stale when its headers changed or are newer. Old members may
+  be removed after preparing a current member; their ages are only cleanup
+  hints and never establish the selected member's content identity.
   When the directory cannot be written or the build fails, the toolchain logs
   one warning per root and compiles without the header.  The generated code
   is the same either way.
@@ -572,6 +565,10 @@ class PrecompiledHeader(object):
     self.root = root
     self.cxx = cxx
     self.cxxflags = list(cxxflags)
+    try:
+      self.content = self.header_digest()
+    except OSError:
+      self.content = None
     self.directory = os.path.join(root, self.HEADER + '.gch')
     self.filename = os.path.join(self.directory, self.flavor + '.gch')
 
@@ -583,7 +580,7 @@ class PrecompiledHeader(object):
       stamp = str(os.path.getmtime(exe))
     except OSError:
       stamp = ''
-    key = '\0'.join([exe, stamp] + self.cxxflags)
+    key = '\0'.join([exe, stamp, self.content or 'unreadable'] + self.cxxflags)
     digest = hashlib.sha1(key.encode('utf-8')).hexdigest()[:12]
     level = ''.join(
         flag[1:] for flag in self.cxxflags
@@ -600,6 +597,17 @@ class PrecompiledHeader(object):
     '''
     return runtime_headers()
 
+  @classmethod
+  def header_digest(cls):
+    result = hashlib.sha256()
+    for path in cls.header_files():
+      result.update(os.path.relpath(path, config.installed_path('include')).encode('utf-8'))
+      result.update(b'\0')
+      with open(path, 'rb') as stream:
+        result.update(stream.read())
+      result.update(b'\0')
+    return result.hexdigest()
+
   def is_current(self):
     '''
     True when the member exists and no header is newer.  False when a
@@ -609,7 +617,8 @@ class PrecompiledHeader(object):
     '''
     try:
       stamp = os.path.getmtime(self.filename)
-      return all(os.path.getmtime(f) <= stamp for f in self.header_files())
+      return self.content == self.header_digest() and all(
+          os.path.getmtime(f) <= stamp for f in self.header_files())
     except OSError:
       return False
 
@@ -934,7 +943,11 @@ class Cpp2So(object):
         lines = stream.read().splitlines()
       digest, path = (lines + ['', ''])[:2]
       imports = _interfaces.decode(lines[2]) if len(lines) == 3 else None
-      record = json.loads(lines[2]).get('input') if len(lines) == 3 else None
+      details = json.loads(lines[2]) if len(lines) == 3 else {}
+      record = details.get('input')
+      from .image import digest as file_digest
+      if not details.get('object') or details['object'] != file_digest(sofile):
+        return None, None, None, None
       return digest.strip() or None, path.strip() or None, imports, record
     except (OSError, ValueError, IndexError, AttributeError):
       return None, None, None, None
@@ -990,6 +1003,8 @@ class Cpp2So(object):
     record = json.loads(_interfaces.encode(imports or {}))
     cppfile = _filenames.replacesuffix(sofile, '.cpp')
     record['input'] = source_record(cppfile) if input_receipt is None else input_receipt
+    from .image import digest as file_digest
+    record['object'] = file_digest(sofile)
     cache.write_file(stamp, '%s\n%s\n%s\n' % (
         digest, installation_path(), json.dumps(record, sort_keys=True)))
 
@@ -1185,21 +1200,28 @@ class Cpp2So(object):
 
   def _pchflags(self):
     '''
-    Prepares the precompiled header and yields the flags that let the
-    compiler use it.  g++ searches the directory form beside the header by
-    itself, so it needs the include flag of the root alone, and only when
-    the root is not the installed include directory.  clang on macOS does
-    not search the directory form; it takes the member with -include-pch,
-    and it skips the include of the same header in the generated code.
+    Prepares the precompiled header and selects its exact content generation.
+    GCC searches for the .gch sibling of the forced include spelling; clang
+    accepts the member directly with -include-pch.
     '''
     header = self._header()
     if header is None or not header.prepare():
+      # GCC stops considering implicit PCH siblings after the first C++
+      # tokens. A textual standard header prevents fallback from selecting
+      # an old installed curryrt.hpp.gch member automatically.
+      yield '-include'
+      yield 'cstddef'
       return
     if IS_DARWIN:
       yield '-include-pch'
       yield header.filename
-    elif header.root != config.installed_path('include'):
-      yield '-I%s' % header.root
+    else:
+      # Name the one content generation directly. GCC accepts its .gch
+      # sibling even without a textual header at this spelling.
+      yield '-include'
+      yield header.filename[:-len('.gch')]
+      if header.root != config.installed_path('include'):
+        yield '-I%s' % header.root
 
   def _compileCommand(self, file_in, file_out, currypath=None):
     cxx = config.cxx_tool()

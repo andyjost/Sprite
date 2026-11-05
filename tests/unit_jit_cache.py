@@ -195,7 +195,7 @@ print(json.dumps(dict(ok=True)))
     self.child('eager')
     path = self.object()
     with path.open('rb') as stream:
-      _, size = llvmjit._CACHE_PREFIX.unpack(stream.read(llvmjit._CACHE_PREFIX.size))
+      _, size, _ = llvmjit._CACHE_PREFIX.unpack(stream.read(llvmjit._CACHE_PREFIX.size))
       index = json.loads(stream.read(size))
     objects = llvmjit._read_cache(path, index['key'])
     symbols = [records[0][1] for records, _ in objects]
@@ -541,7 +541,7 @@ print(json.dumps(dict(ok=True)))
     path = self.object()
     stamp = path.stat().st_mtime_ns
     with path.open('r+b') as stream:
-      _, size = llvmjit._CACHE_PREFIX.unpack(stream.read(llvmjit._CACHE_PREFIX.size))
+      _, size, _ = llvmjit._CACHE_PREFIX.unpack(stream.read(llvmjit._CACHE_PREFIX.size))
       entries = json.loads(stream.read(size))['objects']
       self.assertEqual(entries[0]['functions'][0][0], 'Cached.fib')
       offset = stream.tell()
@@ -640,7 +640,7 @@ print(json.dumps(dict(ok=True)))
       if header['size'] == size:
         break
       header['size'] = size
-    data = llvmjit._CACHE_PREFIX.pack(llvmjit._CACHE_MAGIC, len(encoded)) + encoded + payload
+    data = llvmjit._CACHE_PREFIX.pack(llvmjit._CACHE_MAGIC, len(encoded), hashlib.sha256(encoded).digest()) + encoded + payload
     # Keep the entire envelope inside a buffered reader's initial prefetch.
     self.assertLess(len(data), 4096)
     for pread in (getattr(os, 'pread', None), None):
@@ -956,7 +956,7 @@ print(json.dumps(dict(ok=True)))
   def test_short_symbols_are_unique(self):
     self.child('eager')
     with self.object().open('rb') as stream:
-      _, size = llvmjit._CACHE_PREFIX.unpack(stream.read(llvmjit._CACHE_PREFIX.size))
+      _, size, _ = llvmjit._CACHE_PREFIX.unpack(stream.read(llvmjit._CACHE_PREFIX.size))
       index = json.loads(stream.read(size))
     symbols = [entry['functions'][0][1] for entry in index['objects']]
     self.assertEqual(len(set(symbols)), len(symbols))
@@ -1075,7 +1075,7 @@ assert rt.icurry_is_jit(M.message.info)
         stderr=subprocess.PIPE, text=True))
     self.assertTrue(self.child()['jitted'])
     with self.object().open('rb') as stream:
-      _, size = llvmjit._CACHE_PREFIX.unpack(stream.read(llvmjit._CACHE_PREFIX.size))
+      _, size, _ = llvmjit._CACHE_PREFIX.unpack(stream.read(llvmjit._CACHE_PREFIX.size))
       index = json.loads(stream.read(size))
     self.assertEqual([len(o['functions']) for o in index['objects']], [1, 1, 1])
     self.assertFalse(orphan.exists())
