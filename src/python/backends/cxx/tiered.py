@@ -224,6 +224,8 @@ def _environment(interp, currypath=None):
         )
   if currypath is not None:
     env['CURRYPATH'] = os.pathsep.join(curryname.makeCurryPath(currypath))
+  env['_SPRITE_LOADER_INPUTS'] = json.dumps(_findcurry._loader_inputs.get())
+  env.pop('_SPRITE_BACKGROUND_MODULE', None)
   return ['%s=%s' % item for item in env.items()]
 
 def _foreign_flags(interp):
@@ -284,6 +286,7 @@ def _private_copy(imodule):
       verify_product(item, item.object)
       verify_product(item, os.path.splitext(item.object)[0] + '.cpp')
       verify_product(item, item.object + '.abi')
+      verify_product(item, item.object + '.imports')
     pending.extend(dep for _, dep in item.imports if dep is not None)
   directory = os.path.join(_tmpdir(), 'private%d' % next(_state.counter))
   copy = os.path.join(directory, relpath)
@@ -319,8 +322,10 @@ def _private_copy(imodule):
     output = _filenames.icurryfilename(target)[:-4]
     os.makedirs(os.path.dirname(output), exist_ok=True)
     for suffix in ('.icy', '.fint', '.icurry', '.icy.imports', '.icy.source', '.img',
-                   '.cpp', config.module_object_suffix(), config.module_object_suffix() + '.abi'):
-      if suffix in ('.cpp', config.module_object_suffix(), config.module_object_suffix() + '.abi') \
+                   '.cpp', config.module_object_suffix(), config.module_object_suffix() + '.abi',
+                   config.module_object_suffix() + '.imports'):
+      if suffix in ('.cpp', config.module_object_suffix(), config.module_object_suffix() + '.abi',
+                    config.module_object_suffix() + '.imports') \
           and not item.object:
         continue # only reuse objects actually loaded and verified above
       if suffix == '.img':
@@ -329,6 +334,8 @@ def _private_copy(imodule):
         product = item.object
       elif suffix == config.module_object_suffix() + '.abi' and item.object:
         product = item.object + '.abi'
+      elif suffix == config.module_object_suffix() + '.imports' and item.object:
+        product = item.object + '.imports'
       elif suffix == '.cpp' and item.object:
         product = os.path.splitext(item.object)[0] + '.cpp'
       else:
@@ -568,7 +575,6 @@ def submit(interp, moduleobj, currypath, hot=False):
     )
   envp = _environment(interp, currypath)
   envp.append('_SPRITE_BACKGROUND_MODULE=' + name)
-  envp.append('_SPRITE_LOADER_INPUTS=' + json.dumps(_findcurry._loader_inputs.get()))
   sofile = _filenames.replacesuffix(_filenames.icurryfilename(source), config.module_object_suffix())
   logfile = os.path.join(
       _tmpdir(), 'compile%d-%s.log' % (next(_state.counter), name)

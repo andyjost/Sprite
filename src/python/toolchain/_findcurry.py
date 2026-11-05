@@ -168,7 +168,7 @@ class LoadedGeneration:
   def acquire_object(self, path):
     from ..backends.cxx.image import digest
     self.object = path
-    for product in (path, os.path.splitext(path)[0] + '.cpp', path + '.abi'):
+    for product in (path, os.path.splitext(path)[0] + '.cpp', path + '.abi', path + '.imports'):
       self.digests[os.path.realpath(product)] = digest(product)
 
 

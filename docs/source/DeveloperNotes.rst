@@ -495,6 +495,9 @@ are authorized by the copier in the import or build job's scope. A child
 receives that authorization in its job description. Loaded private
 generations retain their input provenance for subsequent saves and compile
 jobs. Adjacent files and a directory's spelling do not authorize an outside reserved module.
+The internal ``_SPRITE_LOADER_INPUTS`` environment variable carries this
+provenance; deliberately setting it by hand is outside the module rules, which
+refuse accidental path overrides.
 
 The module image
 ================

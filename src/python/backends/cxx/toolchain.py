@@ -839,7 +839,7 @@ class Cpp2So(object):
     return 'the ABI stamp'
 
   @_findcurry.with_resolution
-  def stamp_is_current(self, sofile, currypath=None):
+  def stamp_is_current(self, sofile, currypath=None, check_source=True):
     '''
     Tells whether the ABI stamp of ``sofile`` holds a digest this step
     accepts and names this installation.  The paths are compared as real
@@ -847,12 +847,14 @@ class Cpp2So(object):
     prefix a package manager wrote) names it all the same. Without headers,
     only the runtime digest comparison is skipped; import provenance stays
     mandatory, including the new stamp format.
+    An explicit object load can skip source freshness while still checking
+    the ABI and dependency provenance of that compiled artifact.
     '''
     _findcurry.verify_loaded_product(sofile, self.interp)
     _findcurry.verify_loaded_product(self.stampfile(sofile), self.interp)
     accepted = self.accepted_digests()
     digest, path, recorded, record = self._read_stamp_records(sofile)
-    if not input_current(record, sofile, self.interp):
+    if check_source and not input_current(record, sofile, self.interp):
       return False
     if (accepted and digest not in accepted) or path is None:
       logger.debug('ABI stamp %s: digest=%r accepted=%r installation=%r',

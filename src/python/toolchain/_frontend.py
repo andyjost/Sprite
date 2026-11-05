@@ -297,21 +297,26 @@ def command(file_in, currypath, quiet=False, search=None, library=None):
 def resolve_option_paths(options, directory):
   """Keep path options relative to their source context across chdir."""
   path_options = {'-i', '-P', '-o', '--import-dir', '--lib-dir', '--outdir', '--htmldir', '--pgmF'}
+  list_options = {'-i', '-P', '--import-dir', '--lib-dir'}
+  argument_options = path_options | {'--optF', '-v', '--verbosity', '-c', '--case-mode',
+                                    '-X', '-W', '-d', '-O', '-D'}
   result = []
   pending = None
   def resolve(value, option):
+    if option not in path_options:
+      return value
     if option == '--pgmF' and not os.path.dirname(value):
       return value # bare commands still use PATH
     return os.pathsep.join(os.path.abspath(os.path.join(directory, part))
-        for part in value.split(os.pathsep))
+        for part in (value.split(os.pathsep) if option in list_options else [value]))
   for option in options:
     if pending is not None:
       result.append(resolve(option, pending))
       pending = None
-    elif option in path_options:
+    elif option in argument_options:
       result.append(option)
       pending = option
-    elif len(option) > 2 and option[:2] in ('-i', '-P', '-o'):
+    elif len(option) > 2 and option[:2] in argument_options:
       result.append(option[:2] + resolve(option[2:], option[:2]))
     elif '=' in option and option.partition('=')[0] in path_options:
       key, _, value = option.partition('=')
@@ -436,31 +441,43 @@ def _run_frontend(file_in, currypath, quiet=False, rewrite=True,
         cmd, cwd=moduledir, with_stderr=True, env=frontend_environment())
   else:
     import tempfile
+    from . import _destination
     cmd[-1] = os.path.join(moduledir, cmd[-1])
     with tempfile.TemporaryDirectory(prefix='sprite-frontend-') as work:
       # Pragmas override command-line options. Normalize their paths in a
-      # private input while publishing to the original front-end directory.
-      with open(file_in, encoding='utf-8') as stream:
-        text = stream.read()
-      def normalize(match):
-        options = shlex.split(match.group(1))
-        resolved = resolve_option_paths(options, moduledir)
-        return match.group(0) if options == resolved else (
-            '{-# OPTIONS_FRONTEND ' + shlex.join(resolved) + ' #-}')
-      normalized = _preprocessor.PRAGMA.sub(normalize, text)
-      if normalized != text:
-        target = os.path.join(work, declared + '.curry')
-        os.makedirs(os.path.dirname(target), exist_ok=True)
-        with open(target, 'w', encoding='utf-8') as stream:
-          stream.write(normalized)
-        cmd[-1] = target
+      # private view of every selected source the run may compile, including
+      # dependencies. Keep the working directory empty for implicit lookup.
+      dependencies = []
+      # A previous ICurry file may predate imports added to today's source.
+      _destination.interfaces(file_in, roots, dependencies, source_imports=True)
+      copies = []
+      view = os.path.join(work, 'inputs')
+      for source in dict.fromkeys([os.path.abspath(file_in)] + dependencies):
+        with open(source, encoding='utf-8') as stream:
+          text = stream.read()
+        def normalize(match):
+          options = shlex.split(match.group(1))
+          resolved = resolve_option_paths(options, source_root(source))
+          return match.group(0) if options == resolved else (
+              '{-# OPTIONS_FRONTEND ' + shlex.join(resolved) + ' #-}')
+        normalized = _preprocessor.PRAGMA.sub(normalize, text)
+        if normalized != text:
+          target = os.path.join(view, module_name(source).replace('.', os.sep) + '.curry')
+          os.makedirs(os.path.dirname(target), exist_ok=True)
+          with open(target, 'w', encoding='utf-8') as stream:
+            stream.write(normalized)
+          copies.append((source, target))
+          if source == os.path.abspath(file_in):
+            cmd[-1] = target
+      if copies:
+        cmd[1:1] = ['-i', view]
       stdout, stderr = _system.pexec(
           cmd, cwd=work, with_stderr=True, env=frontend_environment())
-      if normalized != text:
-        import shutil
+      import shutil
+      for source, target in copies:
         for suffix in ('.fcy', '.fint', '.icurry'):
           generated = flatcurryfile(target)[:-4] + suffix
-          destination = flatcurryfile(file_in)[:-4] + suffix
+          destination = flatcurryfile(source)[:-4] + suffix
           if os.path.isfile(generated):
             os.makedirs(os.path.dirname(destination), exist_ok=True)
             shutil.copyfile(generated, destination)

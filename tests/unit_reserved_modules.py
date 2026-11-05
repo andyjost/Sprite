@@ -286,8 +286,11 @@ module = curry.import_(source)
 cpp = Path(curry.inspect.geticurryfile(module)).with_suffix('.cpp')
 curry._interpreter_.save(module, str(cpp), module_main=False, interfaces=True)
 obj = toolchain.Cpp2So(curry._interpreter_)(str(cpp), curry.path)
+from curry.interpreter.loadsave import record_saved_imports
+record_saved_imports(curry._interpreter_, module, obj)
 shutil.copyfile(cpp, source.with_suffix('.cpp'))
 shutil.copyfile(obj, source.with_suffix('.so'))
+shutil.copyfile(obj + '.imports', source.with_suffix('.so.imports'))
 """ % work
       child = cytest.run_in_subprocess(code, timeout=120, address_space=3 << 30)
       self.assertEqual(child.returncode, 0, child.stdout + child.stderr)

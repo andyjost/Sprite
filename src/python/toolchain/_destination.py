@@ -65,10 +65,18 @@ def select(filename, products=(), force=False):
   return _filenames.replacesuffix(copy, os.path.splitext(filename)[1])
 
 
-def interfaces(source, currypath, dependencies=None):
-  """Resolve interface prerequisites, including their interface imports."""
+def interfaces(source, currypath, dependencies=None, source_imports=False):
+  """Resolve interface prerequisites, including their interface imports.
+
+  Front-end input discovery prefers current source headers with source_imports.
+  """
   from . import _interfaces
   from ..utility import curryname
+  def source_names(path):
+    with open(_filenames.sourcefilename(path), encoding='utf-8') as stream:
+      tokens = list(_filenames._header_tokens(stream.read()))
+    return [tokens[i + 1] for i, token in enumerate(tokens[:-1])
+            if token == 'import']
   search = _interfaces.search_path(canonical(source),
       curryname.makeCurryPath(currypath))
   pending = [canonical(source)]
@@ -81,14 +89,11 @@ def interfaces(source, currypath, dependencies=None):
     seen.add(path)
     icy = _filenames.icurryfilename(path)
     try:
-      names = _interfaces.imports(icy)
+      names = source_names(path) if source_imports else _interfaces.imports(icy)
     except (OSError, ValueError):
       try:
-        with open(_filenames.sourcefilename(path), encoding='utf-8') as stream:
-          tokens = list(_filenames._header_tokens(stream.read()))
-        names = [tokens[i + 1] for i, token in enumerate(tokens[:-1])
-                 if token == 'import']
-      except OSError:
+        names = _interfaces.imports(icy) if source_imports else source_names(path)
+      except (OSError, ValueError):
         names = []
     for name in names:
       generation = _findcurry.loaded_generation(name)

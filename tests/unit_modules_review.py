@@ -68,6 +68,34 @@ class TestModuleReview(cytest.TestCase):
         assert curry.eval(module.answer).one() == 2
       ''' % mode)
 
+  def test_01_saved_dependency_missing_record(self):
+    self.test_01_saved_dependency_provenance()
+    record = self.root / ('saved' + config.module_object_suffix() + '.imports')
+    for contents in (None, '{}', '{invalid', '{"version":1,"identity":"x","imports":{"Leaf":2}}'):
+      if contents is None:
+        record.unlink()
+      else:
+        record.write_text(contents)
+      self.child('''
+        import curry, os
+        curry.reset(interpret='new', jit='off')
+        curry.path.insert(0, os.path.join(root, 'new'))
+        try:
+          curry._interpreter_.load(os.path.join(root, 'saved' + curry.config.module_object_suffix()))
+        except curry.LoadError:
+          pass
+        else:
+          raise AssertionError('saved object accepted invalid or missing record')
+      ''')
+      for mode in ('new', 'off'):
+        self.child('''
+          import curry, os
+          curry.reset(interpret=%r, jit='off')
+          curry.path[:0] = [os.path.join(root, d) for d in ('new', 'old')]
+          module = curry._interpreter_.load(os.path.join(root, 'saved' + curry.config.module_object_suffix()))
+          assert curry.eval(module.answer).one() == 2
+        ''' % mode)
+
   def test_02_named_import_path(self):
     self.named_import_path('frontend')
 
@@ -526,6 +554,73 @@ class TestModuleReview(cytest.TestCase):
       module = curry.import_(os.path.abspath('Main.curry'))
       assert curry.eval(module.answer).one() == 1
     ''')
+
+  @cytest.posix_only('executable preprocessor script')
+  def test_relative_dependency_preprocessor(self):
+    self.relative_dependency_preprocessor(False)
+
+  @cytest.posix_only('executable preprocessor script')
+  def test_relative_dependency_preprocessor_after_edit(self):
+    self.relative_dependency_preprocessor(True)
+
+  def relative_dependency_preprocessor(self, after_edit):
+    source = self.source('project', 'Leaf', 'answer :: Int\nanswer = 1')
+    source.write_text('{-# OPTIONS_FRONTEND -F --pgmF=./preprocess #-}\n' + source.read_text())
+    if after_edit:
+      self.source('project', 'Main', 'answer :: Int\nanswer = 1')
+      self.child('''
+        import curry, os
+        curry.reset(interpret='new', jit='off')
+        curry.path.insert(0, os.path.join(root, 'project'))
+        curry.import_('Main')
+      ''')
+    self.source('project', 'Main', 'import Leaf\nanswer :: Int\nanswer = Leaf.answer')
+    script = self.root / 'project' / 'preprocess'
+    script.write_text('#!/bin/sh\ncp "$2" "$3"\n')
+    script.chmod(0o755)
+    self.child('''
+      import curry, os
+      os.chdir(os.path.join(root, 'project'))
+      curry.reset(interpret='new', jit='off')
+      module = curry.import_(os.path.abspath('Main.curry'))
+      assert curry.eval(module.answer).one() == 1
+    ''')
+
+  def test_frontend_option_arguments(self):
+    from curry.toolchain._frontend import resolve_option_paths
+    root = str(self.root)
+    for options in (['--optF', '-include'], ['--optF=-include'],
+                    ['-D', '-include'], ['--case-mode', '-include']):
+      self.assertEqual(resolve_option_paths(options, root), options)
+    for key in ('-i', '-P', '--import-dir', '--lib-dir'):
+      value = os.pathsep.join(('first', 'second'))
+      expected = os.pathsep.join(str(self.root / part) for part in ('first', 'second'))
+      self.assertEqual(resolve_option_paths([key, value], root), [key, expected])
+      if key.startswith('--'):
+        self.assertEqual(resolve_option_paths([key + '=' + value], root), [key + '=' + expected])
+    for key in ('-o', '--outdir', '--htmldir', '--pgmF'):
+      value = './first' + os.pathsep + 'second'
+      expected = str(self.root / ('first' + os.pathsep + 'second'))
+      self.assertEqual(resolve_option_paths([key, value], root), [key, expected])
+      if key.startswith('--'):
+        self.assertEqual(resolve_option_paths([key + '=' + value], root), [key + '=' + expected])
+
+  @cytest.posix_only('executable preprocessor script')
+  def test_preprocessor_opaque_argument(self):
+    for index, option in enumerate(('--optF -include', '--optF=-include')):
+      directory = 'project%d' % index
+      source = self.source(directory, 'Main', 'answer :: Int\nanswer = 1')
+      source.write_text('{-# OPTIONS_FRONTEND -F --pgmF=./preprocess %s #-}\n' % option + source.read_text())
+      script = source.parent / 'preprocess'
+      script.write_text('#!/bin/sh\n[ "$4" = "-include" ] || exit 42\ncp "$2" "$3"\n')
+      script.chmod(0o755)
+      self.child('''
+        import curry, os
+        os.chdir(os.path.join(root, %r))
+        curry.reset(interpret='new', jit='off')
+        module = curry.import_(os.path.abspath('Main.curry'))
+        assert curry.eval(module.answer).one() == 1
+      ''' % directory)
 
   def test_batch_independent_images_share_loaded_imports(self):
     self.source('project', 'First', 'answer :: Int\nanswer = 1')

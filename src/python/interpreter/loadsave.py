@@ -226,12 +226,17 @@ SAVED_IMPORTS_SUFFIX = '.imports'
 
 def _saved_record(filename):
   import json
+  def fingerprint(value):
+    return isinstance(value, str) and len(value) == 64 \
+        and all(char in '0123456789abcdef' for char in value)
   try:
     with open(filename + SAVED_IMPORTS_SUFFIX, encoding='ascii') as stream:
       record = json.load(stream)
     if not isinstance(record, dict) or record.get('version') != 1 \
         or not isinstance(record.get('imports'), dict) \
-        or not isinstance(record.get('identity'), str):
+        or not fingerprint(record.get('identity')) \
+        or any(not isinstance(name, str) or not name or not fingerprint(value)
+               for name, value in record['imports'].items()):
       raise ValueError('invalid saved dependency record')
     return record
   except FileNotFoundError:
@@ -270,8 +275,17 @@ def record_saved_imports(interp, module, filename):
 
 def verify_saved_imports(interp, filename):
   """Refuse incompatible saved code before its initializers can run."""
-  record = _saved_record(filename)
-  if record is not None and record['imports'] != _saved_snapshot(interp, record['imports']):
-    error = exceptions.LoadError('saved object dependencies changed; save it again')
+  try:
+    record = _saved_record(filename)
+    if record is None:
+      # Ordinary build products carry an ABI/input/import stamp instead.
+      # Saved objects have no such stamp and must ship their side record.
+      from ..backends.cxx.toolchain import Cpp2So
+      if Cpp2So(interp).stamp_is_current(filename, check_source=False):
+        return
+      raise exceptions.LoadError('missing saved dependency record')
+    if record['imports'] != _saved_snapshot(interp, record['imports']):
+      raise exceptions.LoadError('saved object dependencies changed; save it again')
+  except exceptions.LoadError as error:
     error.saved_dependencies_changed = True
-    raise error
+    raise

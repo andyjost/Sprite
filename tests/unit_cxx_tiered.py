@@ -103,6 +103,50 @@ assert os.path.isdir(parent)
 
 
 class TestLoadedDependencyView(cytest.TestCase):
+  def test_child_provenance_replaces_ambient_mapping(self):
+    from unittest import mock
+    from curry.toolchain import _findcurry
+    import json
+    mapping = {'parent-input': {'name': 'Leaf', 'digest': 'parent-digest'}}
+    with mock.patch.dict(os.environ, {'_SPRITE_LOADER_INPUTS': '{"inherited":true}'}):
+      token = _findcurry._loader_inputs.set(mapping)
+      try:
+        values = [entry.partition('=')[2] for entry in tiered._environment(cytest.raw.interp())
+                  if entry.startswith('_SPRITE_LOADER_INPUTS=')]
+      finally:
+        _findcurry._loader_inputs.reset(token)
+    self.assertEqual(len(values), 1)
+    self.assertEqual(json.loads(values[0]), mapping)
+
+  def test_saved_dependency_copy_carries_record(self):
+    code = r"""
+import curry, os, tempfile
+from curry.backends.cxx import tiered
+from curry.objects.handle import getHandle
+from curry.toolchain import _filenames
+curry.reset(interpret='new', jit='off')
+with tempfile.TemporaryDirectory() as root:
+  leaf = curry.compile('answer :: Int\nanswer = 1\n', name='SavedCopyLeaf')
+  saved = os.path.join(root, 'leaf' + curry.config.module_object_suffix())
+  curry.save(leaf, saved)
+  if RESET_AFTER_SAVE:
+    curry.reset(interpret='new', jit='off')
+  curry._interpreter_.load(saved)
+  main = curry.compile('import SavedCopyLeaf\nanswer :: Int\nanswer = SavedCopyLeaf.answer\n',
+                       name='SavedCopyMain')
+  copied, roots = tiered._private_copy(getHandle(main).icurry)
+  target = _filenames.icurryfilename(os.path.join(roots[0], 'SavedCopyLeaf.curry'))[:-4]
+  record = target + curry.config.module_object_suffix() + '.imports'
+  assert os.path.isfile(record), 'saved dependency record not copied'
+  with open(record, 'rb') as actual, open(saved + '.imports', 'rb') as expected:
+    assert actual.read() == expected.read()
+tiered.finish()
+"""
+    for reset in (False, True):
+      child = cytest.run_in_subprocess(code.replace('RESET_AFTER_SAVE', repr(reset)),
+                                      timeout=120, address_space=3 << 30)
+      self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
+
   def test_adoption_refuses_wrong_dependency_stamp(self):
     code = r"""
 import curry, logging, os, sys, tempfile
