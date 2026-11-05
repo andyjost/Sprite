@@ -7,15 +7,6 @@ Unreleased
 
 - Serve loaded modules from memory until reload or reset, without product
   snapshots; product-file readers verify the digests recorded at load.
-
-- Implement ``Control.Search.Unsafe.rewriteAll`` and ``rewriteSome`` through
-  Sprite's weak native capsules. Outside-variable demands propagate to the
-  enclosing search, unlike PAKCS's rejection of outside bindings.
-  ``rewriteSome`` consumes only the first answer.
-
-0.9.0a3 (2026-11-01)
-====================
-
 - Library modules follow Curry path order; only runtime builtin module names
   are reserved, allowing CurryCheck's EasyCheck dependency to load.
 - Private ``curry``, ``cleancurry`` and ``sprite-frontend`` launchers provide
@@ -24,6 +15,13 @@ Unreleased
 - The ``sprite`` command starts the REPL and accepts CPM command lines,
   version probes, program arguments and ``:save``. The REPL module is
   now ``curry.tools.repl``.
+- Implement ``Control.Search.Unsafe.rewriteAll`` and ``rewriteSome`` through
+  Sprite's weak native capsules. Outside-variable demands propagate to the
+  enclosing search, unlike PAKCS's rejection of outside bindings.
+  ``rewriteSome`` consumes only the first answer.
+
+0.9.0a3 (2026-11-01)
+====================
 
 - Implement the two ``ReadShowTerm`` primitives of CPM ``read-legacy`` for
   PAKCS prefix serialization and reading FlatCurry data files.
