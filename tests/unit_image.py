@@ -42,7 +42,7 @@ class TestImage(cytest.TestCase):
 
   def test_completion_checked_once_per_load(self):
     from curry.toolchain import _curry2icurry
-    with tempfile.TemporaryDirectory() as directory:
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=os.name == 'nt') as directory:
       source = os.path.join(directory, 'ImageCompletionOnce.curry')
       with open(source, 'w') as stream:
         stream.write('module ImageCompletionOnce where\nanswer :: Int\nanswer = 42\n')
