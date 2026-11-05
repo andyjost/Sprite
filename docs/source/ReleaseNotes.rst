@@ -8,7 +8,9 @@ Unreleased
 - Preserve module path order, saved dependency provenance and ICurry import
   validation; rebuild stale installed and read-only user products privately,
   retain local CPM sources without packages, and validate private rebuild
-  provenance under the loaded-module boundary.
+  provenance under the loaded-module boundary. Saved objects retain their
+  signed bytes with dependency side records; direct rewrites, external
+  translation and relative preprocessor paths keep their resolution scope.
 
 - Serve loaded modules from memory until reload or reset, without product
   snapshots; product-file readers verify the digests recorded at load.

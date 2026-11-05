@@ -144,6 +144,7 @@ with tempfile.TemporaryDirectory() as root:
     stream.write('module StorageProbe where\nanswer :: Int\nanswer = 1\n')
   module = curry.import_(source)
   copied, roots = tiered._private_copy(getHandle(module).icurry)
+  assert not os.path.exists(copied + '.sprite-input')
   files = [os.stat(os.path.join(directory, name))
       for directory, _, names in os.walk(roots[0]) for name in names]
   linked = [item for item in files if item.st_nlink > 1]

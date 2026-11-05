@@ -57,13 +57,16 @@ class TestModuleReview(cytest.TestCase):
 
   def test_01_saved_dependency_rebuild_from_path(self):
     self.test_01_saved_dependency_provenance()
-    self.child('''
-      import curry, os
-      curry.reset(interpret='off', jit='off')
-      curry.path[:0] = [os.path.join(root, d) for d in ('new', 'old')]
-      module = curry._interpreter_.load(os.path.join(root, 'saved' + curry.config.module_object_suffix()))
-      assert curry.eval(module.answer).one() == 2
-    ''')
+    for mode in ('new', 'off'):
+      for product in (self.root / 'new').rglob('*' + config.module_object_suffix()):
+        product.unlink()
+      self.child('''
+        import curry, os
+        curry.reset(interpret=%r, jit='off')
+        curry.path[:0] = [os.path.join(root, d) for d in ('new', 'old')]
+        module = curry._interpreter_.load(os.path.join(root, 'saved' + curry.config.module_object_suffix()))
+        assert curry.eval(module.answer).one() == 2
+      ''' % mode)
 
   def test_02_named_import_path(self):
     self.named_import_path('frontend')
@@ -193,6 +196,10 @@ class TestModuleReview(cytest.TestCase):
       target = Path(work) / 'private0' / 'Control' / 'SetFunctions.curry'
       target.parent.mkdir(parents=True)
       shutil.copyfile(config.installed_path('curry', 'Control/SetFunctions.curry'), target)
+      import hashlib, json
+      Path(str(target) + '.sprite-input').write_text(json.dumps(dict(
+          version=1, name='Control.SetFunctions',
+          digest=hashlib.sha256(target.read_bytes()).hexdigest())))
       self.child('''
         import curry
         curry.reset(interpret='new', jit='off')
@@ -453,4 +460,120 @@ class TestModuleReview(cytest.TestCase):
         source = os.path.join(directory, name + '.curry')
         assert os.path.isfile(_filenames.icurryfilename(source))
         assert not os.path.exists(image.filename(source)), name
+    ''')
+
+  def test_01_saved_object_preserves_linker_bytes(self):
+    self.source('project', 'Main', 'answer :: Int\nanswer = 1')
+    self.child('''
+      import curry, os
+      from pathlib import Path
+      from unittest import mock
+      from curry.backends.cxx.toolchain import Cpp2So
+      curry.reset(interpret='off', jit='off')
+      curry.path.insert(0, os.path.join(root, 'project'))
+      module = curry.import_('Main')
+      linked = []
+      original = Cpp2So.__call__
+      def capture(self, *args, **kwds):
+        product = original(self, *args, **kwds)
+        linked.append(Path(product).read_bytes())
+        return product
+      target = os.path.join(root, 'saved' + curry.config.module_object_suffix())
+      with mock.patch.object(Cpp2So, '__call__', capture):
+        curry.save(module, target)
+      assert linked and Path(target).read_bytes() == linked[-1], 'saved object changed after linking'
+    ''')
+
+  def test_02_rewrite_named_import_path(self):
+    self.source('first', 'Leaf', 'f :: Int -> Int\nf x = x')
+    self.source('second', 'Leaf', 'f :: Bool -> Bool\nf x = x')
+    self.source('second', 'Main', 'import Leaf\nanswer :: Int\nanswer = f 1')
+    self.child('''
+      import os, subprocess, sys
+      env = dict(os.environ, CURRYPATH=os.pathsep.join(
+          os.path.join(root, d) for d in ('first', 'second')))
+      result = subprocess.run([sys.executable, '-m', 'curry.tools.make',
+          '--rewrite-flat', 'Main'], cwd=root, env=env, capture_output=True, text=True)
+      assert result.returncode == 0, result.stdout + result.stderr
+    ''')
+
+  def test_02_external_lookup_only_path(self):
+    if config.icurry_tool() is None:
+      self.skipTest('the optional ICurry translator is unavailable')
+    self.source('first', 'Leaf', 'f :: Int -> Int\nf x = x')
+    self.source('second', 'Leaf', 'f :: Bool -> Bool\nf x = x')
+    self.source('second', 'Main', 'import Leaf\nanswer :: Int\nanswer = f 1')
+    self.child('''
+      import curry, os
+      curry.reset(interpret='new', jit='off')
+      curry.path.insert(0, os.path.join(root, 'first'))
+      os.environ['SPRITE_CURRY2ICURRY'] = 'icurry'
+      module = curry.import_('Main', path=[os.path.join(root, 'second')])
+      assert curry.eval(module.answer).one() == 1
+    ''')
+
+  @cytest.posix_only('executable preprocessor script')
+  def test_relative_preprocessor(self):
+    source = self.source('project', 'Main', 'answer :: Int\nanswer = 1')
+    source.write_text('{-# OPTIONS_FRONTEND -F --pgmF=./preprocess #-}\n' + source.read_text())
+    script = self.root / 'project' / 'preprocess'
+    script.write_text('#!/bin/sh\ncp "$2" "$3"\n')
+    script.chmod(0o755)
+    self.child('''
+      import curry, os
+      os.chdir(os.path.join(root, 'project'))
+      curry.reset(interpret='new', jit='off')
+      module = curry.import_(os.path.abspath('Main.curry'))
+      assert curry.eval(module.answer).one() == 1
+    ''')
+
+  def test_batch_independent_images_share_loaded_imports(self):
+    self.source('project', 'First', 'answer :: Int\nanswer = 1')
+    self.source('project', 'Second', 'answer :: Int\nanswer = 2')
+    self.child('''
+      import curry, os
+      from unittest import mock
+      from curry.tools import make
+      from curry.interpreter import Interpreter
+      directory = os.path.join(root, 'project')
+      os.environ['CURRYPATH'] = directory
+      curry.config.currypath(reset=True)
+      original = Interpreter.reset
+      resets = []
+      def reset(interp, *args, **kwds):
+        resets.append(True)
+        return original(interp, *args, **kwds)
+      with mock.patch.object(Interpreter, 'reset', reset):
+        make.main('sprite-make', ['--image', 'First', 'Second'])
+      # Construction resets once; independent targets need no further reset.
+      assert len(resets) <= 1, 'independent targets discarded their loaded imports'
+    ''')
+
+  def test_01_saved_receipt_obeys_loaded_boundary(self):
+    self.source('project', 'Main', 'answer :: Int\nanswer = 1')
+    self.source('project', 'User', 'import Main\nanswer :: Int\nanswer = Main.answer')
+    self.child('''
+      import curry, os
+      curry.reset(interpret='off', jit='off')
+      curry.path.insert(0, os.path.join(root, 'project'))
+      module = curry.import_('Main')
+      curry.save(module, os.path.join(root, 'saved' + curry.config.module_object_suffix()))
+    ''')
+    self.child('''
+      import curry, json, os
+      from pathlib import Path
+      curry.reset(interpret='off', jit='off')
+      curry.path.insert(0, os.path.join(root, 'project'))
+      curry._interpreter_.load(os.path.join(root, 'saved' + curry.config.module_object_suffix()))
+      module = curry.import_('User')
+      receipt = Path(root) / ('saved' + curry.config.module_object_suffix() + '.imports')
+      record = json.loads(receipt.read_text())
+      record['identity'] = '0' * 64
+      receipt.write_text(json.dumps(record))
+      try:
+        curry.save(module, os.path.join(root, 'user' + curry.config.module_object_suffix()))
+      except (ValueError, curry.CurryError) as error:
+        assert 'changed since it was loaded' in str(error), error
+      else:
+        raise AssertionError('save read a changed loaded dependency receipt')
     ''')

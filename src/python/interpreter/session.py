@@ -266,7 +266,9 @@ def save(interp, module, path, *, main=None):
         return product
 
       if main is None:
-        shutil.copyfile(compile_module(module), path)
+        product = compile_module(module)
+        shutil.copyfile(product, path)
+        shutil.copyfile(product + '.imports', path + '.imports')
       else:
         # Keep imports before their users: the dynamic linker needs their
         # SONAMEs mapped before it opens an object that refers to them.
@@ -289,7 +291,9 @@ def save(interp, module, path, *, main=None):
           product = compile_module(current)
           with open(product, 'rb') as stream:
             data = base64.b64encode(stream.read()).decode('ascii')
-          products.append((os.path.basename(product), data))
+          with open(product + '.imports', 'rb') as stream:
+            receipt = base64.b64encode(stream.read()).decode('ascii')
+          products.append((os.path.basename(product), data, receipt))
         # A library module can itself be the requested main module.
         visited.discard(module.__name__)
         collect(module)
@@ -299,10 +303,12 @@ import curry
 from curry.interpreter.session import _load_saved
 curry.reset(backend=%r)
 with tempfile.TemporaryDirectory(prefix='sprite-program-') as work:
-  for filename, data in %r:
+  for filename, data, receipt in %r:
     path = os.path.join(work, filename)
     with open(path, 'wb') as stream:
       stream.write(base64.b64decode(data))
+    with open(path + '.imports', 'wb') as stream:
+      stream.write(base64.b64decode(receipt))
     module = _load_saved(curry._interpreter_, path)
   from curry.__main__ import moduleMain
   moduleMain(__file__, module.__name__, goal=%r, goalscheme=%r)

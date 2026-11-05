@@ -757,7 +757,10 @@ def checked_command(*args, **kwargs):
                for path in loaded_views)
     if loaded_views:
       assert paths[0] in loaded_views, paths
-    assert all(list(Path(path).rglob('*.sprite-input')) or path in loaded_views for path in paths
+    from curry.toolchain import _findcurry
+    authorized = _findcurry._loader_inputs.get() or {}
+    assert all(any(os.path.realpath(p) in authorized for p in Path(path).rglob('*.curry'))
+               or path in loaded_views for path in paths
                if path != library and tiered._state.tmpdir
                and path.startswith(tiered._state.tmpdir + os.sep)), paths
     assert not any(path.startswith(curry.config.installed_path('curry')) for path in paths)

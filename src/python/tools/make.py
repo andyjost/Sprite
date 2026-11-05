@@ -138,6 +138,13 @@ The following creates a runtime module image::
   )
 
 def main(program_name, argv):
+  import json
+  records = json.loads(os.environ.pop('_SPRITE_LOADER_INPUTS', '{}'))
+  with _findcurry.loader_inputs(records):
+    return _main(program_name, argv)
+
+
+def _main(program_name, argv):
   '''
   Main function for sprite-make.
   '''
@@ -263,18 +270,22 @@ def main(program_name, argv):
     for name in args.names:
       with error_handler:
         graph.add(name, is_sourcefile=name.endswith('.curry'))
+    published = {}
     for job in graph.jobs:
-      # Each completed target may replace files used by a loaded import.
-      interp.reset()
+      source = _filenames.curryfilename(job.currentfile)
       with error_handler:
-        toolchain.makecurry(plan, _filenames.curryfilename(job.currentfile),
+        _reset_changed_imports(interp, source, published)
+        before = _target_products(plan, source)
+        toolchain.makecurry(plan, source,
             job.currypath, **dict(kwds, is_sourcefile=True, resolved_path=True))
+        after = _target_products(plan, source)
+        changed = {path for path, digest in after.items() if digest != before[path]}
+        if changed:
+          published.setdefault(_filenames.module_name(source), set()).update(changed)
   else:
     for index, name in enumerate(args.names):
       if index and args.cxx:
-        # This tool owns the native-build interpreter. A preceding target
-        # may have replaced products attached while resolving its imports.
-        interp.reset()
+        _reset_changed_imports(interp, name)
       with error_handler:
         _make_one(program_name, plan, name, args, kwds)
   report_cache(program_name, args, counts)
@@ -350,6 +361,48 @@ def report_rewrites(program_name, args, counts):
   sys.stdout.write(rewrite_line(program_name, refreshed, served) + '\n')
   sys.stdout.flush()
 
+def _target_products(plan, source):
+  """Observe publications of this target, including its interface records."""
+  from ..backends.cxx import image
+  icy = _filenames.icurryfilename(source)
+  files = plan.filelist(source) + [
+      icy[:-4] + suffix for suffix in ('.fint', '.icurry', '.icy.imports', '.icy.source')]
+  return {os.path.realpath(path): image.digest(path) for path in files}
+
+
+def _reset_changed_imports(interp, target, published=None):
+  """Reset only when this target would read a replaced loaded product."""
+  from ..backends.cxx import image
+  if target.endswith('.curry'):
+    names = imports_of(target, interp)
+    generation = _findcurry.generation_for_source(target, interp)
+    if generation is not None:
+      names.append(generation.name)
+  else:
+    generation = _findcurry.loaded_generation(target, interp)
+    if generation is not None:
+      names = [target]
+    else:
+      plan = plans.makeplan(interp, plans.MAKE_ALL)
+      source = next(_findcurry._modulefiles(plan, target, config.currypath()), None)
+      names = imports_of(_filenames.curryfilename(source), interp) \
+          if source is not None and not os.path.isdir(source) else []
+  pending = [_findcurry.loaded_generation(name, interp) for name in names]
+  seen = set()
+  while pending:
+    generation = pending.pop()
+    if generation is None or id(generation) in seen:
+      continue
+    seen.add(id(generation))
+    replaced_copy = any(path not in generation.digests
+        for path in (published or {}).get(generation.name, ()))
+    if replaced_copy or any(
+        image.digest(path) != digest for path, digest in generation.digests.items()):
+      interp.reset()
+      return
+    pending.extend(dep for _, dep in generation.imports if dep is not None)
+
+
 def _make_one(program_name, plan, name, args, kwds):
   '''Makes one named module, source file, or ICurry file in this process.'''
   if name.endswith('.icy'):
@@ -362,9 +415,12 @@ def _make_one(program_name, plan, name, args, kwds):
     kwds['resolved_path'] = True
   if args.rewrite_flat:
     name = _rewrite_flat(plan, name, kwds)
+    if not kwds['is_sourcefile']:
+      kwds['resolved_path'] = True
     kwds['is_sourcefile'] = True
   toolchain.makecurry(plan, name, config.currypath(), **kwds)
 
+@_findcurry.with_resolution
 def _rewrite_flat(plan, name, kwds):
   '''
   Runs the step from Curry to ICurry of a module again, from its source and
@@ -379,8 +435,13 @@ def _rewrite_flat(plan, name, kwds):
     raise exceptions.CompileError(
         '--rewrite-flat needs the Curry source of %s.' % name
       )
+  scope = _findcurry.program_path(name, currypath, **kwds)
+  effective = _findcurry.import_path(plan.interp,
+      _findcurry.imports_path(scope, **kwds))
+  if effective is None:
+    effective = plan.interp.path
   icyfile = toolchain.curry2icurry(
-      curryfile, currypath, **dict(kwds, use_cache=False))
+      curryfile, effective, **dict(kwds, use_cache=False))
   return _filenames.curryfilename(icyfile)
 
 def _convert_icy(program_name, name, args):
@@ -457,6 +518,7 @@ class Job(object):
     self.arg = arg
     self.currentfile = currentfile
     self.currypath = currypath
+    self.loader_inputs = dict(_findcurry._loader_inputs.get() or {})
     self.imports = []
     self.proc = None
     self.stdout = None
@@ -660,6 +722,7 @@ def run_jobs(
   failed = set()
   stop = False
   env = child_environment()
+  import json
   try:
     while pending or running:
       for job in list(pending):
@@ -680,8 +743,9 @@ def run_jobs(
           job.proc = subprocess.Popen(
               child_command(args, job), stdin=subprocess.DEVNULL
             , stdout=job.stdout, stderr=job.stderr,
-              env=dict(env, CURRYPATH=os.pathsep.join(job.currypath))
-                  if job.currypath is not None else env
+              env=dict(env, _SPRITE_LOADER_INPUTS=json.dumps(job.loader_inputs),
+                  **({'CURRYPATH': os.pathsep.join(job.currypath)}
+                     if job.currypath is not None else {}))
             )
           running.append(job)
       if not running:

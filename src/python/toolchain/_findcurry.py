@@ -16,32 +16,64 @@ def reserved_module_names():
   from ..backends.cxx import curryrtbindings as curryrt
   return curryrt.builtin_module_names()
 
-def is_loader_snapshot(modulename, filename):
-  """Authenticate a private source copy, including in another process."""
-  import hashlib, json
+# Authorization belongs to one import/build job and its nested readers.
+_loader_inputs = ContextVar('loader_inputs', default=None)
+
+
+@contextmanager
+def loader_inputs(records=None, interp=None):
+  current = _loader_inputs.get()
+  token = _loader_inputs.set(dict(records or {})) if current is None or records is not None else None
+  try:
+    active = _loader_inputs.get()
+    for name in tuple(getattr(interp, 'modules', {})):
+      generation = loaded_generation(name, interp)
+      if generation is not None:
+        active.update(generation.inputs)
+    yield active
+  finally:
+    if token is not None:
+      _loader_inputs.reset(token)
+
+
+def with_loader_inputs(function):
+  from functools import wraps
+  @wraps(function)
+  def wrapped(*args, **kwds):
+    owner = getattr(args[0], 'interp', args[0]) if args else None
+    with loader_inputs(interp=owner):
+      return function(*args, **kwds)
+  return wrapped
+
+
+def is_loader_snapshot(modulename, filename, records=None):
+  """Check the current job's authorization and the installed source bytes."""
+  import hashlib
   try:
     source = os.path.realpath(_filenames.curryfilename(filename))
-    with open(source + '.sprite-input', encoding='ascii') as stream:
-      record = json.load(stream)
+    records = _loader_inputs.get() if records is None else records
+    record = (records or {}).get(source)
+    if record is None:
+      return False
     with open(source, 'rb') as stream:
       digest = hashlib.sha256(stream.read()).hexdigest()
     installed = config.installed_path(
         'curry', modulename.replace('.', os.sep) + '.curry')
     with open(installed, 'rb') as stream:
       expected = hashlib.sha256(stream.read()).hexdigest()
-    return record == dict(version=1, name=modulename, digest=digest) and digest == expected
+    return record == dict(name=modulename, digest=digest) and digest == expected
   except (OSError, ValueError):
     return False
 
 
 def record_loader_input(modulename, filename):
-  """Mark an input created by the private rebuild copier, for its readers."""
-  import hashlib, json
-  from .. import cache
-  with open(filename, 'rb') as stream:
-    digest = hashlib.sha256(stream.read()).hexdigest()
-  cache.write_file(filename + '.sprite-input', json.dumps(
-      dict(version=1, name=modulename, digest=digest), sort_keys=True) + '\n')
+  """Authorize the copier's input within the current job, without a side file."""
+  import hashlib
+  records = _loader_inputs.get()
+  if records is not None:
+    with open(filename, 'rb') as stream:
+      digest = hashlib.sha256(stream.read()).hexdigest()
+    records[os.path.realpath(filename)] = dict(name=modulename, digest=digest)
 
 
 def reject_library_shadow(modulename, filename, interp):
@@ -85,7 +117,7 @@ def with_resolution(function):
   @wraps(function)
   def wrapped(plan, *args, **kwds):
     from . import _frontend
-    with resolving(getattr(plan, 'interp', plan)), _frontend.effective_imports():
+    with loader_inputs(), resolving(getattr(plan, 'interp', plan)), _frontend.effective_imports():
       return function(plan, *args, **kwds)
   return wrapped
 
@@ -114,6 +146,7 @@ class LoadedGeneration:
   name: str
   object: object
   digests: dict
+  inputs: dict
 
   def product_digest(self, kind):
     stem = os.path.splitext(_filenames.icurryfilename(self.source_spelling)
@@ -227,14 +260,15 @@ def capture_generation(module, interp):
     provenance = candidate if os.path.isfile(candidate) else None
   products = [str(stem) + '.icy', str(stem) + '.img', provenance]
   diskobject = objectfile or str(stem) + config.module_object_suffix()
-  products.extend((diskobject, os.path.splitext(diskobject)[0] + '.cpp', diskobject + '.abi'))
+  products.extend((diskobject, os.path.splitext(diskobject)[0] + '.cpp', diskobject + '.abi', diskobject + '.imports'))
   digests = {os.path.realpath(path): image.digest(path) for path in products if path}
   import hashlib
   digests.update((os.path.realpath(str(stem) + suffix), hashlib.sha256(data).hexdigest())
       for suffix, data in texts.items())
   imports = tuple((name, loaded_generation(name, interp)) for name in raw.imports)
   raw._loaded_generation = LoadedGeneration(
-      info, texts, source, sourcefile, provenance, imports, raw.fullname, objectfile, digests)
+      info, texts, source, sourcefile, provenance, imports, raw.fullname, objectfile, digests,
+      dict(_loader_inputs.get() or {}))
 
 
 def module_path(name, search):

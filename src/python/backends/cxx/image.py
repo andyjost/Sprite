@@ -89,10 +89,15 @@ def _private_path(interp, source):
     generations = interp.__dict__.setdefault('_product_generations', {})
     key = (source, digest(_filenames.icurryfilename(source)),
            interp.flags['inline_budget'])
-    if key not in generations or not _findcurry.is_loader_snapshot(
-        _filenames.module_name(source), generations[key]):
-      generations[key] = _destination.select(source, force=True)
-    return filename(generations[key])
+    with _findcurry.loader_inputs() as records:
+      generation = generations.get(key)
+      if generation is None or not _findcurry.is_loader_snapshot(
+          _filenames.module_name(source), generation[0], generation[1]):
+        copy = _destination.select(source, force=True)
+        generation = generations[key] = (copy, dict(records))
+      # Reusing this private image also reuses its copier authorization.
+      records.update(generation[1])
+      return filename(generation[0])
   key = '%s:%s' % (os.path.realpath(source), interp.flags['inline_budget'])
   return os.path.join(tiered._tmpdir(), hashlib.sha256(key.encode()).hexdigest() + '.img')
 
@@ -110,7 +115,7 @@ def _path(interp, source):
            digest(_filenames.icurryfilename(source)), interp.flags['inline_budget'])
     generation = getattr(interp, '_product_generations', {}).get(key)
     if generation is not None and not _findcurry.is_loader_snapshot(
-        _filenames.module_name(source), generation):
+        _filenames.module_name(source), generation[0], generation[1]):
       interp._product_generations.pop(key, None)
       generation = None
     if generation is None and not tiered._foreign_flags(interp):
@@ -424,7 +429,7 @@ def _publication_path(interp, source, path, imports, importing=False):
 
 def ensure(interp, icyfile, currypath=None, importing=False):
   from ...toolchain import _findcurry
-  with _findcurry.resolving(interp):
+  with _findcurry.loader_inputs(), _findcurry.resolving(interp):
     result = _ensure(interp, icyfile, currypath, importing)
     generation = _findcurry.generation_for_source(icyfile, interp)
     if generation is not None and generation.image is None:

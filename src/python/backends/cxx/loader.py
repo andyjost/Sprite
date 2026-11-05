@@ -225,11 +225,6 @@ def _load_module_once(interp, sofile, from_plan, fresh, _saved_payload):
   currypath = _program_path(interp, sofile)
   for modulename in needed:
     module = interp.import_(modulename, currypath=currypath)
-    if getHandle(module).sofilename is None:
-      raise exceptions.LoadError(
-          'cannot load %r: its import %s runs without a compiled object'
-        % (sofile, modulename)
-        )
   from ...interpreter.loadsave import verify_saved_imports
   try:
     verify_saved_imports(interp, sofile)
@@ -244,6 +239,13 @@ def _load_module_once(interp, sofile, from_plan, fresh, _saved_payload):
           and os.path.isfile(_filenames.sourcefilename(candidate)):
         return interp.import_(name, currypath=search)
     raise
+  for modulename in needed:
+    module = interp.modules[modulename]
+    if getHandle(module).sofilename is None:
+      raise exceptions.LoadError(
+          'cannot load %r: its import %s runs without a compiled object'
+        % (sofile, modulename)
+        )
   if before != Cpp2So.product_snapshot(sofile):
     return None # a producer published while dependencies were imported
   return _open_module(interp, sofile, name, from_plan, fresh, before, _saved_payload)

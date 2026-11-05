@@ -756,7 +756,7 @@ else:
           ') where', ', roundNine) where', 1) +
           '\nroundNine :: Bool\nroundNine = True\n')
       code = r"""
-import curry, os, subprocess, sys
+import curry, json, os, subprocess, sys
 from pathlib import Path
 from curry.toolchain import _findcurry, _filenames
 curry.reset(interpret='new', jit='off')
@@ -764,13 +764,26 @@ curry.path.insert(0, %r)
 module = curry.import_('Control.SetFunctions')
 from curry.objects.terms import ModuleInfo
 source = Path(ModuleInfo(module).file)
+from curry.objects.handle import getHandle
+provenance = getHandle(module).icurry._loaded_generation.inputs
 assert not _findcurry._installed_library_file(str(source))
 curry.reset(interpret='new', jit='off')
-module = curry.import_(source)
-assert list(curry.eval(module.values2list(module.set0(curry.term(True))))) == [[True]]
+try:
+  curry.import_(source)
+except curry.ModuleLookupError:
+  pass
+else:
+  raise AssertionError('private input accepted without job provenance after reset')
+with _findcurry.loader_inputs(provenance):
+  module = curry.import_(source)
+  assert list(curry.eval(module.values2list(module.set0(curry.term(True))))) == [[True]]
 child = subprocess.run([sys.executable, '-c',
-    "import curry; curry.reset(jit='off'); m = curry.import_(" + repr(str(source)) +
-    "); assert list(curry.eval(m.values2list(m.set0(curry.term(True))))) == [[True]]"],
+    "import curry, json, os; curry.reset(jit='off')\n" +
+    "from curry.toolchain import _findcurry\n" +
+    "with _findcurry.loader_inputs(json.loads(os.environ['_SPRITE_LOADER_INPUTS'])):\n" +
+    "  m = curry.import_(" + repr(str(source)) + ")\n" +
+    "  assert list(curry.eval(m.values2list(m.set0(curry.term(True))))) == [[True]]"],
+    env=dict(os.environ, _SPRITE_LOADER_INPUTS=json.dumps(provenance)),
     capture_output=True, text=True, timeout=120)
 # Replace the source at the exact trusted pathname, rather than editing it
 # through a new path. All product guards must revoke its exemption too.
@@ -780,22 +793,23 @@ try:
   replacement.write_text('module Control.SetFunctions where\nuserValue = True\n')
   os.replace(replacement, source)
   curry.reset(interpret='new', jit='off')
-  for target in (str(source), _filenames.icurryfilename(str(source)),
-                 _filenames.replacesuffix(str(source), '.cpp'),
-                 _filenames.replacesuffix(str(source), '.img'),
-                 _filenames.replacesuffix(str(source), curry.config.module_object_suffix())):
+  with _findcurry.loader_inputs(provenance):
+    for target in (str(source), _filenames.icurryfilename(str(source)),
+                   _filenames.replacesuffix(str(source), '.cpp'),
+                   _filenames.replacesuffix(str(source), '.img'),
+                   _filenames.replacesuffix(str(source), curry.config.module_object_suffix())):
+      try:
+        _findcurry.reject_library_shadow('Control.SetFunctions', target, curry._interpreter_)
+      except ImportError as error:
+        assert 'runtime implements' in str(error), error
+      else:
+        raise AssertionError('modified snapshot accepted: ' + target)
     try:
-      _findcurry.reject_library_shadow('Control.SetFunctions', target, curry._interpreter_)
+      curry.import_(source)
     except ImportError as error:
       assert 'runtime implements' in str(error), error
     else:
-      raise AssertionError('modified snapshot accepted: ' + target)
-  try:
-    curry.import_(source)
-  except ImportError as error:
-    assert 'runtime implements' in str(error), error
-  else:
-    raise AssertionError('replaced snapshot imported')
+      raise AssertionError('replaced snapshot imported')
 finally:
   replacement = source.with_suffix('.restore')
   replacement.write_bytes(original)
@@ -834,10 +848,11 @@ with tempfile.TemporaryDirectory() as elsewhere:
     data = data[data.index(b'import base64, os, tempfile'):].split(b'\0', 1)[0]
   tree = ast.parse(data.decode('utf-8'))
   payload = next(node.iter for node in ast.walk(tree) if isinstance(node, ast.For))
-  for filename, data in ast.literal_eval(payload):
+  for filename, data, receipt in ast.literal_eval(payload):
     if filename == 'Control.SetFunctions' + curry.config.module_object_suffix():
       outside = Path(elsewhere) / filename
       outside.write_bytes(base64.b64decode(data))
+      Path(str(outside) + '.imports').write_bytes(base64.b64decode(receipt))
       result = subprocess.run([sys.executable, '-c',
           'import curry; curry.load(' + repr(str(outside)) + ')'],
           cwd=elsewhere, env=env, capture_output=True, text=True, timeout=120)

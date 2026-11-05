@@ -460,8 +460,8 @@ against the load record. Inspection and saved-program reconstruction
 refuse changed products
 with an error naming the module and asking for reload. Background compilation
 skips a module with changed inputs, logs one INFO message and leaves it
-interpreted. Only compile jobs create files in the background compiler's
-temporary root.
+interpreted. Compile jobs and importer private rebuilds create files in the
+background compiler's temporary root.
 
 A writable development installation also accepts explicit ``sprite-make``
 refreshes when all prerequisite products are in place, and its precompiled
@@ -472,9 +472,15 @@ installation. Read-only user product directories also rebuild privately.
 Named imports keep Curry path order throughout translation and execution.
 Only an explicit source-file operation puts the program's source root first;
 parallel make children inherit that effective path and the resolved input.
+The external translator receives a view containing only its selected target,
+and relative path options of the front end retain their source-root meaning.
+Batch tools share loaded imports until a target needs products replaced by
+a preceding target, then reset before reading them.
 A local CPM project's sources are present even without installed packages.
 
-Saved objects carry dependency fingerprints inside the artifact. Loading
+Saved objects keep dependency fingerprints in a JSON ``.imports`` record
+beside the object; saving preserves the linked and signed bytes. Saved
+executables carry both the object and its record in their payload. Loading
 checks them before opening the object, rebuilds from the first source on
 the effective path when available, and refuses incompatible source-free
 artifacts. A saved executable checks externally resolved dependencies in
@@ -485,8 +491,10 @@ explicitly. Stale source-free translations are refused.
 Image publication replaces a complete file by rename, including a path that
 was previously attached. An attached process keeps its mapped generation;
 a later tool read still checks the recorded digest. Private rebuild inputs
-carry a copier-written provenance record; a directory's spelling alone does
-not authorize an outside reserved module.
+are authorized by the copier in the import or build job's scope. A child
+receives that authorization in its job description. Loaded private
+generations retain their input provenance for subsequent saves and compile
+jobs. Adjacent files and a directory's spelling do not authorize an outside reserved module.
 
 The module image
 ================

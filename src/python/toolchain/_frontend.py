@@ -286,13 +286,40 @@ def command(file_in, currypath, quiet=False, search=None, library=None):
     cmd.extend(QUIET_FLAGS)
   else:
     cmd.extend(WARNING_FLAGS)
-  cmd.extend(shlex.split(config.frontend_flags()))
+  cmd.extend(resolve_option_paths(shlex.split(config.frontend_flags()), source_root(file_in)))
   if library is not None:
     cmd.extend(['-P', library])
   for dirname in searchdirs(file_in, currypath) if search is None else search:
     cmd.extend(['-i', dirname])
   cmd.append(name[:-len('.curry')])
   return cmd
+
+def resolve_option_paths(options, directory):
+  """Keep path options relative to their source context across chdir."""
+  path_options = {'-i', '-P', '-o', '--import-dir', '--lib-dir', '--outdir', '--htmldir', '--pgmF'}
+  result = []
+  pending = None
+  def resolve(value, option):
+    if option == '--pgmF' and not os.path.dirname(value):
+      return value # bare commands still use PATH
+    return os.pathsep.join(os.path.abspath(os.path.join(directory, part))
+        for part in value.split(os.pathsep))
+  for option in options:
+    if pending is not None:
+      result.append(resolve(option, pending))
+      pending = None
+    elif option in path_options:
+      result.append(option)
+      pending = option
+    elif len(option) > 2 and option[:2] in ('-i', '-P', '-o'):
+      result.append(option[:2] + resolve(option[2:], option[:2]))
+    elif '=' in option and option.partition('=')[0] in path_options:
+      key, _, value = option.partition('=')
+      result.append(key + '=' + resolve(value, key))
+    else:
+      result.append(option)
+  return result
+
 
 def frontend_environment():
   """Use UTF-8 for Haskell source input when no UTF-8 locale is selected."""
@@ -411,8 +438,32 @@ def _run_frontend(file_in, currypath, quiet=False, rewrite=True,
     import tempfile
     cmd[-1] = os.path.join(moduledir, cmd[-1])
     with tempfile.TemporaryDirectory(prefix='sprite-frontend-') as work:
+      # Pragmas override command-line options. Normalize their paths in a
+      # private input while publishing to the original front-end directory.
+      with open(file_in, encoding='utf-8') as stream:
+        text = stream.read()
+      def normalize(match):
+        options = shlex.split(match.group(1))
+        resolved = resolve_option_paths(options, moduledir)
+        return match.group(0) if options == resolved else (
+            '{-# OPTIONS_FRONTEND ' + shlex.join(resolved) + ' #-}')
+      normalized = _preprocessor.PRAGMA.sub(normalize, text)
+      if normalized != text:
+        target = os.path.join(work, declared + '.curry')
+        os.makedirs(os.path.dirname(target), exist_ok=True)
+        with open(target, 'w', encoding='utf-8') as stream:
+          stream.write(normalized)
+        cmd[-1] = target
       stdout, stderr = _system.pexec(
           cmd, cwd=work, with_stderr=True, env=frontend_environment())
+      if normalized != text:
+        import shutil
+        for suffix in ('.fcy', '.fint', '.icurry'):
+          generated = flatcurryfile(target)[:-4] + suffix
+          destination = flatcurryfile(file_in)[:-4] + suffix
+          if os.path.isfile(generated):
+            os.makedirs(os.path.dirname(destination), exist_ok=True)
+            shutil.copyfile(generated, destination)
   if logger.isEnabledFor(logging.INFO):
     from ._filenames import logging_module_name
     logger.info('module %s: front end ran in %.2f s (%d warnings)',

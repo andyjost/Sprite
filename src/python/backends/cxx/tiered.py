@@ -74,8 +74,8 @@ with the installation (make stage), and the swap maps the object of such an
 import for its importers (above), so a library module an interpreter runs
 (interpret:all, or a stale object) runs compiled once an importer swaps.  A
 library source in a dependency view must pass the loader-snapshot
-namesake check (issue #168), which checks the copier-written provenance
-record, declared name and installed source bytes. A dependency view belongs to one job.
+namesake check (issue #168), which checks the copier authorization
+in the job description, declared name and installed source bytes. A dependency view belongs to one job.
 
 The check of the swap.  The child compiles the source as it is when the
 child runs.  An edit of the source between the import and the compile would
@@ -243,8 +243,8 @@ def _foreign_flags(interp):
 def _private_copy(imodule):
   '''
   Verify the loaded generation and its imports, then copy disk inputs into
-  a compile-job directory. Return the private source and dependency search
-  directories. Importing a module itself creates no files here.
+  private rebuild directory. Return the private source and dependency search
+  directories. Importer rebuilds also use this copier.
   '''
   generation = getattr(imodule, '_loaded_generation', None)
   filename = os.path.abspath(generation.source_spelling
@@ -508,6 +508,9 @@ def _import_objects(interp, imodule):
     visit(depname)
   return out
 
+from ...toolchain import _findcurry
+
+@_findcurry.with_loader_inputs
 @native_metadata
 def submit(interp, moduleobj, currypath, hot=False):
   '''
@@ -565,6 +568,7 @@ def submit(interp, moduleobj, currypath, hot=False):
     )
   envp = _environment(interp, currypath)
   envp.append('_SPRITE_BACKGROUND_MODULE=' + name)
+  envp.append('_SPRITE_LOADER_INPUTS=' + json.dumps(_findcurry._loader_inputs.get()))
   sofile = _filenames.replacesuffix(_filenames.icurryfilename(source), config.module_object_suffix())
   logfile = os.path.join(
       _tmpdir(), 'compile%d-%s.log' % (next(_state.counter), name)
@@ -583,7 +587,7 @@ def submit(interp, moduleobj, currypath, hot=False):
   if logger.isEnabledFor(logging.DEBUG):
     logger.debug('Compiling %s in the background: %s', name, ' '.join(argv))
   dispatch = curryrt.cxx_arm if hot else curryrt.tiered_submit
-  from ...toolchain import _interfaces, _findcurry
+  from ...toolchain import _interfaces
   expected = []
   with _findcurry.resolving(interp):
     pending = [(getattr(imodule, '_loaded_generation', None), sofile)]

@@ -45,6 +45,7 @@ def import_(interp, arg, currypath=None, is_sourcefile=False):
 
 # Import a module or package by name.
 @import_.when(str)
+@_findcurry.with_loader_inputs
 def import_(interp, name, currypath=None, is_sourcefile=False):
   modulename = (_filenames.module_name(name) if is_sourcefile else
                 curryname.getModuleName(name, False))

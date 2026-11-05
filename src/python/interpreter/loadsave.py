@@ -1,5 +1,6 @@
 from .. import config, exceptions, icurry, inspect, toolchain, utility
 from ..typecheck import defaulting, goals
+from ..toolchain import _findcurry
 from ..utility.binding import binding
 from ..utility.strings import ensure_str
 from ..objects import handle
@@ -46,6 +47,7 @@ def load(interp, filename, **kwds):
       )
   return cymodule
 
+@_findcurry.with_loader_inputs
 def save(interp, cymodule, filename=None, goal=None, **kwds):
   '''
   Saves a Curry module.
@@ -219,24 +221,23 @@ def _standing_in(interp, cymodule, imodule):
         yield
 
 
-_SAVED_IMPORTS = b'SPRTSAVE1'
+SAVED_IMPORTS_SUFFIX = '.imports'
 
 
 def _saved_record(filename):
-  import json, struct
-  with open(filename, 'rb') as stream:
-    stream.seek(0, os.SEEK_END)
-    if stream.tell() < len(_SAVED_IMPORTS) + 8:
-      return None
-    stream.seek(-len(_SAVED_IMPORTS), os.SEEK_END)
-    if stream.read() != _SAVED_IMPORTS:
-      return None
-    stream.seek(-len(_SAVED_IMPORTS) - 8, os.SEEK_END)
-    size, = struct.unpack('<Q', stream.read(8))
-    if size > stream.tell() - 8:
-      raise exceptions.LoadError('invalid saved dependency record')
-    stream.seek(-len(_SAVED_IMPORTS) - 8 - size, os.SEEK_END)
-    return json.loads(stream.read(size))
+  import json
+  try:
+    with open(filename + SAVED_IMPORTS_SUFFIX, encoding='ascii') as stream:
+      record = json.load(stream)
+    if not isinstance(record, dict) or record.get('version') != 1 \
+        or not isinstance(record.get('imports'), dict) \
+        or not isinstance(record.get('identity'), str):
+      raise ValueError('invalid saved dependency record')
+    return record
+  except FileNotFoundError:
+    return None
+  except ValueError as error:
+    raise exceptions.LoadError('invalid saved dependency record') from error
 
 
 def _saved_snapshot(interp, names):
@@ -247,6 +248,7 @@ def _saved_snapshot(interp, names):
       generation = _findcurry.loaded_generation(name)
       if generation is not None and generation.object:
         path = _findcurry.verify_product(generation, generation.object)
+        _findcurry.verify_product(generation, path + SAVED_IMPORTS_SUFFIX)
         record = _saved_record(path)
         if record is not None:
           result[name] = record['identity']
@@ -254,17 +256,16 @@ def _saved_snapshot(interp, names):
 
 
 def record_saved_imports(interp, module, filename):
-  """Keep dependency provenance in the relocatable object itself."""
-  import json, struct
+  """Keep dependency provenance beside the unmodified linked object."""
+  import json
   from ..backends.cxx.toolchain import Cpp2So
   names = Cpp2So._read_stamp_records(filename)[2]
   if names is None:
     names = handle.getHandle(module).icurry.imports
-  record = dict(imports=_saved_snapshot(interp, names),
+  record = dict(version=1, imports=_saved_snapshot(interp, names),
       identity=_saved_snapshot(interp, [module.__name__])[module.__name__])
-  payload = json.dumps(record, sort_keys=True).encode('ascii')
-  with open(filename, 'ab') as stream:
-    stream.write(payload + struct.pack('<Q', len(payload)) + _SAVED_IMPORTS)
+  from .. import cache
+  cache.write_file(filename + SAVED_IMPORTS_SUFFIX, json.dumps(record, sort_keys=True) + '\n')
 
 
 def verify_saved_imports(interp, filename):

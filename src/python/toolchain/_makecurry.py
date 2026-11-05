@@ -41,6 +41,7 @@ def compile_seconds():
   '''
   return compile_clock.seconds
 
+@_findcurry.with_loader_inputs
 @formatDocstring(config.python_package_name())
 def makecurry(plan, name, currypath=None, **kwds):
   '''
