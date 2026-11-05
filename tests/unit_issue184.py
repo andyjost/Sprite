@@ -19,8 +19,8 @@ class TestIssue184(cytest.TestCase):
         output = self.run_child(r'''
 from curry.interpreter import Interpreter
 from pathlib import Path
-import tempfile
-with tempfile.TemporaryDirectory() as work:
+import sys, tempfile
+with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') as work:
     source = Path(work) / 'Separate.curry'
     source.write_text('module Separate where\nvalue :: Int\nvalue = 1\n')
     first = Interpreter(flags=%r)
@@ -48,8 +48,8 @@ with tempfile.TemporaryDirectory() as work:
           self.run_child(r'''
 from curry.interpreter import Interpreter
 from pathlib import Path
-import tempfile
-with tempfile.TemporaryDirectory() as work:
+import sys, tempfile
+with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') as work:
     source = Path(work) / 'Data' / 'Char.curry'
     source.parent.mkdir()
     source.write_text(%r)
@@ -150,8 +150,8 @@ for use in (lambda: held(), lambda: hash(held),
 from curry.interpreter import Interpreter
 from curry.objects.handle import getHandle
 from pathlib import Path
-import tempfile
-with tempfile.TemporaryDirectory() as work:
+import sys, tempfile
+with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') as work:
     source = Path(work) / 'RegistryDependency.curry'
     source.write_text('module RegistryDependency where\nf :: Int -> Int\n'
                       'f n = if n == 0 then 1 else f (n - 1) + 1\n')
@@ -178,8 +178,8 @@ from curry.interpreter import Interpreter
 from curry.objects.handle import getHandle
 from curry.backends.cxx import curryrtbindings as rt
 from pathlib import Path
-import tempfile
-with tempfile.TemporaryDirectory() as work:
+import sys, tempfile
+with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') as work:
     source = Path(work) / 'RegistryQuery.curry'
     source.write_text('module RegistryQuery where\nf :: Int\nf = 7\n')
     compiler = Interpreter(flags={'interpret': 'off', 'jit': 'off'})
@@ -203,7 +203,7 @@ with tempfile.TemporaryDirectory() as work:
     except ImportError:
       self.skipTest('llvmlite is unavailable')
     self.run_child(r'''
-import os, time, tempfile
+import os, sys, time, tempfile
 from pathlib import Path
 os.environ['SPRITE_JIT_THRESHOLD'] = '5'
 from curry.interpreter import Interpreter
@@ -219,7 +219,7 @@ def hot(interp, module, expected, name='f'):
         time.sleep(0.02)
     assert interp.eval(function(10)).one() == expected
 
-with tempfile.TemporaryDirectory() as work:
+with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') as work:
     source = Path(work) / 'HotSeparate.curry'
     template = ('module HotSeparate where\nf :: Int -> Int\n'
                 'f n = if n == 0 then %d else f (n - 1) + 1\n'
@@ -262,8 +262,8 @@ with tempfile.TemporaryDirectory() as work:
 from curry.interpreter import Interpreter
 from curry.objects.handle import getHandle
 from pathlib import Path
-import tempfile
-with tempfile.TemporaryDirectory() as work:
+import sys, tempfile
+with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') as work:
     source = Path(work) / 'Data' / 'List.curry'
     source.parent.mkdir()
     source.write_text(%r)
@@ -298,8 +298,8 @@ import os
 os.environ['SPRITE_INTERPRETER_FLAGS'] = 'inline_budget:0'
 from curry.interpreter import Interpreter
 from pathlib import Path
-import tempfile
-with tempfile.TemporaryDirectory() as work:
+import sys, tempfile
+with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') as work:
     roots = [Path(work) / name for name in ('a', 'b')]
     flags = {'interpret': 'off', 'jit': 'off', 'inline_budget': 0}
     first, second = Interpreter(flags=flags), Interpreter(flags=flags)
@@ -340,14 +340,14 @@ with tempfile.TemporaryDirectory() as work:
 
   def _cxx_private_jobs(self, reset, running=False):
     self.run_child(r'''
-import os, time, tempfile
+import os, sys, time, tempfile
 from pathlib import Path
 os.environ['SPRITE_JIT_THRESHOLD'] = '5'
 from curry.interpreter import Interpreter
 from curry.backends.cxx import curryrtbindings as rt, tiered
 from curry.objects.handle import getHandle
 flags = {'interpret': 'new', 'jit': 'hot', 'jit_backend': 'cxx', 'inline_budget': 0}
-with tempfile.TemporaryDirectory() as work:
+with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') as work:
     first, second = Interpreter(flags=flags), Interpreter(flags=flags)
     running = %r
     gate = Path(work) / 'release'
@@ -404,8 +404,8 @@ from curry.interpreter import Interpreter
 from curry.backends.cxx import curryrtbindings as rt
 from curry.objects.handle import getHandle
 from pathlib import Path
-import tempfile
-with tempfile.TemporaryDirectory() as work:
+import sys, tempfile
+with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') as work:
     first, second = (Interpreter(flags={'interpret': 'off', 'jit': 'off'})
                      for _ in range(2))
     loaded = []
