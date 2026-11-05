@@ -274,6 +274,7 @@ assert list(curry.eval(curry.import_(nextprobe).goal)) == [%d]
           child = cytest.run_in_subprocess(fresh, timeout=120, address_space=3 << 30)
           self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
 
+  @cytest.skipUnlessObjectsLoad('loads a source-free compiled object')
   def test_source_free_object_keeps_generated_code(self):
     with tempfile.TemporaryDirectory() as work:
       code = r"""
@@ -284,7 +285,9 @@ from curry.backends.cxx import toolchain
 source = Path(%r) / 'Frozen.curry'
 source.write_text('module Frozen where\nf :: Int -> Int\nf x = x + 1\n')
 module = curry.import_(source)
-cpp = Path(curry.inspect.geticurryfile(module)).with_suffix('.cpp')
+# Keep the saved code separate from the loaded module's captured products.
+cpp = source.parent / 'saved' / '.curry' / curry.config.intermediate_subdir() / 'Frozen.cpp'
+cpp.parent.mkdir(parents=True)
 curry._interpreter_.save(module, str(cpp), module_main=False, interfaces=True)
 obj = toolchain.Cpp2So(curry._interpreter_)(str(cpp), curry.path)
 shutil.copyfile(cpp, source.with_suffix('.cpp'))
@@ -607,7 +610,9 @@ print('private image')
         self.assertIn('private image', child.stdout)
         print('interpret %s: %s' % (mode, child.stdout.strip().replace('\n', '; ')))
         if mode == 'new':
-          self.assertIn("module Numeric: interpreted (stale object (an import's interface))", child.stderr)
+          # A restored object can predate the unchanged installed source.
+          self.assertRegex(child.stderr,
+              r"module Numeric: interpreted \(stale object \((an import's interface|the source)\)\)")
         self.assertEqual(products(installed('Numeric')), before)
 
   def test_importer_of_generalized_interface(self):
@@ -806,6 +811,7 @@ assert child.returncode == 0, child.stdout + child.stderr
       child = cytest.run_in_subprocess(code, timeout=240, address_space=3 << 30)
       self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
 
+  @cytest.skipUnlessObjectsLoad('the saved program loads compiled objects')
   def test_saved_reserved_snapshot(self):
     with tempfile.TemporaryDirectory() as work:
       source = Path(work) / 'Data/List.curry'
@@ -878,6 +884,7 @@ else:
         child = cytest.run_in_subprocess(code, timeout=120, address_space=3 << 30)
         self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
 
+  @cytest.skipUnlessObjectsLoad('the saved program loads compiled objects')
   def test_saved_transitively_stale_library(self):
     for direct_only in (False, True):
       with self.subTest(direct_import_receipt=direct_only), tempfile.TemporaryDirectory() as work:
@@ -937,6 +944,7 @@ assert result.stdout.strip() == expected, (result.stdout, expected)
             timeout=180, address_space=3 << 30)
         self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
 
+  @cytest.skipUnlessObjectsLoad('the saved program loads compiled objects')
   def test_saved_library_replacement(self):
     child = cytest.run_in_subprocess(r'''
 import curry
