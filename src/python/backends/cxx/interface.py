@@ -28,9 +28,9 @@ class IBackend(backends.IBackend):
   def init_interpreter_state(self, interp):
     if getattr(interp, '_its', None) is not None:
       tiered.cancel(interp)
-    # Apply completed swaps before kept tables are reused by the new session.
-    with llvmjit._lock:
-      curryrtbindings.icurry_apply_posted()
+    # Apply completed swaps before kept tables are reused by the new session,
+    # outside the JIT lock: the apply may wait for the heap.
+    curryrtbindings.icurry_apply_posted()
     curryrtbindings._curryrtbindings._heap_drain()
     jit.select(interp)
     interp._jit_selection = interp.flags['jit_backend']

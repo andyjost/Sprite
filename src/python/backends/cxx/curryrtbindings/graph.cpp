@@ -357,7 +357,9 @@ namespace pybind11 { namespace detail
 
 namespace curryrt { namespace python
 {
-  py::object RuntimeState_next(RuntimeState & rts, bool event)
+  py::object RuntimeState_scheduler_counters(RuntimeState & rts);
+
+  py::object RuntimeState_next(RuntimeState & rts, bool event, py::object counts = py::none())
   {
     // Root the result while the heap is still protected. Returning a Python
     // object lets this hot entry use a stack scope instead of a loader
@@ -365,11 +367,27 @@ namespace curryrt { namespace python
     HeapAccessScope heap;
     struct FlushStdout { ~FlushStdout() { std::fflush(stdout); } } flush;
     Expr result;
+    auto snapshot = [&]() {
+      if(!counts.is_none())
+      {
+        auto saved = py::reinterpret_borrow<py::list>(counts);
+        saved[0] = rts.steps_total;
+        saved[1] = rts.forks_total;
+        saved[2] = RuntimeState_scheduler_counters(rts);
+      }
+    };
+    try
     {
       py::gil_scoped_release release;
       result = rts.root_queue ? rts.procD() : Expr{};
     }
+    catch(...)
+    {
+      snapshot();
+      throw;
+    }
     py::object value = py::cast(result);
+    snapshot();
     if(event && !value.is_none())
       return py::make_tuple(rts.stream_yielded, value);
     return value;
@@ -920,6 +938,9 @@ namespace curryrt { namespace python
       .def("next", [](RuntimeState & rts) { return RuntimeState_next(rts, false); })
       // Fetch the flag with the value, under the same lock and GIL release.
       .def("_next_event", [](RuntimeState & rts) { return RuntimeState_next(rts, true); })
+      .def("_next_event_counted", [](RuntimeState & rts, py::list counts) {
+          return RuntimeState_next(rts, true, counts);
+        })
       ;
   }
 }}

@@ -10,6 +10,16 @@ Unreleased
   Interpreted reserved importers keep their interpreter's dependencies; compiled
   slots, C++ hot jobs and first-use compilation preserve the selected registry.
   Two constructor classes compare by identity.
+- Move symbol construction and image runtime snapshots before cache/product
+  locking; defer JIT compilation, resolution, cache indexing and publication
+  logs, the product-lock helper's own diagnostics, and C++ object compiler,
+  stamp and product-cache logs until their enclosing locks release. Collect
+  abandoned results and streams without heap waits, save counts in the native
+  value pull, and apply posted LLVM steps under the heap gate.
+
+  Still open: front-end conversion and the ICurry cache log under a product
+  lock (#194); property bindings do not apply their heap guards (#195); the
+  ``icurry_is_jit`` race with native step/aux writers (#196).
 
 - Serve loaded modules from memory until reload or reset, without product
   snapshots; product-file readers verify the digests recorded at load.

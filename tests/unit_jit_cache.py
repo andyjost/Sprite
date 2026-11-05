@@ -310,10 +310,10 @@ print(json.dumps(dict(ok=True)))
 M = curry.import_(source)
 context = llvmjit._jit.modules[M.fib.info.address]
 original = context.resolve
-def unexpected(name):
+def unexpected(name, **kwargs):
   if name == 'Cached.fib':
     raise AttributeError('unexpected hook failure')
-  return original(name)
+  return original(name, **kwargs)
 with mock.patch.object(context, 'resolve', side_effect=unexpected) as resolve, mock.patch.object(llvmjit.logger, 'warning') as warning:
   for _ in range(2):
     assert [str(x) for x in curry.eval(M.fib(12))] == ['144']
@@ -722,7 +722,7 @@ print(json.dumps(dict(ok=True, wait_ms=elapsed * 1000)))
     with mock.patch.object(llvmjit.curryrt, 'icurry_address', return_value=1):
       llvmjit._compile_groups(jit, [(1, 'M.f')] * 64)
     self.assertEqual(jit.compile_batch.call_count, 2)
-    context.store.assert_called_once_with()
+    context.store.assert_called_once_with(messages=[])
 
   def test_shutdown_publishes_completed_sub_batch(self):
     self.child('off')
@@ -778,8 +778,8 @@ print(json.dumps(dict(ok=True)))
     jit.compile_batch.side_effect = compiled
     with mock.patch.object(llvmjit.curryrt, 'icurry_address', return_value=1):
       llvmjit._compile_groups(jit, [(1, 'M.f')] * 64)
-    old.store.assert_called_once_with()
-    new.store.assert_called_once_with()
+    old.store.assert_called_once_with(messages=[])
+    new.store.assert_called_once_with(messages=[])
 
   def test_failure_before_read_preserves_object(self):
     self.child('eager')
