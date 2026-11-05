@@ -513,10 +513,10 @@ namespace curryrt
     // TieredJob::publish): the generated file, the object, then the
     // ABI stamp, each copied under a temporary name in the target directory
     // and renamed into place, when the source's ICurry file is the one of
-    // the import and the directory exists.  Returns the path to open: the
-    // published object, or the private one when nothing was published, a
-    // removed directory included (issue #173).  Runs on the thread of the
-    // swap, so the files beside the source change only at a safepoint of
+    // the import and the directory exists. Returns the private path to open
+    // whether publication succeeds or the directory was removed (issue #173).
+    // Runs on the thread of the swap, so the files beside the source
+    // change only at a safepoint of
     // the interpreter.
     std::string publish_products(
         std::string const & sofile, std::string const & publish
@@ -585,7 +585,9 @@ namespace curryrt
           return sofile;
         }
       }
-      return publish;
+      // Adoption keeps the generation built by this job. The canonical name
+      // is available to other producers as soon as this lock is released.
+      return sofile;
     }
 
     // Publish the binding owner before dlopen, restoring the old name if
@@ -725,8 +727,7 @@ namespace curryrt
       // The products go beside the source now, when the source is still
       // there (publish_products), whatever comes of the swap below: the
       // object is the translation of the ICurry the import read, and the
-      // next process loads it.  The object opened is the published one,
-      // else the private one.
+      // next process loads it. Adoption always opens the job's private object.
       std::string const path = publish_products(
           job.sofile, job.publish, job.icurryfile, job.icurry_digest
         );

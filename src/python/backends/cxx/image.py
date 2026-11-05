@@ -19,6 +19,9 @@ MAGIC = b'SPRTIMG\0'
 VERSION = 12
 PREFIX = struct.Struct('<8sII')
 
+class _InputChanged(Exception):
+  pass
+
 
 def digest(filename):
   if filename is None:
@@ -432,6 +435,10 @@ def _write(interp, module, path, imports, builtins, registry, resolver):
   for function in module.functions.values():
     out.metadata(function.metadata)
   header = _facts(interp, module.filename, imports, registry)
+  parsed_digest = getattr(module, '_source_digest', header['source'])
+  if parsed_digest != header['source']:
+    raise _InputChanged('ICurry changed during image translation')
+  header['source'] = parsed_digest
   header['name'] = module.fullname
   header['body'] = hashlib.sha256(out.data).hexdigest()
   header = json.dumps(header, sort_keys=True, separators=(',', ':')).encode('ascii')
@@ -453,7 +460,12 @@ def _publication_path(interp, source, path, imports):
 def ensure(interp, icyfile, currypath=None, importing=False):
   from ...toolchain import _findcurry
   with _findcurry.resolving(interp):
-    result = _ensure(interp, icyfile, currypath, importing)
+    while True:
+      try:
+        result = _ensure(interp, icyfile, currypath, importing)
+        break
+      except _InputChanged:
+        continue
     generation = _findcurry.generation_for_source(icyfile, interp)
     if generation is not None and generation.image is None:
       generation.image = result[0]
@@ -515,7 +527,17 @@ def _ensure(interp, icyfile, currypath=None, importing=False):
   from .toolchain import registered_names
   registry = registered_names(source)
   resolver = Resolver(interp, raw)
-  with _productlock.locked(path):
+  with contextlib.ExitStack() as locks:
+    try:
+      locks.enter_context(_productlock.locked(path))
+    except OSError:
+      private = _private_path(interp, source)
+      if path == private:
+        raise
+      path = private
+      locks.enter_context(_productlock.locked(path))
+    if raw._source_digest != digest(icyfile):
+      raise _InputChanged('ICurry changed after parsing')
     try:
       header = _check(interp, source, path, registry=registry)
       return path, _check(interp, source, path,

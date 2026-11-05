@@ -17,6 +17,70 @@ class TestImage(cytest.TestCase):
   def setUp(self):
     curry.reset(backend='cxx', interpret='all', jit='off')
 
+  def test_shared_lock_refusal_imports_privately(self):
+    from curry.toolchain import _productlock
+    with tempfile.TemporaryDirectory() as directory:
+      source = os.path.join(directory, 'ImageLockRefused.curry')
+      with open(source, 'w') as stream:
+        stream.write('module ImageLockRefused where\nanswer :: Int\nanswer = 42\n')
+      icyfile = toolchain.curry2icurry(source, curry.path)
+      shared = os.path.realpath(_productlock.lockfile(icyfile))
+      opening = _productlock._open
+      refused = []
+      def refuse_shared(path):
+        if path == shared:
+          refused.append(path)
+          return None
+        return opening(path)
+      with mock.patch.object(_productlock, '_open', side_effect=refuse_shared):
+        module = curry.import_(source)
+      self.assertEqual(curry.eval(module.answer).one(), 42)
+      self.assertTrue(refused)
+      self.assertFalse(os.path.exists(image.filename(source)))
+      self.assertNotEqual(getHandle(module).icurry._loaded_generation.image,
+          image.filename(source))
+
+  def test_completion_checked_once_per_load(self):
+    from curry.toolchain import _curry2icurry
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=os.name == 'nt') as directory:
+      source = os.path.join(directory, 'ImageCompletionOnce.curry')
+      with open(source, 'w') as stream:
+        stream.write('module ImageCompletionOnce where\nanswer :: Int\nanswer = 42\n')
+      curry.reset(interpret='off', jit='off')
+      curry.import_(source)
+      check = _curry2icurry.product_receipts
+      for mode in ('all', 'off'):
+        with self.subTest(interpret=mode):
+          curry.reset(interpret=mode, jit='off')
+          with mock.patch.object(_curry2icurry, 'product_receipts', wraps=check) as checks:
+            module = curry.import_(source)
+          own = [call for call in checks.call_args_list
+              if call.args[0].endswith('ImageCompletionOnce.icy')]
+          self.assertEqual(len(own), 1)
+          self.assertEqual(curry.eval(module.answer).one(), 42)
+      self.assertIsNone(_curry2icurry._load_completions.get())
+
+  def test_icurry_replaced_after_parse(self):
+    from curry.toolchain import _loadcurry
+    with tempfile.TemporaryDirectory() as directory:
+      source = os.path.join(directory, 'ImageParseRace.curry')
+      with open(source, 'w') as stream:
+        stream.write('module ImageParseRace where\nanswer :: Int\nanswer = 41\n')
+      icyfile = toolchain.curry2icurry(source, curry.path)
+      with open(icyfile) as stream:
+        original = stream.read()
+      replacement = original.replace('41', '42')
+      self.assertNotEqual(original, replacement)
+      load = _loadcurry.loadicurry
+      def replace_after_parse(path):
+        raw = load(path)
+        image.cache.write_file(icyfile, replacement)
+        return raw
+      with mock.patch.object(_loadcurry, 'loadicurry', side_effect=replace_after_parse):
+        image.ensure(curry._interpreter_, icyfile)
+      module = curry._interpreter_.import_(image.load(curry._interpreter_, icyfile))
+      self.assertEqual(curry.eval(module.answer).one(), 42)
+
   def test_summary_declarations_are_lazy(self):
     module = curry.import_('Prelude')
     raw = getHandle(module).icurry

@@ -1,5 +1,7 @@
 from . import _findcurry
 import threading
+from contextvars import ContextVar
+from functools import wraps
 from ..utility.locking import synchronized
 _rewrite_lock = threading.RLock()
 from .. import cache, config
@@ -8,7 +10,7 @@ from . import _filenames, _frontend, _interfaces, _preprocessor, _system
 from . import flat2icurry
 from .flat2icurry import flatcurry, setlift
 from ..utility import curryname, filesys
-import hashlib, logging, os, re
+import hashlib, json, logging, os, re
 
 __all__ = [
     'CONSTR_EQ', 'EQUALITY_NAME', 'PARSE_LIMIT', 'SET0_NAME', 'curry2icurry'
@@ -16,6 +18,9 @@ __all__ = [
   , 'reset_counts', 'rewrite_on_hit', 'translated_before_rewrite'
   ]
 logger = logging.getLogger(__name__)
+
+class _InputsChanged(Exception):
+  pass
 
 def curry2icurry(curryfile, currypath, **kwds):
   '''
@@ -304,16 +309,106 @@ def source_digest(filename):
     return hashlib.sha256(stream.read()).hexdigest()
 
 
+def invalidate_receipt(icyfile):
+  try:
+    os.unlink(icyfile + '.source')
+  except FileNotFoundError:
+    pass
+
+
+def product_receipts(icyfile):
+  paths = {'.icy': icyfile, '.imports': icyfile + '.imports'}
+  paths.update({suffix: cache.interface_filename(icyfile, suffix)
+      for suffix in cache.INTERFACE_SUFFIXES})
+  return {suffix: source_digest(path) for suffix, path in paths.items()}
+
+
+def write_source_receipt(icyfile, digest):
+  cache.write_file(icyfile + '.source', json.dumps(dict(
+      version=1, source=digest, products=product_receipts(icyfile)), sort_keys=True))
+
+
+def receipt_source(text):
+  # Pinned library receipts predate completion manifests.
+  try:
+    return json.loads(text)['source']
+  except (ValueError, KeyError, TypeError):
+    return text.strip()
+
+
+# Completion checks belong to one load, including its nested dependency loads.
+_load_completions = ContextVar('load_completions', default=None)
+
+
+class _CompletionScope:
+  def __init__(self):
+    self.owner = threading.current_thread()
+    self.active = True
+    self.checks = {}
+
+  def is_current(self):
+    return self.active and self.owner is threading.current_thread()
+
+
+def with_completion_checks(function):
+  @wraps(function)
+  def wrapped(*args, **kwds):
+    scope = _load_completions.get()
+    if scope is not None and scope.is_current():
+      return function(*args, **kwds)
+    scope = _CompletionScope()
+    token = _load_completions.set(scope)
+    try:
+      return function(*args, **kwds)
+    finally:
+      scope.active = False
+      scope.checks.clear()
+      _load_completions.reset(token)
+  return wrapped
+
+
+def _completion_identity(paths):
+  try:
+    return tuple((st.st_dev, st.st_ino, st.st_size, st.st_mtime_ns)
+        for st in map(os.stat, paths))
+  except OSError:
+    return None
+
+
 def source_matches(curryfile, icyfile):
   """Whether the product records exactly the current Curry source text."""
   generation = _findcurry.generation_for_source(curryfile)
   if generation is not None:
     return True
+  scope = _load_completions.get()
+  checks = scope.checks if scope is not None and scope.is_current() else None
+  library = in_system_library(curryfile)
+  paths = (curryfile, icyfile + '.source')
+  if not library:
+    paths += (icyfile, icyfile + '.imports') + tuple(
+        cache.interface_filename(icyfile, suffix) for suffix in cache.INTERFACE_SUFFIXES)
+  identity = _completion_identity(paths) if checks is not None else None
+  key = (curryfile, icyfile, library)
+  if identity is not None and key in checks and checks[key][0] == identity:
+    return checks[key][1]
+  result = _source_matches(curryfile, icyfile, library)
+  # Never reuse a check if a writer changed a member while it was read.
+  if identity is not None and _completion_identity(paths) == identity:
+    checks[key] = identity, result
+  return result
+
+
+def _source_matches(curryfile, icyfile, library):
   try:
     with open(icyfile + '.source', encoding='ascii') as stream:
-      recorded = stream.read().strip()
-    return recorded == source_digest(curryfile)
-  except OSError:
+      text = stream.read()
+    if library:
+      return receipt_source(text) == source_digest(curryfile)
+    recorded = json.loads(text)
+    return recorded['version'] == 1 \
+        and recorded['source'] == source_digest(curryfile) \
+        and recorded['products'] == product_receipts(icyfile)
+  except (OSError, ValueError, KeyError, TypeError):
     return False
 
 
@@ -425,7 +520,11 @@ class Curry2ICurryConverter(object):
         _destination.interfaces(file_in, currypath))
     from . import _productlock
     with _productlock.locked(file_in):
-      return self._convert(file_in, currypath)
+      while True:
+        try:
+          return self._convert(file_in, currypath)
+        except _InputsChanged:
+          logger.info('inputs changed during ICurry conversion; retrying')
 
   def _convert(self, file_in, currypath):
     digest = source_digest(file_in)
@@ -435,9 +534,15 @@ class Curry2ICurryConverter(object):
     with _system.bindCurryPath(_frontend.searchdirs(file_in, currypath)):
       file_out = _filenames.icurryfilename(file_in)
       cmd = self.command(file_in, file_out, currypath)
-      if source_changed(file_in, file_out) or (
-          not in_system_library(file_in)
-          and not _interfaces.is_current(file_out, currypath)):
+      try:
+        with open(file_out + '.source', encoding='ascii') as stream:
+          same_source = receipt_source(stream.read()) == digest
+      except (OSError, UnicodeError):
+        same_source = False
+      # Missing bundle members require repair, but do not invalidate the
+      # front end's file when its source text and imported interfaces match.
+      if not in_system_library(file_in) and (
+          not same_source or not _interfaces.is_current(file_out, currypath)):
         # Force elaboration against the new imports even when restored
         # interface timestamps are older than the module's FlatCurry.
         # A cache hit must not leave an interface of the old text behind.
@@ -465,6 +570,7 @@ class Curry2ICurryConverter(object):
         # PATH. Retry it; successful cached products remain usable.
         logger.debug('Using CURRYPATH %s', ':'.join(currypath))
         _system.makeOutputDir(file_out)
+        invalidate_receipt(file_out)
         try:
           with filesys.remove_file_on_error(file_out):
             if self.tool == 'icurry':
@@ -491,8 +597,13 @@ class Curry2ICurryConverter(object):
           raise
         if slot is not None:
           slot.update()
-      if not in_system_library(file_in):
-        cache.write_file(file_out + '.source', digest.encode('ascii'))
+      if source_digest(file_in) != digest or getattr(slot, 'inputs_changed', False):
+        invalidate_receipt(file_out)
+        raise _InputsChanged()
+      if in_system_library(file_in):
+        cache.write_file(file_out + '.source', digest)
+      else:
+        write_source_receipt(file_out, digest)
       _note_refresh(file_out, served=bool(slot))
       return file_out
 

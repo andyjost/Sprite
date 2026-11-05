@@ -415,6 +415,16 @@ class TestRemovedDirectory(TieredTestCase):
     self.assertTrue(os.path.isfile(self.stamp(name)))
     self.assertEqual(self.py(M.total, 3), 20)
 
+  def test_adoption_keeps_private_generation(self):
+    name = self.write_module()
+    M = self.import_module(name)
+    private = tiered._state.records[name].sofile
+    self.wait()
+    self.assertTrue(os.path.isfile(self.sofile(name)))
+    self.assertEqual(getHandle(M).sofilename, private,
+        'adoption reopened the replaceable canonical pathname')
+    self.assertEqual(self.py(M.total, 3), 20)
+
   @cytest.posix_only('POSIX flock regression')
   def test_busy_product_lock_keeps_private_object(self):
     import fcntl
@@ -484,7 +494,7 @@ class TestSwap(TieredTestCase):
     # The object is on record and on disk.
     self.assertTrue(os.path.isfile(self.sofile(name)))
     self.assertIsNotNone(h.icurry.metadata.get('cxx.shlib'))
-    self.assertEqual(
+    self.assertNotEqual(
         os.path.realpath(h.sofilename), os.path.realpath(self.sofile(name))
       )
     # Values of the compiled tier: the same, in the same steps.
@@ -966,7 +976,7 @@ class TestPolicy(TieredTestCase):
     # The wait of the issue names no interpreter.
     self.assertTrue(tiered.wait(COMPILE_SECONDS))
     self.assertFalse(curryrt.icurry_is_interpreted(M.area.info))
-    self.assertEqual(
+    self.assertNotEqual(
         os.path.realpath(getHandle(M).sofilename)
       , os.path.realpath(self.sofile(name))
       )
@@ -1053,7 +1063,7 @@ assert Cpp2So(curry._interpreter_).format_version(%r) is not None
     self.assertFalse(curryrt.icurry_is_interpreted(N.viaCall.info))
     self.assertTrue(os.path.isfile(self.sofile(name)))
     self.assertTrue(os.path.isfile(self.stamp(name)))
-    self.assertEqual(
+    self.assertNotEqual(
         os.path.realpath(getHandle(N).sofilename)
       , os.path.realpath(self.sofile(name))
       )
@@ -1334,7 +1344,7 @@ class TestLoadDuringCompile(TieredTestCase):
     self.assertEqual(after['swapped_modules'], before['swapped_modules'] + 1)
     self.assertEqual(after['failed_modules'], before['failed_modules'])
     self.assertFalse(curryrt.icurry_is_interpreted(M.area.info))
-    self.assertEqual(
+    self.assertNotEqual(
         os.path.realpath(getHandle(M).sofilename)
       , os.path.realpath(self.sofile(name))
       )

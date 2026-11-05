@@ -513,8 +513,8 @@ class _JIT(object):
 # A single envelope keeps the small index and the native object in one atomic
 # publication. No address or path is serialized. Objects are trusted local code,
 # like the generated shared objects beside them.
-_CACHE_MAGIC = b'SPRTJIT4'
-_CACHE_PREFIX = struct.Struct('<8sI')
+_CACHE_MAGIC = b'SPRTJIT5'
+_CACHE_PREFIX = struct.Struct('<8sI32s')
 
 
 def _abi_digest():
@@ -699,10 +699,13 @@ class _IndexedObjects:
 def _read_cache(path, key, check_identity=True):
   stream = _open_cache(path)
   try:
-    magic, size = _CACHE_PREFIX.unpack(stream.read(_CACHE_PREFIX.size))
+    magic, size, checksum = _CACHE_PREFIX.unpack(stream.read(_CACHE_PREFIX.size))
     if magic != _CACHE_MAGIC or size > 16 * 1024 * 1024:
       raise ValueError('invalid JIT cache header')
-    index = json.loads(stream.read(size))
+    encoded = stream.read(size)
+    if hashlib.sha256(encoded).digest() != checksum:
+      raise ValueError('corrupt JIT index')
+    index = json.loads(encoded)
     st = os.fstat(stream.fileno())
     if index['key'] != key:
       raise ValueError('stale JIT object')
@@ -803,9 +806,13 @@ class _CachedModule:
       if name not in self.resolved:
         records, obj = self.object_for(name)
         _, symbol, constants = records[0]
+        if symbol != self.symbols[name] or len(set(constants)) != len(constants):
+          raise ValueError('invalid JIT function mapping')
         bc = curryrt.icurry_bytecode(self.items[name])
         if bc is None:
           raise ValueError('cached function has no bytecode')
+        if any(type(k) is not int or k < 0 or k >= len(bc['consts']) for k in constants):
+          raise ValueError('invalid JIT constant slot')
         addresses = {_constant_symbol(symbol, k): bc['consts'][k] for k in constants}
         native = _object_bytes(obj)
         library = 'cached%d' % self.jit.serial
@@ -977,7 +984,8 @@ class _CachedModule:
             if size == index['size']:
               break
             index['size'] = size
-          data = _CACHE_PREFIX.pack(_CACHE_MAGIC, len(encoded)) + encoded + payload
+          data = _CACHE_PREFIX.pack(_CACHE_MAGIC, len(encoded),
+              hashlib.sha256(encoded).digest()) + encoded + payload
           # Writers in this directory use the same module lock. Only remove
           # temporaries whose creating process has gone away.
           for entry in os.scandir(directory):
