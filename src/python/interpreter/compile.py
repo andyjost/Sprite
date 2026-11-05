@@ -1,6 +1,7 @@
 '''
 Implements Interpreter.compile.
 '''
+from ..utility.locking import Lock as _SpriteLock
 
 from .. import config, exceptions, objects, toolchain
 from ..utility.procfork import work as fork_work
@@ -19,7 +20,7 @@ COMPILED_NAME = 'compiled_expression'
 # first, so a reused name could resolve to stale code.  See
 # config.expression_modname.
 _module_counter = itertools.count()
-_counter_lock = threading.Lock()
+_counter_lock = _SpriteLock()
 
 def _next_module():
   with _counter_lock:
@@ -155,7 +156,7 @@ def _updateImports(interp, modulename, stmts, currypath):
   try:
     module = interp.modules[modulename]
   except KeyError:
-    module = interp.import_(modulename)
+    module = interp._import_(modulename)
   return _updateImports(interp, module, stmts, currypath)
 
 @_updateImports.when(types.ModuleType)

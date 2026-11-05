@@ -10,6 +10,11 @@ Unreleased
   and raise the public ``ForkError`` in children forked while Sprite is busy;
   a callback fork on the large-stack worker attempts a bounded error report
   and exits the child.
+- Raise ``curry.ReentrancyError`` for host reentry under Sprite locks or the
+  evaluation-worker handoff, preserving primitive callback evaluation; defer
+  front-end and ICurry-cache diagnostics until locks release, retain ownership
+  through thread creation, and refuse worker stack sizes the Windows thread
+  API cannot represent before trying smaller reservations.
 - Give each interpreter its own runtime module registry; share static runtime
   builtin tables and loaded compiled objects across resets (#184).
   Interpreted reserved importers keep their interpreter's dependencies; compiled
@@ -29,8 +34,7 @@ Unreleased
   abandoned results and streams without heap waits, save counts in the native
   value pull, and apply posted LLVM steps under the heap gate.
 
-  Still open: front-end conversion and the ICurry cache log under a product
-  lock (#194); property bindings do not apply their heap guards (#195); the
+  Still open: property bindings do not apply their heap guards (#195); the
   ``icurry_is_jit`` race with native step/aux writers (#196).
 
 - Serve loaded modules from memory until reload or reset, without product

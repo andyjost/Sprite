@@ -288,7 +288,7 @@ class Materializer(object):
       if ifun is not None:
         return self.create_function(ifun)
     try:
-      return self.interp.symbol(fullname).info
+      return self.interp._symbol(fullname).info
     except Exception as exc:
       raise CompileError(
           'cannot resolve symbol %r in module %r: %s'
@@ -467,7 +467,7 @@ def compile_pending(entry):
   # Establish their summaries before save records the import provenance;
   # is_translation below can otherwise create an image after that snapshot.
   image._import_images(interp, imodule.imports, currypath)
-  text = interp.save(moduleobj, None, module_main=False)
+  text = interp._save(moduleobj, None, module_main=False)
   cpp2so = toolchain.Cpp2So(interp)
   # The products go beside the source when the optimizer flags are the
   # environment's and the object in hand is the translation on disk: a

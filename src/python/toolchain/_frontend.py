@@ -102,6 +102,7 @@ __all__ = [
   , 'optimize_flatcurry', 'report_warnings', 'searchdirs', 'source_root'
   , 'warnings_by_file', 'written_flatcurry'
   ]
+from ..utility.locking import log as _deferred_log
 logger = logging.getLogger(__name__)
 
 # The version of the steps between the front end and the translation: what
@@ -363,7 +364,7 @@ def _run_frontend(file_in, currypath, quiet=False, rewrite=True,
     raise CompileError(reason)
   cmd = command(file_in, currypath, quiet, search, library)
   if logger.isEnabledFor(logging.DEBUG):
-    logger.debug('Command: %s', ' '.join(cmd))
+    _deferred_log(logger, logging.DEBUG, 'Command: %s', ' '.join(cmd))
   moduledir = source_root(file_in)
   roots = searchdirs(file_in, currypath) if search is None else search
   dirs = (flatcurry_dirs(file_in, currypath) if search is None else
@@ -375,11 +376,11 @@ def _run_frontend(file_in, currypath, quiet=False, rewrite=True,
       cmd, cwd=moduledir, with_stderr=True, env=frontend_environment())
   if logger.isEnabledFor(logging.INFO):
     from ._filenames import logging_module_name
-    logger.info('module %s: front end ran in %.2f s (%d warnings)',
+    _deferred_log(logger, logging.INFO, 'module %s: front end ran in %.2f s (%d warnings)',
         logging_module_name(file_in), time.monotonic() - started,
         sum(bool(WARNING_HEAD.match(line)) for line in stderr.splitlines()))
   if stdout:
-    logger.debug('Front end output:\n%s', stdout)
+    _deferred_log(logger, logging.DEBUG, 'Front end output:\n%s', stdout)
   report_warnings(stderr, moduledir)
   fcyfile = flatcurryfile(file_in)
   if not os.path.isfile(fcyfile):
@@ -393,7 +394,7 @@ def _run_frontend(file_in, currypath, quiet=False, rewrite=True,
       try:
         optimize_flatcurry(written, roots)
       except Exception as err:
-        logger.warning(
+        _deferred_log(logger, logging.WARNING,
             'cannot rewrite %s, which the front end wrote for an import of '
             '%s: %s', written, file_in, err
           )
@@ -410,9 +411,9 @@ def optimize_flatcurry(fcyfile, searchdirs=()):
   counts = flat2icurry.rewrite_file(fcyfile, searchdirs=searchdirs)
   n, m = counts
   if n:
-    logger.debug('Rewrote %s: %d equalities replaced by constrEq', fcyfile, n)
+    _deferred_log(logger, logging.DEBUG, 'Rewrote %s: %d equalities replaced by constrEq', fcyfile, n)
   if m:
-    logger.debug('Rewrote %s: %d set0 calls lifted', fcyfile, m)
+    _deferred_log(logger, logging.DEBUG, 'Rewrote %s: %d set0 calls lifted', fcyfile, m)
   return counts
 
 # A warning of the front end: the file, the position, the word Warning.
@@ -449,13 +450,13 @@ def report_warnings(stderr, moduledir):
   for filename, text in warnings_by_file(stderr):
     warnings.warn(text, CurryWarning, stacklevel=2)
     if filename is None:
-      logger.warning('the Curry front end says:\n%s', text)
+      _deferred_log(logger, logging.WARNING, 'the Curry front end says:\n%s', text)
       continue
     path = os.path.normpath(os.path.join(moduledir, filename))
     name = os.path.basename(filename)
     if name.endswith('.curry'):
       name = name[:-len('.curry')]
-    logger.warning(
+    _deferred_log(logger, logging.WARNING,
         'the Curry front end warns on module %s (%s):\n%s', name, path, text
       )
 

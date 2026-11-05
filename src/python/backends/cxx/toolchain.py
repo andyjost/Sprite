@@ -43,6 +43,7 @@ cached products of a module instead of generating and compiling it when the
 cache holds them.  See Cpp2So.restore, Cpp2So.store and
 curry.toolchain._productcache.
 '''
+from ...utility.locking import Lock as _SpriteLock
 from ..generic.toolchain import ICurry2TargetSource
 from . import compiler, msvc
 from ... import cache, config, exceptions
@@ -55,7 +56,7 @@ from ...toolchain import (
 import functools, hashlib, itertools, json, logging, os, re, sys, tempfile, threading, time
 
 logger = logging.getLogger(__name__)
-_warning_lock = threading.Lock()
+_warning_lock = _SpriteLock()
 
 # A quoted include directive, the form the runtime headers use for one
 # another.  The pattern matches a directive inside an #if block as well: a
@@ -534,7 +535,7 @@ class ICurry2Cpp(ICurry2TargetSource):
       return False
     recorded = source_interfaces(filename)
     if recorded:
-      self.interp.import_(list(recorded),
+      self.interp._import_(list(recorded),
           currypath=_findcurry.import_path(self.interp, currypath))
     return source_is_stale(filename, import_search_path(self.interp, filename, currypath), self.interp)
 
@@ -929,7 +930,7 @@ class Cpp2So(object):
       return False
     currypath = _findcurry.import_path(self.interp, currypath)
     for modulename in imports:
-      module = self.interp.import_(modulename, currypath=currypath)
+      module = self.interp._import_(modulename, currypath=currypath)
       if getHandle(module).sofilename is None:
         _productlock.log(logger, logging.DEBUG,
             'The object %r is not loaded: its import %s has no object'
@@ -1071,7 +1072,7 @@ class Cpp2So(object):
     curry.save works under every mode of the flag.
     '''
     imports = _findcurry.import_path(self.interp, currypath)
-    module = self.interp.import_(modulename, currypath=imports)
+    module = self.interp._import_(modulename, currypath=imports)
     h = getHandle(module)
     sofilename = h.sofilename
     if sofilename is None:
@@ -1299,7 +1300,7 @@ class Cpp2So(object):
     file_in = _destination.canonical(file_in)
     _findcurry.verify_loaded_product(file_in, self.interp)
     names = self._importedModules(file_in)
-    self.interp.import_(names,
+    self.interp._import_(names,
         currypath=_findcurry.import_path(self.interp,
             _findcurry.imports_path(currypath, **ignored)))
     imports = _findcurry.imports_path(currypath, **ignored)
@@ -1523,7 +1524,7 @@ class Cpp2So(object):
       return None
     from ...toolchain import _destination
     names = _interfaces.imports(_filenames.icurryfilename(file_in))
-    self.interp.import_(names,
+    self.interp._import_(names,
         currypath=_findcurry.import_path(self.interp,
             _findcurry.imports_path(currypath, **kwds)))
     products = _destination.images(self.interp, names)

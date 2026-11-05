@@ -61,6 +61,46 @@ def submit(argv, name='ForkJob'):
 '''
 
 
+ENTRY_FIXTURE = r'''
+from curry.utility import locking
+from curry.objects.results import Results
+module = curry.compile('import Sprite.Stream\n'
+    'out :: [Int] -> IO ()\nout xs = yield (head xs) >> yield (43 :: Int)')
+interp = curry._interpreter_
+term = curry.term(7)
+other = curry.term(7)
+# Warm the cached signature and module-symbol paths before the fork.
+assert str(interp.typeof(term))
+held = module.out
+closed_results = curry.eval(term)
+closed_results.close()
+unstarted_results = curry.eval(term)
+closed_stream = curry.stream(module.out([42]))
+closed_stream.close()
+unstarted_stream = curry.stream(module.out([42]))
+children, failures = [], []
+parent = os.getpid()
+
+def entries():
+  actions = []
+  for kind in ('results', 'stream'):
+    for state in ('active', 'closed', 'unstarted'):
+      value = globals()[state + '_' + kind]
+      actions.extend(((state + ' ' + kind + ' next', lambda v=value: next(v)),
+          (state + ' ' + kind + ' close', value.close)))
+      if kind == 'results':
+        actions.append((state + ' results one', value.one))
+  actions.extend((('interpreter stats', interp.stats),
+      ('interpreter typeof', lambda: interp.typeof(term)),
+      ('term str', lambda: str(term)), ('term repr', lambda: repr(term)),
+      ('term equality', lambda: term == other), ('term hash', lambda: hash(term)),
+      ('module attribute', lambda: module.out),
+      ('module item', lambda: module['out']),
+      ('term metadata', lambda: held.signature)))
+  return actions
+'''
+
+
 @cytest.posix_only('requires os.fork and POSIX file descriptors')
 class TestProcessFork(cytest.TestCase):
   def run_case(self, code, timeout=90):
@@ -74,6 +114,84 @@ class TestProcessFork(cytest.TestCase):
       stdout, stderr = process.communicate()
       self.fail('scenario timed out and was reaped: ' + stdout + stderr)
     self.assertEqual(process.returncode, 0, stdout + stderr)
+
+  def test_busy_callback_public_entries_reject_before_shortcuts(self):
+    self.busy_public_entries(held_lock=False)
+
+  def test_busy_callback_fork_error_precedes_reentrancy(self):
+    self.busy_public_entries(held_lock=True)
+
+  def busy_public_entries(self, held_lock):
+    self.run_case(ENTRY_FIXTURE + 'held_lock = %r\n' % held_lock + r'''
+import contextlib
+
+def values():
+  assert active_results._busy and active_stream._busy
+  # In the second case both predicates apply. Keep consumption locks held
+  # too, proving that entry rejects before attempting those inherited locks.
+  with contextlib.ExitStack() as scopes:
+    if held_lock:
+      scopes.enter_context(locking.Lock())
+      scopes.enter_context(active_results._lock)
+      scopes.enter_context(active_stream._lock)
+    for label, action in entries():
+      try:
+        fork_check(lambda: rejected(action))
+      except AssertionError as error:
+        failures.append((label, str(error)))
+  yield 42
+
+active_stream = curry.stream(module.out(iter(values())))
+# Both public iterator classes are executing when the native callback forks.
+active_results = Results(active_stream, 'active stream evaluation')
+assert next(active_results) == 42
+assert os.getpid() == parent, 'child continued the evaluation'
+active_results.close()
+assert curry.eval(term).one() == 7
+assert not failures, failures
+''')
+
+  def test_idle_child_public_entries_keep_working(self):
+    self.run_case(ENTRY_FIXTURE + r'''
+active_results = curry.eval(curry.choice(40, 41, 42))
+active_stream = curry.stream(module.out([42]))
+assert next(active_results) == 40
+assert next(active_stream) == 42
+expected_text, expected_repr, expected_hash = str(term), repr(term), hash(term)
+
+def child():
+  assert interp.stats() is not None
+  assert str(interp.typeof(term))
+  assert str(term) == expected_text
+  assert repr(term) == expected_repr
+  assert term == other and hash(term) == expected_hash
+  assert module.out is not None and module['out'] is not None
+  assert held.signature
+  assert next(active_results) == 41
+  assert next(active_stream) == 43
+  assert next(unstarted_results) == 7
+  assert next(unstarted_stream) == 42
+  assert list(closed_results) == [] and list(closed_stream) == []
+  for value in (active_results, active_stream, unstarted_results,
+                unstarted_stream, closed_results, closed_stream):
+    value.close()
+  from curry.toolchain import _str2module
+  with _str2module._dirs_lock:
+    try:
+      interp.stats()
+    except curry.ReentrancyError:
+      pass
+    else:
+      raise AssertionError('idle child lost directory lock tracking')
+  assert curry.eval(term).one() == 7
+
+fork_check(child)
+assert next(active_results) == 41
+assert next(active_stream) == 43
+active_results.close()
+active_stream.close()
+assert curry.eval(term).one() == 7
+''')
 
   def test_idle_compile_worker_is_fresh(self):
     self.run_case(r'''

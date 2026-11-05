@@ -1,3 +1,4 @@
+from ....utility.locking import Lock as _SpriteLock
 import weakref, threading
 
 # The keys of the scheduler counters that hold a largest value.  Over several
@@ -53,7 +54,7 @@ class EvaluationTotals(object):
     self._running_refs = {}
     # Callbacks only append; owner sections purge before using the map.
     self._pending_removals = []
-    self._lock = threading.Lock()
+    self._lock = _SpriteLock()
     self._version = 0
 
   def _purge(self):

@@ -8,6 +8,7 @@ __all__ = [
     'bindCurryPath', 'makeOutputDir', 'pexec', 'pexec_message'
   , 'targetNotUpdatedHint', 'updateCheck'
   ]
+from ..utility.locking import log as _deferred_log
 logger = logging.getLogger(__name__)
 SUBDIR = config.intermediate_subdir()
 _child_currypath = contextvars.ContextVar('sprite_child_currypath', default=None)
@@ -105,7 +106,7 @@ def updateCheck(f):
         , hint=lambda:targetNotUpdatedHint(file_in, file_out, start_time)
         )
     elif os.stat(file_out).st_mtime >= start_time:
-      logger.debug('Updated %r', file_out)
+      _deferred_log(logger, logging.DEBUG, 'Updated %r', file_out)
     return file_out
   return replacement
 

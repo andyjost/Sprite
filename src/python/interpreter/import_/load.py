@@ -31,7 +31,7 @@ def loadSymbols(interp, mapping, moduleobj, **kwds):
 
 @loadSymbols.when(icurry.IModule)
 def loadSymbols(interp, imodule, moduleobj, **kwds):
-  interp.optimize(imodule)
+  interp._optimize(imodule)
   loadSymbols(interp, imodule.types, moduleobj, **kwds)
   loadSymbols(interp, imodule.functions, moduleobj, **kwds)
   return moduleobj

@@ -74,6 +74,12 @@ namespace curryrt
   void set_host_wait(host_wait_type);
   void host_poll();
 
+  // One entry check rejects a busy fork child before checking Python lock
+  // holders and native handoffs. Heap ownership alone permits callbacks.
+  using host_lock_held_type = bool (*)();
+  void set_host_lock_held(host_lock_held_type);
+  void check_reentrancy();
+
   struct RuntimeState;
   struct Expr;
   bool on_evaluation_worker();

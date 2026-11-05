@@ -21,7 +21,7 @@ def output_type(interp, printer):
         return specialize(stored[0], True)
       function = terms.whnf(specialize(stored[0]), arity)
       return function.range
-    scheme = symbols[id(head)].scheme
+    scheme = symbols[id(head)]._get_scheme()
     mapping = {}
     kinds = dict(scheme.typevars)
     result = terms.instantiate(scheme.typeexpr, mapping, kinds)
