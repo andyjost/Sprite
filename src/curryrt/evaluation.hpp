@@ -5,6 +5,21 @@
 
 namespace curryrt
 {
+  // Process forks are usable only when Sprite has no work in flight.
+  void fork_check();
+  bool fork_poisoned() noexcept;
+  void fork_prepare();
+  long long fork_work_begin();
+  void fork_work_end(long long owner) noexcept;
+  struct ForkWork
+  {
+    long long owner;
+    ForkWork() : owner(fork_work_begin()) {}
+    ~ForkWork() { fork_work_end(owner); }
+    ForkWork(ForkWork const &) = delete;
+    ForkWork & operator=(ForkWork const &) = delete;
+  };
+
   // Serialization of the shared heap is a stopgap for the concurrent runtime
   // of epic #28, not its design.  The allocator and collector currently own
   // one process-wide heap.  Bindings use this same lock, never a second one.

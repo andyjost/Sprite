@@ -30,6 +30,7 @@ builds when it finds clang (WITH_CLANG); the materializer then leaves the
 function interpreted and logs the reason once.
 '''
 from ... import config
+from ...utility.procfork import work as fork_work, poisoned
 from . import bytecode
 from . import curryrtbindings as curryrt
 import atexit, contextlib, hashlib, json, logging, os, re, struct, tempfile, threading, time, zlib
@@ -53,6 +54,7 @@ _jit = None       # the JIT of the process, made at the first compile
 _reason = None    # why the JIT is unavailable, once known
 BATCH_SIZE = 32
 
+@fork_work
 def available():
   '''Whether the JIT can compile in this process.'''
   try:
@@ -61,6 +63,7 @@ def available():
     return False
   return True
 
+@fork_work
 def compile(info, name):
   '''
   Compiles the interpreted function of ``info`` and swaps its step to the
@@ -76,6 +79,7 @@ def compile(info, name):
   finally:
     _emit_messages(messages)
 
+@fork_work
 def enqueue(info, name):
   '''
   Queues the interpreted function of ``info`` for the next :func:`flush`.
@@ -86,6 +90,7 @@ def enqueue(info, name):
   with _lock:
     jit.pending.append((curryrt.icurry_work(info), name))
 
+@fork_work
 def flush():
   '''
   Optimizes queued functions in batches, emits independent native objects
@@ -109,7 +114,9 @@ def flush():
 
 _hot_thread = None
 _hot_enabled = False
+_restart_hot = False
 
+@fork_work
 def start_hot_tier(state, threshold):
   '''
   Starts the hot tier once: the runtime counts the calls of every
@@ -119,7 +126,7 @@ def start_hot_tier(state, threshold):
   loop, where no step of its state is on the C stack, or the backend before
   the next evaluation.  Raises Unavailable when the JIT cannot run.
   '''
-  global _hot_thread, _hot_enabled
+  global _hot_thread, _hot_enabled, _restart_hot
   _hot_enabled = True
   _get()
   with _lock:
@@ -128,24 +135,32 @@ def start_hot_tier(state, threshold):
       return
     _hot_thread = threading.Thread(target=_hot_loop, name='curry-jit', daemon=True)
     _hot_thread.start()
+    _restart_hot = False
     atexit.register(_stop_hot_tier)
 
 def _stop_hot_tier():
   # Wait for native compilation before Python destroys its LLVM context.
   global _hot_enabled
+  if poisoned():
+    return
   _hot_enabled = False
   with _group_lock:
     with _lock:
       pass
 
 def _after_fork_in_child():
-  # The threads of the parent do not exist in the child, and a lock that
-  # one of them held at the fork would never open: the child starts with a
-  # fresh lock and no hot thread, and the next start_hot_tier starts one.
-  global _lock, _group_lock, _hot_thread
+  global _lock, _group_lock, _hot_thread, _hot_enabled, _jit, _reason, _restart_hot
+  # Old code addresses remain mapped, but no inherited LLVM object, reader,
+  # worker or job is entered or destroyed. The next operation builds a JIT.
+  if _jit is not None:
+    curryrt._curryrtbindings._fork_abandon(_jit)
+  _jit = None
+  _reason = None
   _lock = threading.Lock()
   _group_lock = threading.Lock()
+  _restart_hot = _restart_hot or (_hot_thread is not None and _hot_enabled)
   _hot_thread = None
+  _hot_enabled = False
 
 if hasattr(os, "register_at_fork"):
   os.register_at_fork(after_in_child=_after_fork_in_child)
@@ -183,6 +198,7 @@ def _emit_messages(messages):
   _productlock.emit_messages(messages, logger)
 
 
+@fork_work
 def _compile_groups(jit, items, post=False, work=None):
   messages = []
   try:
@@ -194,6 +210,7 @@ def _compile_groups(jit, items, post=False, work=None):
 def _valid(info, work):
   return work is None or work[curryrt.icurry_address(info)].valid
 
+@fork_work
 def invalidate(state):
   # Reset calls this before retirement, while holding the native metadata lock.
   with _lock:
@@ -204,6 +221,7 @@ def invalidate(state):
   # lock: the apply may wait for the heap.
   curryrt.icurry_apply_posted()
 
+@fork_work
 def refresh(state, excluded):
   # Reload owns the heap before entering; this binding never waits for it.
   with _lock:
@@ -253,6 +271,7 @@ def _compile_groups_locked(jit, items, post, messages, work=None):
   return compiled
 
 
+@fork_work
 def statistics():
   '''The counts and the seconds of the JIT of this process.
 
@@ -271,6 +290,7 @@ def statistics():
     , 'linked': jit.linked
     }
 
+@fork_work
 def _get():
   global _jit, _reason
   with _lock:
@@ -657,6 +677,7 @@ class _IndexedObjects:
   '''Decoded entries, without per-function file views until they are used.'''
   def __init__(self, path, entries, stream):
     self.path, self.entries, self.stream = path, entries, stream
+    self.owner = os.getpid()
     self.read_lock = threading.RLock()
     self.extra = []
     self.others = []
@@ -664,7 +685,9 @@ class _IndexedObjects:
     if not entries:
       self.close()
 
+  @fork_work
   def release(self, entry, dropped=True):
+    self._child_lock()
     if not entry.get('_released'):
       entry['_released'] = True
       self.remaining -= 1
@@ -674,13 +697,17 @@ class _IndexedObjects:
         with self.read_lock:
           self.stream.close()
 
+  @fork_work
   def close(self):
+    self._child_lock()
     with self.read_lock:
       self.stream.close()
     for other in self.others:
       other.close()
 
+  @fork_work
   def read_at(self, offset, size):
+    self._child_lock()
     with self.read_lock:
       pread = getattr(os, 'pread', None)
       if pread is not None:
@@ -689,6 +716,11 @@ class _IndexedObjects:
       # and read (and close) so callers observe independent positioned reads.
       self.stream.seek(offset)
       return self.stream.read(size)
+
+  def _child_lock(self):
+    if self.owner != os.getpid():
+      self.read_lock = threading.RLock()
+      self.owner = os.getpid()
 
   def view(self, entry):
     return (entry['functions'],
@@ -706,6 +738,7 @@ class _IndexedObjects:
     self.extra.append(pair)
 
 
+@fork_work
 def _read_cache(path, key, check_identity=True):
   stream = _open_cache(path)
   try:
@@ -737,8 +770,13 @@ def _read_cache(path, key, check_identity=True):
     stream.close()
     raise
 
+@fork_work
 def _resolve_cached(address):
   jit = _jit
+  # An idle child abandoned the parent cache owners; use the interpreter
+  # until its own JIT attaches or compiles this function.
+  if jit is None:
+    return 0
   messages = []
   try:
     with _lock:
@@ -844,6 +882,7 @@ class _CachedModule:
       messages.append((logging.WARNING, 'jit cache: function %s stays interpreted: %s', (name, exc)))
       return 0
 
+  @fork_work
   def release(self, name):
     if self.index is not None and name in self.cached:
       pair = self.cached[name]
@@ -1040,6 +1079,7 @@ class _CachedModule:
           os.unlink(tmp)
 
 
+@fork_work
 def attach_cache(path, header, items):
   '''Register an image and its cache index without reading native bytes.'''
   jit = _get()

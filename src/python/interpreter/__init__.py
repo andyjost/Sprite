@@ -11,6 +11,7 @@ from .. import backends, config, exceptions, icurry, typecheck, utility
 from ..backends.generic.eval import evaluator as _evaluator
 from . import flags as _flagmod, import_
 from ..objects.handle import getHandle
+from ..utility.procfork import work as fork_work, check as fork_check
 import importlib
 from ..utility.binding import binding
 from ..utility import curryname, formatDocstring
@@ -65,6 +66,7 @@ class Interpreter(object):
       :meth:`type`
           Look up a data type by name.
   '''
+  @fork_work
   def __new__(cls, flags={}):
     self = object.__new__(cls)
     self._flags = _flagmod.get_default_flags()
@@ -96,6 +98,7 @@ class Interpreter(object):
     made, so a later change of it has no effect.  See
     :mod:`{0}.interpreter.flags`.
     '''
+    fork_check()
     return self._flags
 
   @property
@@ -105,6 +108,7 @@ class Interpreter(object):
     A dict containing the imported Curry modules.  Maps module names
     to :class:`CurryModule <{0}.objects.CurryModule>` objects.
     '''
+    fork_check()
     view = self._module_view.get()
     return self._modules if view is None else view
 
@@ -115,6 +119,7 @@ class Interpreter(object):
     place to adjust where to search for Curry files.  An assignment to the
     attribute replaces the entries of the same list.
     '''
+    fork_check()
     view = self._path_view.get()
     return self._path if view is None else view
 
@@ -125,11 +130,13 @@ class Interpreter(object):
   @property
   def backend(self):
     '''The backend object associated with this interpreter.'''
+    fork_check()
     return self._backend
 
   @property
   def prelude(self):
     '''The built-in module Prelude.'''
+    fork_check()
     if not hasattr(self, '_Interpreter__preludelib'):
       self.__preludelib = self.module('Prelude')
     return self.__preludelib
@@ -137,6 +144,7 @@ class Interpreter(object):
   @property
   def setfunctions(self):
     '''The built-in module Control.SetFunctions.'''
+    fork_check()
     if not hasattr(self, '_Interpreter__setflib'):
       self.__setflib = self.module('Control.SetFunctions')
     return self.__setflib
@@ -149,8 +157,10 @@ class Interpreter(object):
     <{0}.typecheck.SignatureTable>`: the type schemes of the loaded symbols,
     read on demand from the FlatCurry interfaces.  :meth:`reset` clears it.
     '''
+    fork_check()
     return self._sigtable
 
+  @fork_work
   def reset(self, flags=None):
     '''
     Soft-resets the interpreter.
@@ -227,6 +237,7 @@ class Interpreter(object):
     finally:
       self._module_view.reset(token)
 
+  @fork_work
   def module(self, name):
     '''Look up a module by name.'''
     try:
@@ -236,6 +247,7 @@ class Interpreter(object):
         return self.import_(name)
       raise exceptions.ModuleLookupError('Curry module %r not found' % name)
 
+  @fork_work
   def symbol(self, name, modulename=None):
     '''
     Look up a symbol by its fully-qualified name, ``'Prelude.+'``.  The
@@ -246,6 +258,7 @@ class Interpreter(object):
     moduleobj, objname = self._qualified_name(name)
     return getHandle(moduleobj).getsymbol(objname)
 
+  @fork_work
   def type(self, name):
     '''Returns the constructor info tables for the named type.'''
     moduleobj, name = self._qualified_name(name)

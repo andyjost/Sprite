@@ -52,7 +52,12 @@ if pid == 0:
   try:
     assert native._test_applied() == 7, 'detached actions lost at fork'
     assert native._heap_pending_count() == 0
-    native._heap_drain()
+    try:
+      native._heap_drain()
+    except curry.ForkError as error:
+      assert 'Sprite was busy when the process forked' in str(error)
+    else:
+      raise AssertionError('fork during a native drain must poison the child')
     assert native._test_applied() == 7, 'cleanup applied twice'
     os._exit(0)
   except BaseException:

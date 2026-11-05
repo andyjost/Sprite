@@ -94,8 +94,8 @@ namespace curryrt
 
   namespace
   {
-    std::mutex g_hot_mutex;
-    std::vector<ICurryWork> g_hot;
+    std::mutex * g_hot_mutex = new std::mutex;
+    auto * g_hot = new std::vector<ICurryWork>;
   }
 
   ICurryWork icurry_work(InfoTable * info)
@@ -112,8 +112,8 @@ namespace curryrt
   std::vector<ICurryWork> icurry_take_hot()
   {
     std::vector<ICurryWork> hot;
-    std::lock_guard<std::mutex> lock(g_hot_mutex);
-    hot.swap(g_hot);
+    std::lock_guard<std::mutex> lock(*g_hot_mutex);
+    hot.swap(*g_hot);
     return hot;
   }
 
@@ -127,8 +127,8 @@ namespace curryrt
       if(++bc->calls == threshold)
       {
         cxx_hot(_0->info);
-        std::lock_guard<std::mutex> lock(g_hot_mutex);
-        g_hot.push_back(icurry_work(const_cast<InfoTable *>(_0->info)));
+        std::lock_guard<std::mutex> lock(*g_hot_mutex);
+        g_hot->push_back(icurry_work(const_cast<InfoTable *>(_0->info)));
       }
     }
     uint32_t const * const code = bc->code.data();
@@ -399,7 +399,7 @@ namespace curryrt
   namespace
   {
     // The tables whose step the JIT made; their bytecode stays in aux.
-    std::mutex g_jit_mutex;
+    std::mutex * g_jit_mutex = new std::mutex;
     std::unordered_set<InfoTable const *> g_jit_steps;
   }
 
@@ -445,7 +445,7 @@ namespace curryrt
           std::string("icurry_set_step: ") + info->name + " is not interpreted"
         );
     {
-      std::lock_guard<std::mutex> lock(g_jit_mutex);
+      std::lock_guard<std::mutex> lock(*g_jit_mutex);
       g_jit_steps.insert(info);
     }
     info->step = step;
@@ -459,14 +459,14 @@ namespace curryrt
     // Such a step has no bytecode; the old membership alone is insufficient.
     if(!info || !info->step || !info->aux || is_interpreted_step(info->step))
       return false;
-    std::lock_guard<std::mutex> lock(g_jit_mutex);
+    std::lock_guard<std::mutex> lock(*g_jit_mutex);
     return g_jit_steps.count(info) != 0;
   }
 
   namespace
   {
-    std::mutex g_posted_mutex;
-    std::vector<std::pair<ICurryWork, stepfunc_type>> g_posted;
+    std::mutex * g_posted_mutex = new std::mutex;
+    auto * g_posted = new std::vector<std::pair<ICurryWork, stepfunc_type>>;
   }
 
   void icurry_invalidate(InterpreterState & state)
@@ -475,24 +475,35 @@ namespace curryrt
     auto owner = state.modules.storage;
     ++owner->generation;
     {
-      std::lock_guard<std::mutex> lock(g_hot_mutex);
-      g_hot.erase(std::remove_if(g_hot.begin(), g_hot.end(),
-          [&](ICurryWork const & work) { return work.owner == owner; }), g_hot.end());
+      std::lock_guard<std::mutex> lock(*g_hot_mutex);
+      g_hot->erase(std::remove_if(g_hot->begin(), g_hot->end(),
+          [&](ICurryWork const & work) { return work.owner == owner; }), g_hot->end());
     }
-    std::lock_guard<std::mutex> lock(g_posted_mutex);
-    g_posted.erase(std::remove_if(g_posted.begin(), g_posted.end(),
-        [&](auto const & entry) { return entry.first.owner == owner; }), g_posted.end());
+    std::lock_guard<std::mutex> lock(*g_posted_mutex);
+    g_posted->erase(std::remove_if(g_posted->begin(), g_posted->end(),
+        [&](auto const & entry) { return entry.first.owner == owner; }), g_posted->end());
   }
 
   std::atomic<bool> g_icurry_posted{false};
+
+  void icurry_after_fork()
+  {
+    g_hot_mutex = new std::mutex;
+    g_jit_mutex = new std::mutex;
+    g_posted_mutex = new std::mutex;
+    g_hot = new std::vector<ICurryWork>;
+    g_posted = new std::vector<std::pair<ICurryWork, stepfunc_type>>;
+    g_icurry_posted.store(false);
+  }
+
 
   void icurry_post_step(ICurryWork const & work, stepfunc_type step)
   {
     if(!work.info || !step)
       throw std::invalid_argument("icurry_post_step: a null argument");
-    std::lock_guard<std::mutex> lock(g_posted_mutex);
+    std::lock_guard<std::mutex> lock(*g_posted_mutex);
     if(!work.valid()) return;
-    g_posted.emplace_back(work, step);
+    g_posted->emplace_back(work, step);
     g_icurry_posted.store(true, std::memory_order_release);
   }
 
@@ -500,8 +511,8 @@ namespace curryrt
   {
     std::vector<std::pair<ICurryWork, stepfunc_type>> posted;
     {
-      std::lock_guard<std::mutex> lock(g_posted_mutex);
-      posted.swap(g_posted);
+      std::lock_guard<std::mutex> lock(*g_posted_mutex);
+      posted.swap(*g_posted);
       g_icurry_posted.store(false, std::memory_order_relaxed);
     }
     // Clearing LLVM's queue must not consume the wakeup of the worker of the C++ compiler backend.

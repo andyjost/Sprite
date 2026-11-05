@@ -72,6 +72,7 @@
 // the result reports the cause, and the Python side logs it once.
 namespace curryrt
 {
+  void tiered_after_fork();
   struct TieredJob
   {
     ModuleRegistry registry;

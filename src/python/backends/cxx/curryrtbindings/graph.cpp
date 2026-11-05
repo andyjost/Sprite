@@ -297,6 +297,10 @@ namespace
     assert(data);
     auto * pyobj = (PyObject *) data;
     py::object value = py::reinterpret_steal<py::object>(PyIter_Next(pyobj));
+    // A Python conversion callback can already have raised ForkError.
+    // Clear its pending indicator before translating the native boundary error.
+    if(fork_poisoned()) PyErr_Clear();
+    fork_check();
     if(PyErr_Occurred()) { throw py::error_already_set(); }
     // Note: the Node * is not owned directly by the PyObject but rather by the
     // garbage collector.  So it is safe to extract the Node * and return it

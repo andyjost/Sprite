@@ -40,6 +40,16 @@ namespace
 
 PYBIND11_MODULE(_curryrtbindings, mod, pybind11::mod_gil_not_used())
 {
+  mod.def("_fork_prepare", &curryrt::fork_prepare);
+  mod.def("_fork_check", &curryrt::fork_check);
+  mod.def("_fork_poisoned", &curryrt::fork_poisoned);
+  mod.def("_fork_work_begin", &curryrt::fork_work_begin);
+  mod.def("_fork_work_end", &curryrt::fork_work_end);
+  mod.def("_fork_abandon", [](pybind11::object value) {
+    // Retain inherited executable owners without invoking LLVM destructors
+    // or acquiring any of the vanished compiler thread's internal locks.
+    (void) new pybind11::object(std::move(value));
+  });
   // Group native metadata operations and their Python publication without
   // acquiring a Python mutex before a heap wait. Never used for stepping.
   mod.def("_metadata_call", [](pybind11::function action) { return action(); },

@@ -123,6 +123,9 @@ class EvaluationTotals(object):
     self._add_counts(rts, steps, forks, counters)
 
   def _add_counts(self, rts, steps, forks, counters):
+    from ....utility.procfork import poisoned
+    if poisoned():
+      return
     with self._lock:
       self._purge()
       self._running_refs.pop(id(rts), None)

@@ -39,6 +39,19 @@ serializes its process-wide heap: two evaluations still step one at a time
 per heap, while Python work outside native metadata/heap operations can run
 in parallel on a free-threaded interpreter. Curry evaluations are serialized.
 
+Process fork is supported only while no evaluation, compilation, JIT work
+or native handle operation is in flight in any thread.
+Python and native preparation hooks record activity before the fork;
+a busy child raises ``curry.exceptions.ForkError`` on subsequent Sprite
+calls, including the return from a callback into an interrupted evaluation.
+An idle child abandons inherited workers, jobs, compiler PIDs, locks and
+ticker state and starts its own state as needed.
+Child exit and collection never wait on inherited work, signal the parent's
+compiler group or remove the parent's temporary module directories.
+Completed executable mappings remain retained without entering or destroying
+their inherited compiler owners.
+Inherited nonstandard file handles must be reopened in the child.
+
 The bindings release the GIL while the runtime steps or waits, take it
 for Python callbacks and conversion and poll signals while they wait.  A
 deep goal starts on the caller's thread; when an unwind and a retry make

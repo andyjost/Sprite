@@ -44,6 +44,7 @@
 // branch runs to its own end.
 namespace curryrt
 {
+  void icurry_after_fork();
   enum Opcode : uint32_t
   {
     // r i       regs[r] = the node in slot i of the redex

@@ -1,4 +1,5 @@
 from ..generic.eval import evaluator
+import os
 from ... import backends
 from . import (
     compiler, curryrtbindings, fundamental_symbols, implementation, llvmjit, loader
@@ -36,6 +37,7 @@ class IBackend(backends.IBackend):
     interp._jit_selection = interp.flags['jit_backend']
     previous = getattr(interp, '_its', None)
     interp._its = curryrtbindings.InterpreterState()
+    interp._native_process = os.getpid()
     if previous is not None:
       interp._its.inherit_registry(previous)
     curryrtbindings.icurry_set_hot_threshold(interp._its,
@@ -60,8 +62,19 @@ class IBackend(backends.IBackend):
       M.retire(interp._its)
 
   def before_evaluation(self, interp):
+    if interp._native_process != os.getpid():
+      # Queued parent hot requests were discarded at fork. Reset their call
+      # counts under the heap gate so this child can make its own requests.
+      curryrtbindings._curryrtbindings._metadata_call(
+          lambda: curryrtbindings.icurry_refresh(interp._its, ''))
+      interp._native_process = os.getpid()
     if tiered.enabled(interp):
       tiered.poll(interp)
+    elif interp.flags['jit'] == 'hot' and llvmjit._restart_hot:
+      from .jit import backend
+      if backend(interp) == 'llvm':
+        from .materialize import jit_threshold
+        llvmjit.start_hot_tier(interp._its, jit_threshold())
     llvmjit.flush()   # a function attached outside a module load
 
   def after_evaluation(self, interp):

@@ -1,6 +1,8 @@
 #include "curryrt/evaluation.hpp"
 #include "curryrt/evaluation_test.hpp"
 #include "curryrt/exceptions.hpp"
+#include "curryrt/tiered.hpp"
+#include "curryrt/icurry.hpp"
 #include "curryrt/state/rts.hpp"
 #include <algorithm>
 #include <atomic>
@@ -33,6 +35,14 @@ namespace curryrt
       HeapStatus counts{0, 0, 0};
     };
     Gate *& gate_ptr() { static auto * p = new Gate; return p; }
+    struct ForkState
+    {
+      std::mutex mutex;
+      size_t work = 0;
+      bool prepared_busy = false;
+      std::atomic<bool> poisoned{false};
+    };
+    ForkState *& fork_state() { static auto * p = new ForkState; return p; }
     void drain_pending(bool complete) noexcept;
     void before_fork();
     void parent_after_fork();
@@ -76,14 +86,19 @@ namespace curryrt
         test_preparing = true;
         fence->lock();
       }
+      fork_state()->mutex.lock();
       gate_ptr()->mutex.lock();
       pending().mutex.lock();
+      fork_state()->prepared_busy = fork_state()->prepared_busy
+          || fork_state()->work != 0 || gate_ptr()->depth != 0;
       test_preparing = true;
     }
     void parent_after_fork()
     {
       pending().mutex.unlock();
       gate_ptr()->mutex.unlock();
+      fork_state()->prepared_busy = false;
+      fork_state()->mutex.unlock();
       drain_fence_ptr()->unlock();
     }
     thread_local bool draining = false;
@@ -112,6 +127,12 @@ namespace curryrt
 
     void child_after_fork()
     {
+      auto * fresh_fork = new ForkState;
+      fresh_fork->poisoned = fork_state()->poisoned.load()
+          || fork_state()->prepared_busy;
+      fork_state() = fresh_fork; // Abandon inherited synchronization, never destroy it.
+      tiered_after_fork();
+      icurry_after_fork();
       // As with the ticker, the parent's parked thread does not survive
       // fork.  Keep recursion belonging to the surviving thread and leak
       // the old synchronization objects, which may have vanished waiters.
@@ -261,7 +282,33 @@ namespace curryrt
 
   void set_host_wait(host_wait_type hook) { wait_hook.store(hook); }
   void set_host_poll(host_poll_type hook) { poll_hook.store(hook); }
-  void host_poll() { if(auto hook = poll_hook.load()) hook(); }
+  void host_poll() { fork_check(); if(auto hook = poll_hook.load()) hook(); fork_check(); }
+
+  bool fork_poisoned() noexcept { return fork_state()->poisoned.load(); }
+  void fork_check() { if(fork_poisoned()) throw ForkError(); }
+  void fork_prepare()
+  {
+    (void) gate(); // Register native hooks even before the first heap entry.
+    std::lock_guard<std::mutex> lock(fork_state()->mutex);
+    std::lock_guard<std::mutex> heap_lock(gate_ptr()->mutex);
+    fork_state()->prepared_busy = fork_state()->poisoned.load()
+        || fork_state()->work != 0 || gate_ptr()->depth != 0;
+  }
+  long long fork_work_begin()
+  {
+    fork_check();
+    (void) gate();
+    std::lock_guard<std::mutex> lock(fork_state()->mutex);
+    ++fork_state()->work;
+    return platform::process_id();
+  }
+  void fork_work_end(long long owner) noexcept
+  {
+    if(owner != platform::process_id()) return;
+    std::lock_guard<std::mutex> lock(fork_state()->mutex);
+    assert(fork_state()->work);
+    --fork_state()->work;
+  }
 
   bool heap_try_lock()
   {
@@ -302,6 +349,7 @@ namespace curryrt
 
   void heap_lock(bool poll)
   {
+    fork_check();
     if(heap_try_lock()) return;
     if(auto wait = wait_hook.load()) wait(&wait_for_heap, &poll);
     else wait_for_heap(&poll);
@@ -510,6 +558,9 @@ namespace curryrt
 
   void heap_dispose(PendingHeapAction * action) noexcept
   {
+    // A poisoned child's graph may be an interrupted mutation. Even deleting
+    // a holder can enter inherited runtime state; retain it until process exit.
+    if(fork_poisoned()) return;
     if(heap_try_lock())
     {
       action->apply(action->generation == heap_generation());

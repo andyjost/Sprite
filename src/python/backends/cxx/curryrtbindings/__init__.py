@@ -430,6 +430,8 @@ def _standard_stream(index, operation, text, value):
 set_stream_hook(_standard_stream)
 import atexit as _atexit
 def _shutdown_native():
+  if _curryrtbindings._fork_poisoned():
+    return
   # The hot tier registers later, so it quiesces before this drain. The heap
   # and its root registries remain alive for late Python finalizers.
   _curryrtbindings._heap_drain()

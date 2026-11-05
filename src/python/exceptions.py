@@ -2,6 +2,9 @@
 class CurryError(Exception):
   '''The root of the Curry exception tree.'''
 
+class ForkError(CurryError, RuntimeError):
+  '''Sprite was busy when this child process was forked.'''
+
 class CompileError(CurryError):
   '''Raised when an error occurs while compiling Curry code.'''
   def __init__(self, message, report=None, line=None, column=None):

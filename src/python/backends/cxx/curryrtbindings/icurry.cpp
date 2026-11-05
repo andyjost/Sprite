@@ -240,6 +240,7 @@ namespace
     }
     catch(py::error_already_set & exc)
     {
+      fork_check();
       if(exc.matches(PyExc_KeyboardInterrupt) || exc.matches(PyExc_SystemExit))
         throw;
       exc.restore();
@@ -247,6 +248,7 @@ namespace
     }
     catch(py::cast_error const &)
     {}
+    catch(ForkError const &) { throw; }
     catch(std::exception const &)
     {}
     return nullptr;
@@ -303,76 +305,76 @@ namespace curryrt { namespace python
       , py::arg("owner"), py::arg("info"), py::arg("code"), py::arg("consts"), py::arg("nregs")
       , py::arg("nvars"), py::arg("nstack")
       , "Makes a function table made at run time an interpreted function: "
-        "attaches the bytecode and the constants of its body.", curryrt::python::heap_access{});
+        "attaches the bytecode and the constants of its body.", curryrt::python::heap_access{}, curryrt::python::fork_access{});
     mod.def("icurry_set_cache_hook", [](py::object callback) {
       if(!g_cache_callback) g_cache_callback = new py::object;
       *g_cache_callback = std::move(callback);
       icurry_set_cache_hook(&resolve_cached);
-    });
+    }, curryrt::python::fork_access{});
     mod.def("icurry_install_cached", &icurry_install_cached
-      , curryrt::python::heap_access{});
+      , curryrt::python::heap_access{}, curryrt::python::fork_access{});
     mod.def("icurry_set_step", &icurry_set_step_
       , "Gives an interpreted function the step at an address: the code a JIT "
         "made from the bytecode recorded by the supplied work ticket. "
         "Returns false for retired work or a different table or bytecode. "
-        "The caller provides the existing installation synchronization.");
+        "The caller provides the existing installation synchronization.", curryrt::python::fork_access{});
     mod.def("icurry_post_step", &icurry_post_step_
       , "Posts the step at an address for an interpreted function: a "
         "scheduler applies it at the head of its loop, or "
         "icurry_apply_posted does.  No heap lock: the thread of the hot "
-        "tier posts while an evaluation runs.");
+        "tier posts while an evaluation runs.", curryrt::python::fork_access{});
     mod.def("icurry_apply_posted", &icurry_apply_posted
       , "Applies the posted steps; returns the count applied.  The backend "
-        "calls it before an evaluation.", curryrt::python::heap_access{});
+        "calls it before an evaluation.", curryrt::python::heap_access{}, curryrt::python::fork_access{});
     mod.def("jit_sizes", &jit_sizes_
       , "The sizes the JIT needs: the bytes of a Cursor and of a Variable, "
-        "the bits of a tag and of a pointer.");
+        "the bits of a tag and of a pointer.", curryrt::python::fork_access{});
     mod.def("icurry_bytecode", &icurry_bytecode_
       , "The bytecode of an interpreted function as a dict (code, nregs, "
         "nvars, nstack, nconsts, consts), or None for any other info table.  "
-        "No heap lock: the thread of the hot tier reads it.");
+        "No heap lock: the thread of the hot tier reads it.", curryrt::python::fork_access{});
     // The entry points of the JIT take no heap lock: the thread of the hot
     // tier calls them while an evaluation owns the lock.  They read a table
     // and the lists of the interpreter, under their own mutexes, and write
     // one step pointer.
     py::class_<ICurryWork>(mod, "ICurryWork")
       .def_property_readonly("info", [](ICurryWork const & work) { return work.info; },
-          py::return_value_policy::reference)
-      .def_property_readonly("owner", [](ICurryWork const & work) { return work.owner->id; })
-      .def_readonly("generation", &ICurryWork::generation)
-      .def_property_readonly("valid", &ICurryWork::valid);
-    mod.def("icurry_work", &icurry_work);
-    mod.def("icurry_invalidate", &icurry_invalidate);
+          py::return_value_policy::reference, curryrt::python::fork_access{})
+      .def_property_readonly("owner", [](ICurryWork const & work) { return work.owner->id; }, curryrt::python::fork_access{})
+      .def_readonly("generation", &ICurryWork::generation, curryrt::python::fork_access{})
+      .def_property_readonly("valid", &ICurryWork::valid, curryrt::python::fork_access{});
+    mod.def("icurry_work", &icurry_work, curryrt::python::fork_access{});
+    mod.def("icurry_invalidate", &icurry_invalidate, curryrt::python::fork_access{});
     // The reload caller already owns the heap before taking LLVM's lock.
     mod.def("icurry_refresh", [](InterpreterState & state, std::string const & excluded)
-        { state.modules.refresh(excluded); });
+        { state.modules.refresh(excluded); }, curryrt::python::fork_access{});
     mod.def("icurry_take_hot", &icurry_take_hot
       , "The interpreted functions whose call count reached the threshold of "
         "the hot tier since the last call; the list is cleared."
-      , py::return_value_policy::reference);
+      , py::return_value_policy::reference, curryrt::python::fork_access{});
     mod.def("icurry_set_hot_threshold", &icurry_set_hot_threshold
       , "Sets the call count at which an interpreted function joins the hot "
-        "list; 0 turns the count off.");
+        "list; 0 turns the count off.", curryrt::python::fork_access{});
     mod.def("icurry_hot_threshold", &icurry_hot_threshold
-      , "The call count of the hot tier.");
+      , "The call count of the hot tier.", curryrt::python::fork_access{});
     mod.def("icurry_address"
       , [](InfoTable const * info) { return reinterpret_cast<std::uintptr_t>(info); }
-      , "The table address, without the heap lock, for JIT callbacks.");
+      , "The table address, without the heap lock, for JIT callbacks.", curryrt::python::fork_access{});
     mod.def("icurry_name"
       , [](InfoTable const * info) { return std::string(info && info->name ? info->name : ""); }
       , "The name of an info table, without the heap lock (the thread of the "
-        "hot tier).");
+        "hot tier).", curryrt::python::fork_access{});
     mod.def("icurry_is_jit", &icurry_is_jit
       , "Whether the step of an info table is code the JIT made from its "
-        "bytecode (icurry_set_step).");
+        "bytecode (icurry_set_step).", curryrt::python::fork_access{});
     mod.def("icurry_is_interpreted"
       , [](InfoTable const * info)
           { return icurry_bytecode(info) != nullptr && !icurry_is_jit(info); }
-      , "Whether the step of an info table is the ICurry interpreter.", curryrt::python::heap_access{});
+      , "Whether the step of an info table is the ICurry interpreter.", curryrt::python::heap_access{}, curryrt::python::fork_access{});
     mod.def("icurry_opcodes", &icurry_opcodes_
-      , "The names of the opcodes of the interpreter, in numeric order.", curryrt::python::heap_access{});
+      , "The names of the opcodes of the interpreter, in numeric order.", curryrt::python::heap_access{}, curryrt::python::fork_access{});
     mod.def("icurry_count", &icurry_num_functions
-      , "The number of interpreted functions in the process.", curryrt::python::heap_access{});
+      , "The number of interpreted functions in the process.", curryrt::python::heap_access{}, curryrt::python::fork_access{});
     mod.attr("ROOT_VAR") = (uint32_t) ROOT_VAR;
     mod.attr("NO_BRANCH") = (uint32_t) NO_BRANCH;
   }

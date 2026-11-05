@@ -3,6 +3,7 @@ Implements Interpreter.compile.
 '''
 
 from .. import config, exceptions, objects, toolchain
+from ..utility.procfork import work as fork_work
 from ..objects import handle
 from ..typecheck import goals, sigtable
 from ..utility.visitation import dispatch
@@ -24,6 +25,7 @@ def _next_module():
   with _counter_lock:
     return next(_module_counter)
 
+@fork_work
 def compile(interp, string, imports=None, modulename=None):
   """Compile Curry source as a module, optionally naming it and its imports."""
   stmts, currypath = getImportSpecForExpr(interp, [] if imports is None else imports)
@@ -67,6 +69,7 @@ def _module_source(string, modulename, stmts):
   return '%s\n%s' % ('\n'.join(stmts), string)
 
 
+@fork_work
 def compile_expression(
     interp, string, stmts, currypath, exprtype=None, lift_freevars=True
   ):
