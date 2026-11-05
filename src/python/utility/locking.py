@@ -59,35 +59,10 @@ def emit_messages(messages, logger=None):
 
 
 def _drain():
-  if getattr(_local, 'draining', False):
-    return
-  _local.suppressed = []
-  _local.draining = True
-  messages = getattr(_local, 'messages', [])
-  _local.messages = []
-  _set_logs_pending(False)
-  failure = None
-  try:
-    for logger, level, message, args in messages:
-      try:
-        logger.log(level, message, *args)
-      except BaseException:
-        if failure is None:
-          failure = sys.exc_info()
-  finally:
-    try:
-      if _local.suppressed:
-        # Bypass logging handlers (including warnings redirected to logging)
-        # so reporting recursion cannot produce another emission cycle.
-        os.write(2, ('Sprite logging: suppressed %d recursive records\n'
-            % len(_local.suppressed)).encode('ascii'))
-    except OSError:
-      if failure is None:
-        failure = sys.exc_info()
-    finally:
-      _local.draining = False
-  if failure is not None:
-    raise failure[1].with_traceback(failure[2])
+  # Bootstrap records stay queued until native tracking becomes available.
+  # Snapshot, progress and cleanup must not have Python signal windows.
+  if _native is not None:
+    _native._drain_logs(_local, os.write)
 
 
 @contextlib.contextmanager

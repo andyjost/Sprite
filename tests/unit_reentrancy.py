@@ -131,6 +131,93 @@ assert not locking._held()
 print('ok')
 ''')
 
+  @cytest.posix_only('forces a signal after detaching the drain snapshot')
+  def test_signal_at_drain_snapshot(self):
+    self.interrupted_drain('snapshot')
+
+  @cytest.posix_only('forces a signal between two deferred records')
+  def test_signal_between_drain_records(self):
+    self.interrupted_drain('between')
+
+  def interrupted_drain(self, transition):
+    self.child('transition = %r\n' % transition + '''
+import inspect, re, sys
+from curry.utility import locking
+records, received, propagated, errors = [], [], [], []
+class Handler(logging.Handler):
+  def emit(self, record):
+    assert not locking._held()
+    records.append(record.getMessage())
+logger = logging.getLogger('interrupted-drain-test')
+logger.setLevel(logging.INFO)
+logger.addHandler(Handler())
+def handler(*args):
+  received.append('signal')
+  raise KeyboardInterrupt('interrupted drain')
+signal.signal(signal.SIGUSR1, handler)
+if hasattr(native, '_signal_at_drain_transition'):
+  native._signal_at_drain_transition(transition, signal.SIGUSR1)
+else:
+  # Round 3: dispatch at snapshot detachment or the next loop iteration,
+  # outside the per-record exception handler in both cases.
+  lines, first = inspect.getsourcelines(locking._drain)
+  step = first + next(i for i, line in enumerate(lines)
+      if 'for logger, level, message, args in messages:' in line)
+  def profile(frame, event, arg):
+    if frame.f_code is locking._drain.__code__ and event == 'c_return' \\
+        and arg is locking._set_logs_pending:
+      sys.setprofile(None)
+      signal.raise_signal(signal.SIGUSR1)
+  def trace(frame, event, arg):
+    if frame.f_code is locking._drain.__code__ and event == 'line' \\
+        and frame.f_lineno == step and records == ['first']:
+      sys.settrace(None)
+      signal.raise_signal(signal.SIGUSR1)
+    return trace
+  if transition == 'snapshot': sys.setprofile(profile)
+  else: sys.settrace(trace)
+with tempfile.TemporaryFile() as diagnostics:
+  saved = os.dup(2)
+  try:
+    os.dup2(diagnostics.fileno(), 2)
+    lock = locking.Lock()
+    try:
+      with lock:
+        locking.log(logger, logging.INFO, 'first')
+        locking.log(logger, logging.INFO, 'second')
+    except KeyboardInterrupt as exc:
+      propagated.append(str(exc))
+    finally:
+      sys.setprofile(None)
+      sys.settrace(None)
+    if getattr(locking._local, 'draining', False):
+      errors.append('drain state remains set')
+    # This empty release must notice the retained pending snapshot.
+    with lock:
+      pass
+    original = list(records)
+    locking.log(logger, logging.INFO, 'later direct')
+    with lock:
+      locking.log(logger, logging.INFO, 'later queued')
+  finally:
+    os.dup2(saved, 2)
+    os.close(saved)
+  diagnostics.seek(0)
+  counts = re.findall(rb'Sprite logging: suppressed ([0-9]+) recursive records',
+      diagnostics.read())
+if len(original) + sum(map(int, counts)) != 2:
+  errors.append(('unaccounted records', original, counts))
+if records[-2:] != ['later direct', 'later queued']:
+  errors.append(('later logging failed', records))
+assert not errors, errors
+assert original == [name for name in ('first', 'second') if name in original], original
+assert received == ['signal'], received
+assert propagated == ['interrupted drain'], propagated
+assert not locking._held()
+assert curry.eval(term).one() == 7
+print('ok')
+''')
+
   @cytest.posix_only('uses a POSIX signal during the worker handoff')
   def test_signal_during_worker_handoff(self):
     for action in ('curry.stats()', 'str(term._node)',

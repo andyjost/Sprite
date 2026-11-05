@@ -3,6 +3,7 @@
 #include "heap.hpp"
 #include <atomic>
 #include <csignal>
+#include <exception>
 
 namespace curryrt { namespace python
 {
@@ -22,6 +23,7 @@ namespace
 {
   thread_local size_t lock_depth = 0;
   thread_local bool logs_pending = false;
+  thread_local int drain_snapshot_signal = 0, drain_between_signal = 0;
   PyObject * drain_logs = nullptr; // retained with the host hooks
   bool python_lock_held()
   {
@@ -31,6 +33,88 @@ namespace
   {
     if(!--lock_depth && logs_pending)
       pybind11::reinterpret_borrow<pybind11::function>(drain_logs)();
+  }
+
+  void drain_signal(int & pending)
+  {
+    if(pending)
+    { int sig = pending; pending = 0; std::raise(sig); }
+    if(PyErr_CheckSignals() < 0) throw pybind11::error_already_set();
+  }
+
+  void drain_messages(pybind11::object local, pybind11::function write)
+  {
+    namespace py = pybind11;
+    if(py::getattr(local, "draining", py::bool_(false)).cast<bool>()) return;
+    py::list messages = py::getattr(local, "messages", py::list());
+    py::list empty, suppressed;
+    size_t next = 0, lost = 0;
+    size_t const size = messages.size();
+    std::exception_ptr failure;
+    try
+    {
+      // No Python bytecode separates detachment, pending state and the
+      // cleanup region. The snapshot stays owned here until it is accounted.
+      local.attr("suppressed") = suppressed;
+      local.attr("draining") = true;
+      local.attr("messages") = empty;
+      logs_pending = false;
+      drain_signal(drain_snapshot_signal);
+      while(next < size)
+      {
+        // A signal outside a logging attempt preserves the unattempted tail.
+        if(next) drain_signal(drain_between_signal);
+        try
+        {
+          // Record the attempt and enter the handler in one native step.
+          py::tuple record = messages[next++];
+          py::tuple args = record[3];
+          record[0].attr("log")(record[1], record[2], *args);
+        }
+        catch(py::error_already_set const &)
+        { if(!failure) failure = std::current_exception(); }
+      }
+    }
+    catch(...) { failure = std::current_exception(); }
+    try
+    {
+      if(next < size)
+      {
+        py::object tail = messages;
+        if(next)
+        {
+          tail = py::reinterpret_steal<py::object>(
+              PyList_GetSlice(messages.ptr(), next, size));
+          if(!tail) throw py::error_already_set();
+        }
+        local.attr("messages") = tail;
+        logs_pending = true;
+      }
+    }
+    catch(...)
+    {
+      // Allocation failure must not turn an interrupted snapshot into an
+      // unreported loss. Use the same handler-free count as recursive logs.
+      lost = size - next;
+      if(!failure) failure = std::current_exception();
+    }
+    // Restore state before reporting too; even an interrupted write cannot
+    // leave this thread permanently suppressing diagnostics.
+    local.attr("draining") = false;
+    try
+    {
+      size_t const count = suppressed.size() + lost;
+      if(count)
+        write(2, py::bytes("Sprite logging: suppressed " + std::to_string(count)
+            + " recursive records\n"));
+    }
+    catch(py::error_already_set const & error)
+    {
+      if(!failure || !error.matches(PyExc_OSError))
+        failure = std::current_exception();
+    }
+    if(failure) std::rethrow_exception(failure);
+    if(PyErr_CheckSignals() < 0) throw py::error_already_set();
   }
 
   // No Python bytecode between changing the mutex and its ownership record.
@@ -129,6 +213,14 @@ namespace
     locking.attr("check_entry") = mod.attr("_check_reentrancy");
     mod.def("_set_logs_pending", [](bool pending) { logs_pending = pending; });
     locking.attr("_set_logs_pending") = mod.attr("_set_logs_pending");
+    mod.def("_drain_logs", &drain_messages);
+    mod.def("_signal_at_drain_transition", [](std::string const & step, int sig)
+      {
+        if(step == "snapshot") drain_snapshot_signal = sig;
+        else if(step == "between") drain_between_signal = sig;
+        else throw py::value_error("unknown drain transition");
+      });
+    logs_pending = py::len(py::getattr(locking.attr("_local"), "messages", py::list())) != 0;
     py::object cls = locking.attr("Lock");
     cls.attr("acquire") = py::cpp_function([](py::object self, bool blocking, double timeout)
       { return lock_state(self).acquire(blocking, timeout); }, py::is_method(cls),
