@@ -369,7 +369,7 @@ namespace
     int result = 0;
     auto tag = compare_terms(rts, C, C->cursor()[0], C->cursor()[1], result);
     if(tag < T_CTOR) return tag;
-    return observed(C, Node::create(Module::find_symbol("Prelude",
+    return observed(C, Node::create(Module::find_symbol(process_registry(), "Prelude",
         result < 0 ? "LT" : result > 0 ? "GT" : "EQ")));
   }
 
@@ -433,7 +433,7 @@ namespace
       InfoTable const * info = nullptr;
       for(auto const & module: modules)
       {
-        info = Module::find_symbol(module, name);
+        info = Module::find_symbol(rts->istate.modules, module, name);
         if(info && info->tag >= T_CTOR) break;
         info = nullptr;
       }
@@ -481,7 +481,7 @@ namespace
             std::vector<Arg> args{node};
             do { args.emplace_back(term()); } while(take(','));
             std::string name = "(" + std::string(args.size()-1, ',') + ")";
-            auto info = Module::find_symbol("Prelude", name);
+            auto info = Module::find_symbol(process_registry(), "Prelude", name);
             if(!info) throw std::invalid_argument("tuple");
             node = Node::create(info, args.data());
           }

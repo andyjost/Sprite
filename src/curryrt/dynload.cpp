@@ -136,7 +136,7 @@ namespace
 
     Binder(std::string const & sofilename, bom::Module const & record)
       : sofilename(sofilename), record(record)
-      , owner(Module::find(record.fullname))
+      , owner(Module::find(process_registry(), record.fullname))
     {}
 
     [[noreturn]] void unresolved(
@@ -182,7 +182,7 @@ namespace
       {
         bom::InfoSlot const & slot = record.info_slots[i];
         InfoTable const * info = nullptr;
-        if(auto module = Module::find(slot.module))
+        if(auto module = Module::find(process_registry(), slot.module))
           info = module->get_infotable(slot.name);
         if(!info)
         {
@@ -197,7 +197,7 @@ namespace
       {
         bom::TypeSlot const & slot = record.type_slots[i];
         DataType const * type = nullptr;
-        if(auto module = Module::find(slot.module))
+        if(auto module = Module::find(process_registry(), slot.module))
           type = module->get_type(slot.name);
         if(!type)
           type = Module::builtin_type(slot.module, slot.name);

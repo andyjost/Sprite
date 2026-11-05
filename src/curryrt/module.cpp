@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <atomic>
 #include <cstring>
 #include "curryrt/builtins.hpp"
 #include "curryrt/evaluation.hpp"
@@ -31,11 +32,10 @@ namespace
     return *value;
   }
 
-  auto & modules()
-  {
-    static auto * value = new std::unordered_map<std::string, std::weak_ptr<Module>>;
-    return *value;
-  }
+  auto & all_modules = *new std::vector<std::weak_ptr<Module>>;
+  // Process modules outlive Python wrappers and interpreter resets.
+  auto & process_modules = *new std::vector<std::shared_ptr<Module>>;
+  using KeptKey = std::pair<size_t, std::string>;
   auto & builtin_modules()
   {
     static auto * value = new std::unordered_map<std::string, BuiltinModuleData>;
@@ -43,7 +43,7 @@ namespace
   }
 
   // The tables and types kept when a module with interpreted functions was
-  // cleared (Module::clear), by module name and symbol name.  A module of the
+  // cleared (Module::clear), by registry identity, module and symbol name.  A module of the
   // same name made later takes them back (Module::create_infotable,
   // Module::create_type, and Module::bind_infotable and Module::bind_type
   // for the load of a compiled object), so a symbol keeps its address across
@@ -51,8 +51,8 @@ namespace
   // objects and the slots of the compiled objects (curryrt/dynload.hpp) name
   // the tables by address.
   // Retain the stores for module finalizers after library static teardown.
-  auto & g_kept_symbols = *new std::unordered_map<std::string, SymbolTable>;
-  auto & g_kept_types = *new std::unordered_map<std::string, TypeTable>;
+  auto & g_kept_symbols = *new std::map<KeptKey, SymbolTable>;
+  auto & g_kept_types = *new std::map<KeptKey, TypeTable>;
   // The compiled objects of the modules whose tables were kept: the kept
   // tables hold their steps and their names, so an object bound to them
   // stays loaded for the life of the process.
@@ -61,7 +61,7 @@ namespace
   // The kept table of a symbol with the given shape, taken out of the kept
   // store, or null.  See Module::clear.
   InfoTable * take_kept_symbol(
-      std::string const & modulename, std::string const & name
+      KeptKey const & modulename, std::string const & name
     , tag_type tag, index_type arity
     )
   {
@@ -81,12 +81,26 @@ namespace
 
 namespace curryrt
 {
+  ModuleRegistry::ModuleRegistry()
+  {
+    static std::atomic<size_t> next_id{0};
+    storage = std::make_shared<Storage>();
+    storage->id = ++next_id;
+  }
+
+  ModuleRegistry & process_registry()
+  {
+    static auto * registry = new ModuleRegistry;
+    return *registry;
+  }
+
   struct Module::Impl
   {
     SymbolTable symbols;
     TypeTable types;
     std::shared_ptr<SharedCurryModule> shlib;
     bool keep = false;
+    bool pinned = false;
     // The tables and types made at run time by this module, which clear
     // frees or keeps.  A table taken back from the kept store (see
     // create_infotable and bind_infotable) is one of these as well.
@@ -128,7 +142,8 @@ namespace curryrt
       if(found->second == info) return;
       throw std::invalid_argument("primitive already registered with another table: " + qualified_name);
     }
-    if(Module::find(module))
+    if(std::any_of(all_modules.begin(), all_modules.end(), [&](auto const & weak)
+        { auto m = weak.lock(); return m && m->name == module; }))
       throw std::invalid_argument("new primitive; register before the import: " + qualified_name);
     symbols[name] = info;
     primitive_names().insert(qualified_name);
@@ -146,9 +161,15 @@ namespace curryrt
     assert(rv.second);
   }
 
-  std::shared_ptr<Module> Module::find_or_create(std::string name)
+  std::shared_ptr<Module> Module::find_or_create(
+      ModuleRegistry registry, std::string name, bool runtime_tables)
   {
-    auto & slot = modules()[name];
+    if(!runtime_tables)
+      if(auto module = find(registry, name)) return module;
+    auto bi = builtin_modules().find(name);
+    if(bi != builtin_modules().end() && bi->second.reserved)
+      registry = process_registry();
+    auto & slot = registry.storage->modules[name];
     if(auto handle = slot.lock())
       return handle;
     struct Removal : PendingHeapAction
@@ -157,7 +178,7 @@ namespace curryrt
       void apply(bool) noexcept override { delete value; }
     };
     auto removal = std::make_unique<Removal>();
-    auto * object = new Module(name);
+    auto * object = new Module(registry, name);
     // The last shared owner may be a Python cycle collected under the JIT
     // lock. Keep the entire module alive until its heap-side cleanup can run.
     auto handle = std::shared_ptr<Module>(object,
@@ -167,40 +188,62 @@ namespace curryrt
           heap_dispose(action);
         });
     slot = handle;
+    all_modules.erase(std::remove_if(all_modules.begin(), all_modules.end(),
+        [](auto const & weak) { return weak.expired(); }), all_modules.end());
+    all_modules.push_back(handle);
+    if(object->shared())
+    {
+      object->impl->pinned = true;
+      process_modules.push_back(handle);
+    }
     return handle;
   }
 
-  std::shared_ptr<Module> Module::find(std::string const & name)
+  std::shared_ptr<Module> Module::find(ModuleRegistry const & registry, std::string const & name)
   {
-    auto p = modules().find(name);
-    if(p == modules().end())
-      return nullptr;
-    return p->second.lock();
+    auto p = registry.storage->modules.find(name);
+    if(p != registry.storage->modules.end())
+      if(auto module = p->second.lock()) return module;
+    if(registry.storage != process_registry().storage)
+      return find(process_registry(), name);
+    return nullptr;
   }
 
   InfoTable const * Module::find_symbol(
-      std::string const & modulename, std::string const & name
+      ModuleRegistry const & registry, std::string const & modulename, std::string const & name
     )
   {
-    auto module = Module::find(modulename);
+    auto module = Module::find(registry, modulename);
     return module ? module->get_infotable(name) : nullptr;
   }
 
-  std::map<std::string, std::shared_ptr<Module>> Module::getall()
+  std::map<std::string, std::shared_ptr<Module>> Module::getall(ModuleRegistry const & registry)
   {
     std::map<std::string, std::shared_ptr<Module>> out;
-    for(auto && item: modules())
-    {
-      if(auto p = item.second.lock())
-        out[item.first] = p;
-    }
+    if(registry.storage != process_registry().storage)
+      out = getall(process_registry());
+    for(auto && item: registry.storage->modules)
+      if(auto p = item.second.lock()) out[item.first] = p;
     return out;
   }
 
-  Module::Module(std::string name)
-    : name(name), impl(new Impl)
+  Module::Module(ModuleRegistry registry, std::string name)
+    : registry(std::move(registry)), name(name), impl(new Impl)
   {
     this->seed_builtins();
+  }
+
+  bool Module::shared() const
+  {
+    return registry.storage == process_registry().storage;
+  }
+
+  void Module::publish()
+  {
+    if(shared()) return;
+    auto handle = find(registry, name);
+    process_registry().storage->modules[name] = handle;
+    registry = process_registry();
   }
 
   Module::~Module()
@@ -213,6 +256,12 @@ namespace curryrt
   {
     if(shlib)
     {
+      assert(shared());
+      if(!impl->pinned)
+      {
+        process_modules.push_back(find(registry, name));
+        impl->pinned = true;
+      }
       if(this->impl->shlib)
       {
         // The library linked already, or one that joined its registry
@@ -272,8 +321,8 @@ namespace curryrt
         keep = true;
     if(keep)
     {
-      auto & kept_symbols = g_kept_symbols[this->name];
-      auto & kept_types = g_kept_types[this->name];
+      auto & kept_symbols = g_kept_symbols[{registry.storage->id, this->name}];
+      auto & kept_types = g_kept_types[{registry.storage->id, this->name}];
       for(InfoTable * info: this->impl->owned_tables)
         kept_symbols[info->name] = info;
       for(DataType * type: this->impl->owned_types)
@@ -322,6 +371,7 @@ namespace curryrt
 
   void Module::retire()
   {
+    if(shared()) return;
     this->impl->keep = true;
     this->clear();
   }
@@ -397,7 +447,7 @@ namespace curryrt
       return live;
     }
     InfoTable * kept = take_kept_symbol(
-        this->name, object->name, object->tag, object->arity
+        {registry.storage->id, this->name}, object->name, object->tag, object->arity
       );
     if(!kept)
       return object;
@@ -424,13 +474,13 @@ namespace curryrt
     }
     // A kept type is taken back with every constructor, each of the shape
     // the object gives it, or not at all.
-    auto kept_module = g_kept_types.find(this->name);
+    auto kept_module = g_kept_types.find({registry.storage->id, this->name});
     if(kept_module == g_kept_types.end())
       return object;
     auto kept = kept_module->second.find(object->name);
     if(kept == kept_module->second.end() || kept->second->size != object->size)
       return object;
-    auto kept_symbols = g_kept_symbols.find(this->name);
+    auto kept_symbols = g_kept_symbols.find({registry.storage->id, this->name});
     for(index_type j=0; j<object->size; ++j)
     {
       InfoTable const * ctor = object->ctors[j];
@@ -450,7 +500,7 @@ namespace curryrt
     {
       InfoTable const * ctor = object->ctors[j];
       InfoTable * taken = take_kept_symbol(
-          this->name, ctor->name, ctor->tag, ctor->arity
+          {registry.storage->id, this->name}, ctor->name, ctor->tag, ctor->arity
         );
       assert(taken);
       taken->flags = ctor->flags & ~F_STATIC_OBJECT;
@@ -482,7 +532,7 @@ namespace curryrt
   {
     assert(!this->get_infotable(name));
     // A kept table of the same shape is taken back (see clear).
-    auto kept_module = g_kept_symbols.find(this->name);
+    auto kept_module = g_kept_symbols.find({registry.storage->id, this->name});
     if(kept_module != g_kept_symbols.end())
     {
       auto kept = kept_module->second.find(name);
@@ -545,7 +595,7 @@ namespace curryrt
       flags |= F_DICTIONARY;
     // A kept type with the same number of constructors is taken back (see
     // clear).
-    auto kept_module = g_kept_types.find(this->name);
+    auto kept_module = g_kept_types.find({registry.storage->id, this->name});
     if(kept_module != g_kept_types.end())
     {
       auto kept = kept_module->second.find(name);
@@ -669,9 +719,10 @@ namespace curryrt
   std::string owner_of(InfoTable const * info)
   {
     if(info)
-      for(auto && item: Module::getall())
-        if(item.second->get_infotable(info->name) == info)
-          return item.first;
+      for(auto const & weak: all_modules)
+        if(auto module = weak.lock())
+          if(module->get_infotable(info->name) == info)
+            return module->name;
     return {};
   }
 

@@ -614,7 +614,7 @@ def submit(interp, moduleobj, currypath, hot=False):
           _filenames.icurryfilename(dep_source), config.module_object_suffix())
     imports.append((depname, objectfile, icyfile, digest, publish))
   dispatch(
-      name, argv, envp, logfile, sofile, record.publish or '', steps
+      interp._its, name, argv, envp, logfile, sofile, record.publish or '', steps
     , record.icyfile, record.digest, imports, expected
     )
   _state.pending[name] = sofile

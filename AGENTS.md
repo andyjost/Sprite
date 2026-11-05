@@ -148,6 +148,8 @@ reproducers pass.
   `SPRITE_CPM_PATH=0` disables discovery.
   Modules follow path order and keep loaded names; only runtime builtin names
   are reserved, and stale importers are rebuilt for replaced library modules.
+  Each interpreter owns its runtime modules; runtime builtin modules and loaded
+  compiled objects belong to the process and survive interpreter resets.
 - Primitives register by qualified Curry name through
   `Module::register_primitive` before module loading. The image writer and C++
   emitter share this registry. Standard C++ implements portable operations;

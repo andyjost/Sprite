@@ -348,7 +348,7 @@ def write(interp, module, currypath=None, path=None, imports=None):
     path = _path(interp, module.filename)
   path = _publication_path(interp, module.filename, path, imports)
   from .materialize import function_primitive
-  native = curryrt.Module.find_or_create(module.fullname)
+  native = curryrt.Module.find_or_create(interp._its, module.fullname)
   builtins = {f.name for f in module.functions.values()
       if function_primitive(native, f, module) is not None}
   with _productlock.locked(path):
@@ -489,7 +489,7 @@ def _ensure(interp, icyfile, currypath=None, importing=False):
   imports.update(_import_images(interp,
       [getHandle(dep).fullname for dep, _ in summaries], currypath))
   from .materialize import function_primitive
-  native = curryrt.Module.find_or_create(raw.fullname)
+  native = curryrt.Module.find_or_create(interp._its, raw.fullname)
   builtins = {f.name for f in raw.functions.values()
       if function_primitive(native, f, raw) is not None}
   path = _publication_path(interp, source, path, imports)
@@ -546,9 +546,9 @@ def current(interp, source, currypath=None):
 
 
 def attach(interp, source, path, header):
-  owner = curryrt.Module.find_or_create(header['name'])
+  owner = curryrt.Module.find_or_create(interp._its, header['name'], runtime_tables=True)
   bom = curryrt.load_image(owner, path,
-      json.dumps(header, sort_keys=True, separators=(',', ':')))
+      json.dumps(header, sort_keys=True, separators=(',', ':')), state=interp._its)
   module = _from_bom(bom, source)
   # Material tables live in the runtime module, whose lifetime must cover
   # symbol construction and publication by the importer.

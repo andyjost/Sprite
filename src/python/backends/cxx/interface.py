@@ -38,7 +38,10 @@ class IBackend(backends.IBackend):
     curryrtbindings._curryrtbindings._heap_drain()
     jit.select(interp)
     interp._jit_selection = interp.flags['jit_backend']
+    previous = getattr(interp, '_its', None)
     interp._its = curryrtbindings.InterpreterState()
+    if previous is not None:
+      interp._its.inherit_registry(previous)
 
   def module_loaded(self, interp, moduleobj, currypath):
     materialize.module_loaded(interp, moduleobj, currypath)
@@ -56,7 +59,7 @@ class IBackend(backends.IBackend):
     if M is not None:
       if M.shlib is not None:
         _retired_libraries.append(M.shlib)
-      M.retire()
+      M.retire(interp._its)
 
   def before_evaluation(self, interp):
     if tiered.enabled(interp):
@@ -89,8 +92,11 @@ class IBackend(backends.IBackend):
 
   def find_or_create_internal_module(self, moduleobj):
     h = getHandle(moduleobj)
-    M = curryrtbindings.Module.find_or_create(h.fullname)
-    M.link(h.icurry.metadata.get('cxx.shlib'))
+    shlib = h.icurry.metadata.get('cxx.shlib')
+    M = curryrtbindings.Module.find_or_create(
+        getattr(moduleobj, '.interp')._its, h.fullname,
+        compiled=shlib is not None, runtime_tables=shlib is None)
+    M.link(shlib)
     return M
 
   @property

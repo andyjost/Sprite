@@ -41,22 +41,22 @@ class TestCxxRuntime(cytest.TestCase):
     self.assertIs(type(cm.exception), curry.LoadError)
 
   def testModuleCreation(self):
-    count_modules = lambda: len(curryrt.Module.getall())
+    count_modules = lambda: len(curryrt.Module.getall(curry._interpreter_._its))
     # Earlier tests in the same process may leave the Prelude loaded, so count
     # relative to the state at entry.
     base = count_modules()
-    self.assertNotIn('Hello', curryrt.Module.getall())
+    self.assertNotIn('Hello', curryrt.Module.getall(curry._interpreter_._its))
 
     # Create.
-    Hello = curryrt.Module.find_or_create('Hello')
+    Hello = curryrt.Module.find_or_create(curry._interpreter_._its, 'Hello')
     self.assertEqual(count_modules(), base + 1)
-    self.assertIs(curryrt.Module.getall()['Hello'], Hello)
+    self.assertIs(curryrt.Module.getall(curry._interpreter_._its)['Hello'], Hello)
 
     # Attributes.
     self.assertEqual(Hello.name, 'Hello')
 
     # Recreate.
-    Hello2 = curryrt.Module.find_or_create('Hello')
+    Hello2 = curryrt.Module.find_or_create(curry._interpreter_._its, 'Hello')
     self.assertIs(Hello, Hello2)
 
     # Delete
@@ -64,7 +64,7 @@ class TestCxxRuntime(cytest.TestCase):
     self.assertEqual(count_modules(), base)
 
   def testTypeCreation(self):
-    Hello = curryrt.Module.find_or_create('Hello')
+    Hello = curryrt.Module.find_or_create(curry._interpreter_._its, 'Hello')
 
     Cons = Hello.create_infotable(':', 2, common.T_CTOR  , common.F_LIST_TYPE)
     Nil = Hello.create_infotable('[]', 0, common.T_CTOR+1, common.F_LIST_TYPE)

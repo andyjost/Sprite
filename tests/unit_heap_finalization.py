@@ -25,7 +25,7 @@ def cycle():
   term = curry.term(123456789)
   state = rt.InterpreterState()
   rts = rt.RuntimeStateBase(state, term._node, False, rt.NOLIMIT, 65536, 0)
-  module = rt.Module.find_or_create('FinalizationOrphan')
+  module = rt.Module.find_or_create(curry._interpreter_._its, 'FinalizationOrphan')
   values = [term, state, rts, module]
   values.append(values)
 

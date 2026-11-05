@@ -585,6 +585,35 @@ namespace curryrt
       return publish;
     }
 
+    // Publish the binding owner before dlopen, restoring the old name if
+    // the loader refuses the file before any slots can have been bound.
+    struct Publication
+    {
+      std::shared_ptr<Module> module;
+      std::shared_ptr<Module> previous;
+      ModuleRegistry origin;
+      bool mapped = false;
+      explicit Publication(std::shared_ptr<Module> module)
+        : module(module), origin(module ? module->registry : process_registry())
+      {
+        if(module)
+        {
+          previous = Module::find(process_registry(), module->name);
+          module->publish();
+        }
+      }
+      ~Publication()
+      {
+        if(module && !mapped && origin.storage != process_registry().storage)
+        {
+          module->registry = origin;
+          auto & entries = process_registry().storage->modules;
+          if(previous) entries[module->name] = previous;
+          else entries.erase(module->name);
+        }
+      }
+    };
+
     // Maps the object of an import of a job (see the imports in
     // tiered.hpp), unless the import has one: it was loaded from its
     // object, swapped, or mapped by an earlier swap.  Nothing when the
@@ -593,9 +622,9 @@ namespace curryrt
     // (none is expected) gets its object mapped all the same, and the
     // handle stays open, so that the object stays mapped.  Returns false
     // with the error of ``result`` set.
-    bool map_import(TieredJob::Import const & imp, TieredResult & result)
+    bool map_import(ModuleRegistry const & registry, TieredJob::Import const & imp, TieredResult & result)
     {
-      auto module = Module::find(imp.module);
+      auto module = Module::find(registry, imp.module);
       if(module && module->shlib())
         return true;
       if(!file_exists(imp.sofile))
@@ -611,7 +640,9 @@ namespace curryrt
           imp.sofile, imp.publish, imp.icurryfile, imp.icurry_digest
         );
       std::string loadpath;
+      Publication publication(module);
       void * raw = open_object(path, loadpath, &result.error);
+      publication.mapped = raw != nullptr;
       if(!raw)
       {
         result.error = "the import " + imp.module + ": " + result.error;
@@ -651,7 +682,7 @@ namespace curryrt
         result.error = done.error;
         return result;
       }
-      auto module = Module::find(job.module);
+      auto module = Module::find(job.registry, job.module);
       if(!module)
       {
         result.error = "the module is no longer loaded";
@@ -707,7 +738,7 @@ namespace curryrt
       }
       // The objects of the imports first; see tiered.hpp.
       for(auto const & imp: job.imports)
-        if(!map_import(imp, result))
+        if(!map_import(job.registry, imp, result))
           return result;
       std::vector<std::pair<std::string, InfoTable const *>> steps;
       for(auto const & step: job.steps)
@@ -732,7 +763,9 @@ namespace curryrt
       // The load; see tiered.hpp.  On success the library owns the object
       // and the handle is released.
       std::string loadpath;
+      Publication publication(module);
       void * raw = open_object(path, loadpath, &result.error);
+      publication.mapped = raw != nullptr;
       if(!raw)
         return result;
       try

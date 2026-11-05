@@ -140,7 +140,7 @@ class CxxCompiler(compiler.CompilerBase):
 
   def __init__(self, interp, iroot):
     super(CxxCompiler, self).__init__(interp, iroot)
-    self.cxxmodule = curryrt.Module.find_or_create(iroot.modulename) \
+    self.cxxmodule = curryrt.Module.find_or_create(interp._its, iroot.modulename) \
         if isinstance(iroot, icurry.IModule) \
         else None
     # The size of the block of the redex of the step under compilation, and

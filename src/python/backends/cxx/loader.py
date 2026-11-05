@@ -267,9 +267,10 @@ def _open_module(interp, sofile, name, from_plan, fresh, before, _saved_payload)
   # owner on an ordinary reload too, so it takes back the kept tables and
   # restores their compiled steps before the cached bill of materials is
   # imported.  Keep the owner alive through that import (#177).
-  owner = curryrt.Module.find_or_create(name) if name is not None else None
+  owner = curryrt.Module.find_or_create(interp._its, name, compiled=not adopt, runtime_tables=adopt) \
+      if name is not None else None
   if adopt:
-    result = curryrt.tiered_adopt(name, sofile, steps)
+    result = curryrt.tiered_adopt(interp._its, name, sofile, steps)
     if not result['ok']:
       if (result['error'].startswith('the object is mapped under this name')
           and interp.flags['interpret'] != 'off'):

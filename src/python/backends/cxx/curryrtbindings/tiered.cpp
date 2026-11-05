@@ -3,6 +3,7 @@
 #include <vector>
 #include "curryrt/graph/infotable.hpp"
 #include "curryrt/tiered.hpp"
+#include "curryrt/state/rts.hpp"
 #include "pybind11/pybind11.h"
 #include "pybind11/stl.h"
 
@@ -19,13 +20,14 @@ namespace
   // of tuples; ``publish`` names the object beside the source the swap
   // publishes, or is empty (TieredJob::publish).
   TieredJob make_job(
-      std::string module, std::vector<std::string> argv
+      InterpreterState & state, std::string module, std::vector<std::string> argv
     , std::vector<std::string> envp, std::string logfile, std::string sofile
     , std::string publish, py::sequence steps, std::string icurryfile
     , std::string icurry_digest, py::sequence imports, std::vector<std::string> fingerprints
     )
   {
     TieredJob job;
+    job.registry = state.modules;
     job.fingerprints = std::move(fingerprints);
     job.module = std::move(module);
     job.argv = std::move(argv);
@@ -64,28 +66,28 @@ namespace
   }
 
   void tiered_submit_(
-      std::string module, std::vector<std::string> argv
+      InterpreterState & state, std::string module, std::vector<std::string> argv
     , std::vector<std::string> envp, std::string logfile, std::string sofile
     , std::string publish, py::sequence steps, std::string icurryfile
     , std::string icurry_digest, py::sequence imports, std::vector<std::string> fingerprints
     )
   {
     tiered_submit(make_job(
-        std::move(module), std::move(argv), std::move(envp)
+        state, std::move(module), std::move(argv), std::move(envp)
       , std::move(logfile), std::move(sofile), std::move(publish), steps
       , std::move(icurryfile), std::move(icurry_digest), imports, std::move(fingerprints)
       ));
   }
 
   void cxx_arm_(
-      std::string module, std::vector<std::string> argv
+      InterpreterState & state, std::string module, std::vector<std::string> argv
     , std::vector<std::string> envp, std::string logfile, std::string sofile
     , std::string publish, py::sequence steps, std::string icurryfile
     , std::string icurry_digest, py::sequence imports, std::vector<std::string> fingerprints
     )
   {
     cxx_arm(make_job(
-        std::move(module), std::move(argv), std::move(envp)
+        state, std::move(module), std::move(argv), std::move(envp)
       , std::move(logfile), std::move(sofile), std::move(publish), steps
       , std::move(icurryfile), std::move(icurry_digest), imports, std::move(fingerprints)
       ));
@@ -107,11 +109,11 @@ namespace
   }
 
   py::dict tiered_adopt_(
-      std::string module, std::string sofile, py::sequence steps
+      InterpreterState & state, std::string module, std::string sofile, py::sequence steps
     )
   {
     TieredJob job = make_job(
-        std::move(module), {}, {}, {}, std::move(sofile), {}, steps, {}, {}
+        state, std::move(module), {}, {}, {}, std::move(sofile), {}, steps, {}, {}
       , py::tuple(), {}
       );
     return result_dict(tiered_adopt(std::move(job), true));
@@ -151,7 +153,7 @@ namespace curryrt { namespace python
   void register_tiered(pybind11::module_ mod)
   {
     mod.def("tiered_submit", &tiered_submit_
-      , py::arg("module"), py::arg("argv"), py::arg("envp")
+      , py::arg("state"), py::arg("module"), py::arg("argv"), py::arg("envp")
       , py::arg("logfile"), py::arg("sofile"), py::arg("publish") = ""
       , py::arg("steps")
       , py::arg("icurryfile") = "", py::arg("icurry_digest") = ""
@@ -171,7 +173,7 @@ namespace curryrt { namespace python
         "module has no object before the object of the module, under the "
         "same check of its ICurry.", curryrt::python::heap_access{});
     mod.def("cxx_arm", &cxx_arm_
-      , py::arg("module"), py::arg("argv"), py::arg("envp")
+      , py::arg("state"), py::arg("module"), py::arg("argv"), py::arg("envp")
       , py::arg("logfile"), py::arg("sofile"), py::arg("publish") = ""
       , py::arg("steps")
       , py::arg("icurryfile") = "", py::arg("icurry_digest") = ""
@@ -197,7 +199,7 @@ namespace curryrt { namespace python
         "be read.", curryrt::python::heap_access{});
     mod.attr("TIERED_EDITED") = TIERED_EDITED;
     mod.def("tiered_adopt", &tiered_adopt_
-      , py::arg("module"), py::arg("sofile"), py::arg("steps")
+      , py::arg("state"), py::arg("module"), py::arg("sofile"), py::arg("steps")
       , "Loads the object of a module compiled in this process and swaps the "
         "steps at once (the compile on first use under interpret:off).  steps "
         "is as for tiered_submit.  Returns the result as a dict "

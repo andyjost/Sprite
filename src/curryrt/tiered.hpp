@@ -1,5 +1,6 @@
 #pragma once
 #include "curryrt/export.hpp"
+#include "curryrt/module.hpp"
 #include <atomic>
 #include <string>
 #include <vector>
@@ -73,6 +74,7 @@ namespace curryrt
 {
   struct TieredJob
   {
+    ModuleRegistry registry;
     // The full name of the module.
     std::string module;
     // The command that compiles the module, the environment of the command

@@ -480,7 +480,7 @@ print(json.dumps(dict(ok=True)))
 M = curry.import_(source)
 jit = llvmjit._jit
 writer = jit.modules[M.fib.info.address]
-jit.object_generations.pop(writer.key)
+jit.object_generations.pop(writer.runtime_key)
 reader = llvmjit._CachedModule(jit, writer.path, writer.header,
     [(info, name) for name, info in writer.items.items()])
 read = llvmjit._read_cache
@@ -601,7 +601,7 @@ with mock.patch.object(llvmjit.os, 'replace', side_effect=PermissionError('shari
 assert path.read_bytes() == before
 assert context.index is None
 assert all(isinstance(obj, bytes) and obj for _, obj in context.objects)
-assert context.objects is llvmjit._jit.object_generations[context.key]
+assert context.objects is llvmjit._jit.object_generations[context.runtime_key]
 assert all(isinstance(obj, bytes) for _, obj in context.cached.values())
 assert not list(path.parent.glob('.jit-*'))
 objects = llvmjit._read_cache(path, context.key)
@@ -841,7 +841,7 @@ assert all(entry.get('_native') for entry in index.entries)
 context.store()
 assert context.index is not index
 assert context.objects is context.index
-assert context.objects is llvmjit._jit.object_generations[context.key]
+assert context.objects is llvmjit._jit.object_generations[context.runtime_key]
 assert all('_native' not in entry for entry in context.index.entries)
 assert all(context.object_for(name)[1].index is context.index for name in context.cached)
 assert all('_native' not in obj.entry for _, obj in context.cached.values())

@@ -499,7 +499,7 @@ def compile_pending(entry):
           ifun.name, generic.mangle(ifun.splitname(), generic.STEP_FUNCTION)
         , info
         ))
-  result = curryrt.tiered_adopt(name, sofile, steps)
+  result = curryrt.tiered_adopt(interp._its, name, sofile, steps)
   if not result['ok']:
     output = result['output'].strip()
     raise CompileError(

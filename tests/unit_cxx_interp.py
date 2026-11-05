@@ -439,15 +439,16 @@ class TestValues(cytest.TestCase):
       , '[3, 2, 1]'
       ]))
     self.assertEqual(self.value(expected, 'chars'), ['"az\\955\\n"'])
+    prelude_info = curry.import_('Prelude')['map'].info
+    prelude_interpreted = curryrt.icurry_is_interpreted(prelude_info)
     for mode in 'new', 'all':
       M = None
       M = switch(mode)
       interpreted = curryrt.icurry_is_interpreted(M.fact.info)
       self.assertEqual(interpreted, mode == 'all', mode)
-      self.assertEqual(
-          curryrt.icurry_is_interpreted(curry.import_('Prelude')['map'].info)
-        , mode == 'all', mode
-        )
+      # Reserved tables keep the route chosen when the process loaded them.
+      self.assertIs(curry.import_('Prelude')['map'].info, prelude_info)
+      self.assertEqual(curryrt.icurry_is_interpreted(prelude_info), prelude_interpreted)
       if mode == 'all':
         self.assertEqual(self.values(M), expected)
 
@@ -557,29 +558,29 @@ main = double (CxxInterp.fact 3)
 
   @cytest.hardreset
   def test_all(self):
-    M = switch('all')
-    self.assertIsNone(getHandle(M).icurry.metadata.get('cxx.shlib'))
-    self.assertTrue(curryrt.icurry_is_interpreted(M.fact.info))
-    prelude = curry.import_('Prelude')
-    self.assertIsNone(getHandle(prelude).icurry.metadata.get('cxx.shlib'))
-    self.assertTrue(curryrt.icurry_is_interpreted(prelude.map.info))
-    self.assertTrue(curryrt.icurry_is_interpreted(prelude.length.info))
-    # A built-in keeps the step of the runtime.
-    self.assertFalse(
-        curryrt.icurry_is_interpreted(curry.import_('Prelude')['plusInt'].info)
-      )
-    self.assertFalse(
-        curryrt.icurry_is_interpreted(curry.import_('Prelude')['apply'].info)
-      )
-    # Set functions.
-    setf = curry.import_('Control.SetFunctions')
-    self.assertFalse(curryrt.icurry_is_interpreted(setf.set1.info))
-    self.assertTrue(curryrt.icurry_is_interpreted(setf.sortValues.info))
-    self.assertGreater(curryrt.icurry_count(), 1000)
-    self.assertEqual(
-        list(curry.eval(cytest.raw.expr(prelude.length, [1, 2, 3], typed=True)))
-      , [3]
-      )
+    # A reserved module keeps the process's first definition across resets.
+    # Start a fresh process to test its initial interpreted load.
+    child = cytest.run_in_subprocess(r'''
+import curry
+from curry.backends.cxx import curryrtbindings as rt
+from curry.objects.handle import getHandle
+curry.reset(backend='cxx', interpret='all', jit='off')
+module = curry.import_('CxxInterp')
+assert getHandle(module).icurry.metadata.get('cxx.shlib') is None
+assert rt.icurry_is_interpreted(module.fact.info)
+prelude = curry.import_('Prelude')
+assert getHandle(prelude).icurry.metadata.get('cxx.shlib') is None
+assert rt.icurry_is_interpreted(prelude.map.info)
+assert rt.icurry_is_interpreted(prelude.length.info)
+assert not rt.icurry_is_interpreted(prelude['plusInt'].info)
+assert not rt.icurry_is_interpreted(prelude['apply'].info)
+setf = curry.import_('Control.SetFunctions')
+assert not rt.icurry_is_interpreted(setf.set1.info)
+assert rt.icurry_is_interpreted(setf.sortValues.info)
+assert rt.icurry_count() > 1000
+assert curry.eval(prelude.length([1, 2, 3])).one() == 3
+''', timeout=TIMEOUT, address_space=ADDRESS_SPACE)
+    self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
 
   @cytest.hardreset
   def test_attach_refusals(self):

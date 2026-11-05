@@ -5,6 +5,9 @@ Release Notes
 Unreleased
 ==========
 
+- Give each interpreter its own runtime module registry; share runtime builtin
+  modules and loaded compiled objects, and preserve them across resets (#184).
+
 - Serve loaded modules from memory until reload or reset, without product
   snapshots; product-file readers verify the digests recorded at load.
 - Library modules follow Curry path order; only runtime builtin module names

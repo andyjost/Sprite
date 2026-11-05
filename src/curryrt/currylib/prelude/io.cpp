@@ -129,11 +129,11 @@ namespace curryrt
     Variable _1 = _0[0];
     // The show instance of IOError is defined in Curry; its table comes
     // from the loaded Prelude, compiled or interpreted (Module::find_symbol).
-    InfoTable const * show_Info = Module::find_symbol(
+    InfoTable const * show_Info = Module::find_symbol(process_registry(),
         "Prelude", "_impl#show#Prelude.Show#Prelude.IOError"
       );
     if(!show_Info)
-      show_Info = Module::find_symbol(
+      show_Info = Module::find_symbol(process_registry(),
           "Prelude", "_impl#show#Prelude.Show#Prelude.IOError#"
         );
     if(!show_Info)

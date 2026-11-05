@@ -460,6 +460,13 @@ skips a module with changed inputs, logs one INFO message and leaves it
 interpreted. Only compile jobs create files in the background compiler's
 temporary root.
 
+Each interpreter owns the registry of tables made at run time, including
+interpreted images and LLVM code. Runtime builtin modules and loaded compiled
+objects use the process registry, including reserved modules under
+``interpret=all``. Name lookup checks the interpreter registry first, then
+the process registry. Reset retires only the interpreter's private modules,
+leaving shared tables such as the Prelude intact.
+
 The module image
 ================
 

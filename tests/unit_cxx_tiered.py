@@ -118,7 +118,7 @@ with tempfile.TemporaryDirectory() as root:
   stamp = obj + '.abi'
   with open(stamp, 'w') as stream:
     stream.write('abi\ninstallation\n{"imports": {"Prelude": "wrong"}}\n')
-  tiered.curryrt.tiered_submit('StampMismatch', [sys.executable, '-c', 'pass'],
+  tiered.curryrt.tiered_submit(curry._interpreter_._its, 'StampMismatch', [sys.executable, '-c', 'pass'],
       tiered._environment(curry._interpreter_), os.path.join(root, 'job.log'),
       obj, '', [], '', '', [], [stamp + '\n"Prelude": "expected"'])
   assert curryrt.tiered_wait(30)
@@ -301,9 +301,9 @@ class TieredTestCase(cytest.TestCase):
     # Exercise worker/publication regressions without waiting for hot calls.
     # Actual threshold gating is covered in unit_jit.
     arm = curryrt.cxx_arm
-    def dispatch(name, *args):
+    def dispatch(state, name, *args):
       # Expressions remain cold in these worker-only regression fixtures.
-      return (arm if config.is_expression_modname(name) else curryrt.tiered_submit)(name, *args)
+      return (arm if config.is_expression_modname(name) else curryrt.tiered_submit)(state, name, *args)
     patch = mock.patch.object(curryrt, 'cxx_arm', side_effect=dispatch)
     patch.start()
     self.addCleanup(patch.stop)
@@ -595,26 +595,28 @@ class TestSwap(TieredTestCase):
     self.assertIs(self.py(M.same, v, self.value(M.mk, 2)), True)
 
   @cytest.hardreset
-  def test_tables_survive_a_reload(self):
-    # After a reload, a module of the same name takes its tables back, so
-    # the second incarnation is swapped as well, to the same tables.
+  def test_compiled_tables_survive_a_private_reload(self):
+    # Compiled tables belong to the process. A private reload gets fresh
+    # tables and leaves the previous object's bound tables intact.
     name = self.write_module()
     M = self.import_module(name)
-    address = M.area.info.address
+    old_info = M.area.info
+    address = old_info.address
     self.wait()
-    self.assertFalse(curryrt.icurry_is_interpreted(M.area.info))
+    self.assertFalse(curryrt.icurry_is_interpreted(old_info))
     bindings = tiered.status()['bindings']
     M = None
     self.switch('cxx')
     # The object exists now, so a plain import loads it compiled.  Remove
     # it: the module is interpreted again, from the image beside the
-    # generated file, and the compile starts from that file.  The tables of
-    # the first incarnation serve; no warning is logged.
+    # generated file, and the compile starts from that file. The process
+    # keeps the first incarnation's tables; no warning is logged.
     os.unlink(self.sofile(name))
     os.unlink(self.stamp(name))
     with capture_log('curry.backends.cxx.tiered') as log:
       M = self.import_module(name)
-      self.assertEqual(M.area.info.address, address)
+      self.assertNotEqual(M.area.info.address, address)
+      self.assertFalse(curryrt.icurry_is_interpreted(old_info))
       self.assertTrue(curryrt.icurry_is_interpreted(M.area.info))
       self.assertEqual(self.py(M.area, self.value(M.mk, 3)), 12)
       self.wait()
@@ -640,7 +642,8 @@ class TestSwap(TieredTestCase):
     self.edit_module(name, text % 2)
     self.switch('cxx')
     M = self.import_module(name)
-    self.assertEqual(M.bump.info.address, address)
+    new_address = M.bump.info.address
+    self.assertNotEqual(new_address, address)
     self.assertTrue(curryrt.icurry_is_interpreted(M.bump.info))
     self.assertEqual(self.py(M.bump, 1), 3)
     before = tiered.status()
@@ -650,7 +653,7 @@ class TestSwap(TieredTestCase):
     self.assertEqual(after['swapped_modules'], before['swapped_modules'] + 1)
     self.assertFalse(curryrt.icurry_is_interpreted(M.bump.info))
     self.assertEqual(self.py(M.bump, 1), 3)
-    self.assertEqual(M.bump.info.address, address)
+    self.assertEqual(M.bump.info.address, new_address)
 
   @cytest.hardreset
   def test_edited_import_keeps_a_dependent_interpreted(self):
@@ -734,10 +737,9 @@ class TestSwap(TieredTestCase):
     # The import route of issue #114: the source edited between two imports
     # with a reset between them, the first module object alive.  The first
     # incarnation is swapped to compiled code before the edit; the second
-    # takes its tables back without the steps, runs the new code
-    # interpreted, and is swapped to the new object in turn.  The data type
-    # takes its tables back too, so the two incarnations share every table,
-    # and no warning is logged.
+    # gets private tables, runs the new code interpreted, and is swapped
+    # to the new object in turn. The old compiled generation keeps its
+    # tables, including the data type; no warning is logged.
     name = self.write_module(self.EDITED % 1)
     first = self.import_module(name)
     self.assertEqual(self.py(first.main), 1)
@@ -752,9 +754,8 @@ class TestSwap(TieredTestCase):
     self.assertEqual(log.data[logging.WARNING], [])
     with self.assertRaises(curry.StaleError):
       first.f
-    self.assertEqual(
-        (second.f.info.address, second.B.info.address), addresses
-      )
+    self.assertNotEqual(second.f.info.address, addresses[0])
+    self.assertNotEqual(second.B.info.address, addresses[1])
     self.assertTrue(curryrt.icurry_is_interpreted(second.f.info))
     self.assertEqual(self.py(second.main), 2)
     self.wait()
@@ -1443,7 +1444,7 @@ class TestLoadDuringCompile(TieredTestCase):
   def test_changed_shape_swaps_after_a_reset(self):
     # The first incarnation is swapped to compiled code; the source then
     # changes the arity of a function, so the second incarnation, after a
-    # reset, gets a new table for it and takes the other tables back.  The
+    # reset, gets private tables for every symbol. The
     # object of the second compile binds to the tables of the second
     # incarnation, whatever their addresses, so the module swaps with no
     # warning.  (The shim of the tiered mode of before named the old
@@ -1466,7 +1467,7 @@ class TestLoadDuringCompile(TieredTestCase):
       second = self.import_module(name)
       self.assertTrue(curryrt.icurry_is_interpreted(second.f.info))
       self.assertNotEqual(second.f.info.address, f_address)
-      self.assertEqual(second.g.info.address, g_address)
+      self.assertNotEqual(second.g.info.address, g_address)
       self.assertEqual(self.py(second.main), 8)
       self.wait()
     self.assertEqual(log.data[logging.WARNING], [])

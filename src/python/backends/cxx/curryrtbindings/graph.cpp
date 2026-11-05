@@ -800,6 +800,14 @@ namespace curryrt { namespace python
   {
     py::class_<InterpreterState, HeapOwned<InterpreterState>>(mod, "InterpreterState")
       .def(py::init<>(), curryrt::python::heap_access{})
+      .def("inherit_registry", [](InterpreterState & state, InterpreterState & previous)
+        {
+          state.modules = previous.modules;
+          for(auto const & entry: state.modules.storage->modules)
+            if(auto module = entry.second.lock())
+              if(!module->shared()) module->retire();
+          state.modules.storage->modules.clear();
+        }, curryrt::python::heap_access{})
       .def_readwrite(
           "external_freevars", &InterpreterState::external_freevars
         , "The free variables made outside an evaluation; see state/rts.hpp."

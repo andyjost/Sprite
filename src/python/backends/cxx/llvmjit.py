@@ -426,7 +426,7 @@ class _JIT(object):
       else:
         context.objects.append((records, obj))
         context.dirty = True
-        self.generations.setdefault(context.key, []).append((tracker, records))
+        self.generations.setdefault(context.runtime_key, []).append((tracker, records))
       if not curryrt.icurry_is_jit(info):
         swap(info, tracker[symbol])
         swapped += 1
@@ -692,6 +692,9 @@ class _CachedModule:
     self.path = path
     self.name = header['name']
     self.items = dict((name, info) for info, name in items)
+    # Native code binds constants to these tables. Identical cached bytes
+    # can be linked only within the same table owner, including across reset.
+    self.slot = tuple(sorted(curryrt.icurry_address(info) for info in self.items.values()))
     # The same key means the same image and the same functions outside AOT
     # objects, so these module-local ordinals stay unique across a merge.
     self.symbols = {name: 's%x' % k for k, name in enumerate(sorted(self.items))}
@@ -711,6 +714,10 @@ class _CachedModule:
     if self._key is None:
       self._key = _cache_key(self.jit, self.header)
     return self._key
+
+  @property
+  def runtime_key(self):
+    return self.slot, self.key
 
   @property
   def private(self):
@@ -741,7 +748,7 @@ class _CachedModule:
         library = 'cached%d' % self.jit.serial
         self.jit.serial += 1
         tracker = self.jit.link_object(native, records, addresses, library)
-        self.jit.generations.setdefault(self.key, []).append((tracker, records))
+        self.jit.generations.setdefault(self.runtime_key, []).append((tracker, records))
         self.resolved[name] = (tracker, symbol)
       tracker, symbol = self.resolved[name]
       if name not in self.counted:
@@ -773,7 +780,7 @@ class _CachedModule:
   def load(self, jit):
     # Reuse the index and linked code across resets. Unresolved objects
     # retain their pinned generation and are verified at materialization.
-    objects = jit.object_generations.get(self.key)
+    objects = jit.object_generations.get(self.runtime_key)
     if objects is None:
       paths = [self.local]
       if self.root and os.path.isdir(self.root):
@@ -814,10 +821,10 @@ class _CachedModule:
       self.cached.update({pair[0][0][0]: pair for pair in objects.extra})
     else:
       self.cached = {pair[0][0][0]: pair for pair in objects}
-    for tracker, records in jit.generations.get(self.key, []):
+    for tracker, records in jit.generations.get(self.runtime_key, []):
       name, symbol, _ = records[0]
       self.resolved[name] = (tracker, symbol)
-    jit.object_generations[self.key] = objects
+    jit.object_generations[self.runtime_key] = objects
     logger.info('jit cache: module %s, indexed %d functions', self.name, len(self.cached))
     return True
 
@@ -844,8 +851,8 @@ class _CachedModule:
         self.cached[name] = (records, obj)
     self.index = None
     self.dirty = False
-    self.jit.object_generations[self.key] = self.objects
-    self.jit.module_keys[self.name] = self.key
+    self.jit.object_generations[self.runtime_key] = self.objects
+    self.jit.module_keys[self.slot] = self.runtime_key
     for path in (self.local, self.private):
       if path is None:
         continue
@@ -927,7 +934,7 @@ class _CachedModule:
           published = _read_cache(path, self.key)
           self.objects = self.index = published
           self.cached = {entry['functions'][0][0]: entry for entry in published.entries}
-          self.jit.object_generations[self.key] = published
+          self.jit.object_generations[self.runtime_key] = published
           if path == self.local and self.private:
             try:
               os.unlink(self.private)
@@ -956,15 +963,15 @@ def attach_cache(path, header, items):
       jit.names[curryrt.icurry_address(info)] = name
     context.load(jit)
     # A replaced image generation no longer owns any attached steps.
-    old = jit.module_keys.get(context.name)
-    key = context.key if context.objects else None
+    old = jit.module_keys.get(context.slot)
+    key = context.runtime_key if context.objects else None
     if old is not None and old != key:
       for tracker, _ in jit.generations.pop(old, []):
         tracker.close()
       detached = jit.object_generations.pop(old, None)
       if isinstance(detached, _IndexedObjects):
         detached.close()
-    jit.module_keys[context.name] = key
+    jit.module_keys[context.slot] = key
   # Installing entries takes the heap lock. Never wait for the heap while
   # holding the JIT lock: an evaluation may be waiting in a resolver.
   if context.cached:

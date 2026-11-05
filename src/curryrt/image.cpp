@@ -13,12 +13,13 @@ namespace
 
   struct Reader
   {
+    ModuleRegistry registry;
     std::string data;
     size_t pos = 0;
     std::unordered_map<std::string, Node *> integers;
     std::unordered_map<uint32_t, Node *> characters;
     std::unordered_map<uint64_t, Node *> floats;
-    explicit Reader(std::string const & path)
+    explicit Reader(ModuleRegistry registry, std::string const & path) : registry(std::move(registry))
     {
       std::ifstream in(path, std::ios::binary);
       if(!in) fail("cannot open file");
@@ -83,7 +84,7 @@ namespace
     {
       auto module = text();
       auto name = text();
-      auto info = Module::find_symbol(module, name);
+      auto info = Module::find_symbol(registry, module, name);
       if(!info)
       {
         auto builtin = Module::builtin_symbol(module, name);
@@ -199,9 +200,9 @@ namespace
 namespace curryrt
 {
   std::unique_ptr<ModuleBOM> load_image(Module & owner, std::string const & path,
-      std::string const & expected_header, bool attach_code)
+      std::string const & expected_header, bool attach_code, ModuleRegistry const * references)
   {
-    Reader r(path);
+    Reader r(references ? *references : owner.registry, path);
     r.need(8);
     if(r.data.compare(0, 8, "SPRTIMG\0", 8)) Reader::fail("bad magic");
     r.pos = 8;

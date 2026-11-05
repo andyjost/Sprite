@@ -13,9 +13,24 @@ namespace curryrt
   using TypeTable = std::unordered_map<std::string, DataType const *>;
   using SymbolTable = std::unordered_map<std::string, InfoTable const *>;
 
+  struct Module;
+
+  struct ModuleRegistry
+  {
+    struct Storage
+    {
+      size_t id;
+      std::unordered_map<std::string, std::weak_ptr<Module>> modules;
+    };
+    ModuleRegistry();
+    std::shared_ptr<Storage> storage;
+  };
+
+  ModuleRegistry & process_registry();
+
   struct Module
   {
-    Module(std::string);
+    Module(ModuleRegistry, std::string);
     Module(Module const &) = delete;
     Module(Module &&) = delete;
     Module & operator=(Module const &) = delete;
@@ -93,17 +108,22 @@ namespace curryrt
         std::string const & name, TypeTable && types, SymbolTable && symbols
       );
 
-    static std::shared_ptr<Module> find_or_create(std::string);
+    // Ordinary lookup falls back to the process. Runtime construction
+    // explicitly claims local tables even when a compiled module exists.
+    static std::shared_ptr<Module> find_or_create(
+        ModuleRegistry, std::string, bool runtime_tables = false);
+    void publish();
+    bool shared() const;
     // The loaded module of that name, or null.
-    static std::shared_ptr<Module> find(std::string const &);
+    static std::shared_ptr<Module> find(ModuleRegistry const &, std::string const &);
     // The info table ``name`` of the loaded module ``modulename``, or null.
     // The runtime looks a symbol of the Prelude up this way, so that it
     // finds the table whether the Prelude came from its compiled library
     // or was interpreted from its ICurry (curryrt/icurry.hpp).
     static InfoTable const * find_symbol(
-        std::string const & modulename, std::string const & name
+        ModuleRegistry const &, std::string const & modulename, std::string const & name
       );
-    static std::map<std::string, std::shared_ptr<Module>> getall();
+    static std::map<std::string, std::shared_ptr<Module>> getall(ModuleRegistry const &);
 
     InfoTable const * create_infotable(
         std::string const & name
@@ -137,6 +157,7 @@ namespace curryrt
       );
 
     struct Impl;
+    ModuleRegistry registry;
     std::string name;
     std::unique_ptr<Impl> impl;
   };

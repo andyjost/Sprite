@@ -827,13 +827,8 @@ class TestCompile(cytest.TestCase):
       def evaluate():
         interp = Interpreter(flags={'interpret': 'all', 'jit': 'off'})
         interp.path[:0] = path
-        try:
-          module = interp.import_('Parent.Leaf')
-          return list(interp.eval(module.value))
-        finally:
-          # Retire live steps before another interpreter imports these names.
-          # Collection of the interpreter's cycles need not happen at return.
-          interp.reset()
+        module = interp.import_('Parent.Leaf')
+        return list(interp.eval(module.value))
       self.assertEqual(evaluate(), [True])
       key = cache.icurry_cache_key(source, path)
       # Keep the old interfaces in place when computing the next key. The

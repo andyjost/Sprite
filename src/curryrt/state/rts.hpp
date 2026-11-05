@@ -1,5 +1,6 @@
 #pragma once
 #include "curryrt/fwd.hpp"
+#include "curryrt/module.hpp"
 #include "curryrt/state/configuration.hpp"
 #include "curryrt/state/queue.hpp"
 #include <atomic>
@@ -43,6 +44,7 @@ namespace curryrt
     ~InterpreterState() { HeapScope heap(false); gc_unregister_istate(this); }
     InterpreterState(InterpreterState const &) = delete;
     InterpreterState & operator=(InterpreterState const &) = delete;
+    ModuleRegistry modules;
     xid_type    xidfactory = 0;
     vtable_type vtable;
     // The free variables made outside an evaluation of this interpreter:

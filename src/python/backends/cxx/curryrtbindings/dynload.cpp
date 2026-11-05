@@ -3,6 +3,7 @@
 #include "pybind11/stl.h"
 #include "curryrt/dynload.hpp"
 #include "curryrt/image.hpp"
+#include "curryrt/state/rts.hpp"
 #include "curryrt/platform.hpp"
 #include <memory>
 #include <string>
@@ -25,8 +26,12 @@ namespace curryrt { namespace python
 		  .def_readonly("functions", &ModuleBOM::functions, curryrt::python::heap_access{})
 			;
 
-    mod.def("load_image", &load_image, py::arg("owner"), py::arg("path"),
+    mod.def("load_image", [](Module & owner, std::string const & path,
+        std::string const & header, bool attach, InterpreterState * state)
+        { return load_image(owner, path, header, attach, state ? &state->modules : nullptr); },
+        py::arg("owner"), py::arg("path"),
         py::arg("expected_header") = "", py::arg("attach_code") = true,
+        py::arg("state") = nullptr,
         curryrt::python::heap_access{});
 
     mod.def("publish_object", [](std::string const & source, std::string const & target) {

@@ -493,7 +493,7 @@ namespace curryrt
     static char const * symbol_names[] = {
         "IOError", "UserError", "FailError", "NondetError"
       };
-    InfoTable const * info = Module::find_symbol("Prelude", symbol_names[kind]);
+    InfoTable const * info = Module::find_symbol(process_registry(), "Prelude", symbol_names[kind]);
     if(!info)
       throw std::logic_error(
           std::string("the Prelude is not loaded: no constructor ")

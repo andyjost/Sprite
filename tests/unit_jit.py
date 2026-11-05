@@ -371,7 +371,7 @@ print(json.dumps({
       curry.reset(interpret='off', jit='off', jit_backend='cxx')
       M = curry.import_(filename)
       self.assertIsNotNone(getHandle(M).sofilename)
-      self.assertEqual(M.f.info.address, address)
+      self.assertNotEqual(M.f.info.address, address)
       self.assertFalse(curryrt.icurry_is_jit(M.f.info))
       self.assertEqual(curry.eval(M.f(41)).one(), 42)
 
