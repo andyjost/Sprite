@@ -160,12 +160,8 @@ def _locked(filename):
 
 
 def log(logger, level, message, *args):
-  """Append unformatted diagnostics to the enclosing holder's message list."""
-  messages = getattr(_local, 'messages', None)
-  if messages is None:
-    _locking.log(logger, level, message, *args)
-  else:
-    messages.append((logger, level, message, args))
+  """Enqueue immediately in the thread's common ordered diagnostics queue."""
+  _locking.log(logger, level, message, *args)
 
 
 def emit_messages(messages, logger=None):
@@ -177,13 +173,5 @@ def emit_messages(messages, logger=None):
 def locked(filename, messages=None):
   """Collect diagnostics until the outermost product/JIT locks are released."""
   with _locking.holding():
-    outer = getattr(_local, 'messages', None)
-    pending = outer if outer is not None else messages if messages is not None else []
-    _local.messages = pending
-    try:
-      with _locked(filename) as waited:
-        yield waited
-    finally:
-      _local.messages = outer
-      if outer is None and messages is None:
-        emit_messages(pending)
+    with _locked(filename) as waited:
+      yield waited

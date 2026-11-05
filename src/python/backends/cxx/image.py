@@ -154,7 +154,7 @@ def _check(interp, source, path, imports=None, registry=None):
 def _import_images(interp, names, currypath):
   result = {}
   for name in names:
-    module = interp.import_(name, currypath=currypath)
+    module = interp._import_(name, currypath=currypath)
     h = getHandle(module)
     generation = getattr(h.icurry, '_loaded_generation', None)
     if generation is not None:
@@ -223,7 +223,7 @@ def _summaries(interp, module, currypath=None):
     if prefix not in interp.modules:
       package = icurry.IPackage(prefix)
       package.filename = os.path.dirname(module.filename or '')
-      interp.import_(package)
+      interp._import_(package)
   return summaries
 
 
@@ -242,7 +242,7 @@ def optimize(interp, module, currypath=None, summaries=None):
       package_ir = getattr(package, '.icurry', package)
       if isinstance(package_ir, icurry.IPackage):
         stack.enter_context(binding(package_ir, local, summary))
-    interp.optimize(module)
+    interp._optimize(module)
 
 
 class Encoder:
@@ -328,7 +328,7 @@ class Resolver:
       for datatype in h.icurry.types.values():
         for ctor in datatype.constructors:
           fullname = h.fullname + '.' + ctor.name
-          self.tags[fullname] = interp.symbol(fullname).info.tag
+          self.tags[fullname] = interp._symbol(fullname).info.tag
     self.refresh()
 
   def refresh(self):
@@ -488,7 +488,7 @@ def _ensure(interp, icyfile, currypath=None, importing=False):
   if _findcurry._installed_library_file(icyfile) and os.path.isfile(source):
     # Explicit ICurry inputs enter at this writer too. Resolve imports before
     # testing the translation receipt, just as the normal build plan does.
-    interp.import_(_interfaces.imports(icyfile), currypath=currypath)
+    interp._import_(_interfaces.imports(icyfile), currypath=currypath)
     search = _findcurry.import_path(interp, currypath)
     search = interp.path if search is None else search
     if _curry2icurry.icurry_is_stale(icyfile, search):
@@ -510,7 +510,7 @@ def _ensure(interp, icyfile, currypath=None, importing=False):
     log('module image %s: %s: %s; translating again', path, type(exc).__name__, exc)
   from ... import toolchain
   raw = _loadcurry.loadicurry(icyfile)
-  interp.import_(raw.imports, currypath=currypath)
+  interp._import_(raw.imports, currypath=currypath)
   imports = _import_images(interp, raw.imports, currypath)
   toolchain.mergebuiltins(raw, interp.backend)
   toolchain.validatemodule(raw)

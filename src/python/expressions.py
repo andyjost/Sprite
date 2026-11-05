@@ -520,7 +520,7 @@ class ExpressionBuilder(object):
     self.brokenrefs = {}
     self.target = None
     self._mknode = interp.backend.make_node
-    self.prelude = self.interp.prelude
+    self.prelude = self.interp._prelude
     self.fsyms = self.interp.backend.fundamental_symbols
 
   def fixrefs(self, expr):
@@ -595,7 +595,7 @@ class ExpressionBuilder(object):
     else:
       typename = 'Prelude.(%s)' % (','*(n-1))
     return self._mknode(
-        self.interp.symbol(typename), *map(self, tup), target=self.target
+        self.interp._symbol(typename), *map(self, tup), target=self.target
       )
 
   @__call__.when(bool)
@@ -826,7 +826,7 @@ class ExpressionBuilder(object):
     '''
     node = marker._shared(self.interp)
     if node is None:
-      dictionary = self.interp.symbol(UNKNOWN_DICTIONARY)
+      dictionary = self.interp._symbol(UNKNOWN_DICTIONARY)
       partial_info = self.fsyms.PartApplic if dictionary.info.arity else None
       node = self._mknode(
           self.prelude.unknown

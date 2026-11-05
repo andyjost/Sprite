@@ -830,7 +830,7 @@ class SignatureTable:
     loaded module or of a module of the system library, which is imported.
     '''
     if isinstance(module, str):
-      return self.interp.module(module)
+      return self.interp._module(module)
     return module
 
   def _entry(self, module):
@@ -925,7 +925,7 @@ class SignatureTable:
           ``required`` is set and the symbol has no scheme.
     '''
     if isinstance(symbol, str):
-      symbol = self.interp.symbol(symbol)
+      symbol = self.interp._symbol(symbol)
     icur = getattr(symbol, 'icurry', None)
     if icur is None:
       return self._missing(symbol, required, 'the symbol has no ICurry')

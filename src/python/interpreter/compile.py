@@ -153,7 +153,7 @@ def _updateImports(interp, modulename, stmts, currypath):
   try:
     module = interp.modules[modulename]
   except KeyError:
-    module = interp.import_(modulename)
+    module = interp._import_(modulename)
   return _updateImports(interp, module, stmts, currypath)
 
 @_updateImports.when(types.ModuleType)

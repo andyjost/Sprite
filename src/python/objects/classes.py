@@ -1,6 +1,7 @@
 '''Classes for the constructors of a loaded Curry module.'''
 
 import re
+from ..utility.locking import check_entry
 
 from .terms import (
     ConstructorClass, Data, DataClass, Function, Term, Values
@@ -40,7 +41,7 @@ class _ConstructorMeta(type):
     if len(args) == cls.symbol.arity and _values(args):
       # Literal conversion can contain fromInt or fromRational. Let the
       # evaluator reduce those before converting the constructor's fields.
-      value = term._interp.eval(term).one()
+      value = term._interp._eval(term).one()
       if type(value) is not cls:
         # A newtype is erased by ICurry. Its application still has the
         # constructor's source shape; evaluation keeps the erasure rule.
@@ -164,6 +165,7 @@ def build_classes(interp, module):
 
 def module_symbol(info, module):
   '''Return the constructor class, nullary value, or ordinary term.'''
+  check_entry()
   cls = getattr(module, '.info')._classes.get(info.name)
   if cls is None:
     return Term.from_symbol(info, module)

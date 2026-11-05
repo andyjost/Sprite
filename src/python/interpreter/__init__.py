@@ -4,7 +4,7 @@ A Curry interpreter.
 The Interpreter manages compilation and evaluation of Curry code.  Each
 instance has a separate copy of the settings and runtime.
 '''
-from ..utility.locking import RLock as _SpriteRLock
+from ..utility.locking import RLock as _SpriteRLock, entry as _entry
 
 __all__ = ['Interpreter']
 
@@ -66,6 +66,7 @@ class Interpreter(object):
       :meth:`type`
           Look up a data type by name.
   '''
+  @_entry
   def __new__(cls, flags={}):
     self = object.__new__(cls)
     self._flags = _flagmod.get_default_flags()
@@ -84,7 +85,7 @@ class Interpreter(object):
     # The steps and forks of the evaluations of this interpreter; see stats.
     self._evaluation_totals = _evaluator.EvaluationTotals()
     self._sigtable = typecheck.SignatureTable(self)
-    self.reset() # set remaining attributes.
+    self._reset() # set remaining attributes.
     return self
 
   @property
@@ -132,14 +133,14 @@ class Interpreter(object):
   def prelude(self):
     '''The built-in module Prelude.'''
     if not hasattr(self, '_Interpreter__preludelib'):
-      self.__preludelib = self.module('Prelude')
+      self.__preludelib = self._module('Prelude')
     return self.__preludelib
 
   @property
   def setfunctions(self):
     '''The built-in module Control.SetFunctions.'''
     if not hasattr(self, '_Interpreter__setflib'):
-      self.__setflib = self.module('Control.SetFunctions')
+      self.__setflib = self._module('Control.SetFunctions')
     return self.__setflib
 
   @property
@@ -197,7 +198,7 @@ class Interpreter(object):
     self.backend.init_interpreter_state(self)
     self._sigtable.clear()
     if prelude is not None:
-      self.import_('Prelude')
+      self._import_('Prelude')
 
   def _unlink_modules(self):
     '''
@@ -234,7 +235,7 @@ class Interpreter(object):
       return self.modules[name]
     except KeyError:
       if name in self.automodules:
-        return self.import_(name)
+        return self._import_(name)
       raise exceptions.ModuleLookupError('Curry module %r not found' % name)
 
   def symbol(self, name, modulename=None):
@@ -257,7 +258,7 @@ class Interpreter(object):
       if prefix in self.modules:
         return self.modules[prefix], name[len(prefix) + 1:]
     modulename, _, local = name.partition('.')
-    return self.module(modulename), local
+    return self._module(modulename), local
 
   # Externally-implemented methods.
   from .compile import compile
@@ -270,6 +271,23 @@ class Interpreter(object):
   from .stats import stats
 
   unbox = staticmethod(unbox)
+
+# Public methods check the same boundary as package functions. Internal code
+# binds the private aliases, so established nested operations stay unchecked.
+for _name in (
+    'reset', 'module', 'symbol', 'type', 'compile', 'currytype', 'topython'
+  , 'describe', 'expr', 'raw_expr', 'typeof', 'eval', 'eval_nodes', 'solve'
+  , 'stream', 'import_', 'load', 'save', 'optimize', 'stats'
+  ):
+  _implementation = getattr(Interpreter, _name)
+  setattr(Interpreter, '_' + _name, _implementation)
+  setattr(Interpreter, _name, _entry(_implementation))
+Interpreter._unbox = staticmethod(Interpreter.unbox)
+Interpreter.unbox = staticmethod(_entry(Interpreter.unbox))
+for _name in ('prelude', 'setfunctions'):
+  _property = getattr(Interpreter, _name)
+  setattr(Interpreter, '_' + _name, _property)
+  setattr(Interpreter, _name, property(_entry(_property.fget)))
 
 @formatDocstring(config.python_package_name())
 def reload(name, flags={}):

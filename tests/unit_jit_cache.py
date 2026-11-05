@@ -687,31 +687,38 @@ print(json.dumps(dict(ok=True)))
 import threading, time
 M = curry.import_(source)
 jit = llvmjit._jit
+bad_info, fib_info = M.bad.info, M.fib.info
+fib_address = fib_info.address
 started, resolved = threading.Event(), threading.Event()
 sizes = []
 def slow(items, **kwargs):
   sizes.append(len(items))
   if len(sizes) == 1:
     started.set()
-    time.sleep(.1)
   else:
-    assert resolved.wait(2), 'resolver blocked by the whole hot group'
+    assert resolved.is_set(), 'second batch started before resolution'
 def worker():
-  llvmjit._compile_groups(jit, [(M.bad.info, 'Cached.bad')] * 64, post=True,
+  llvmjit._compile_groups(jit, [(bad_info, 'Cached.bad')] * 64, post=True,
       work={rt.icurry_address(info): rt.icurry_work(info)
-            for info in (M.bad.info, M.fib.info)})
-with mock.patch.object(jit, 'compile_batch', side_effect=slow):
-  thread = threading.Thread(target=worker)
+            for info in (bad_info, fib_info)})
+thread = threading.Thread(target=worker)
+sleep = time.sleep
+def between_batches(seconds):
+  if seconds == 0 and threading.current_thread() is thread:
+    assert resolved.wait(2), 'resolver blocked by the whole hot group'
+  else:
+    sleep(seconds)
+with mock.patch.object(jit, 'compile_batch', side_effect=slow), \\
+     mock.patch.object(llvmjit.time, 'sleep', side_effect=between_batches):
   thread.start()
   assert started.wait(2)
   start = time.perf_counter()
-  assert llvmjit._resolve_cached(M.fib.info.address)
+  assert llvmjit._resolve_cached(fib_address)
   elapsed = time.perf_counter() - start
   resolved.set()
   thread.join(5)
   assert not thread.is_alive()
 assert sizes == [32, 32], sizes
-assert elapsed < 1, elapsed
 print(json.dumps(dict(ok=True, wait_ms=elapsed * 1000)))
 """)
 

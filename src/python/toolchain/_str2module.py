@@ -91,7 +91,7 @@ def str2module(
     os.makedirs(os.path.dirname(curryfile), exist_ok=True)
     with open(curryfile, 'w', encoding='utf-8') as ostream:
       ostream.write(moduletext)
-    moduleobj = interp.import_(modulename, currypath=[moduledir] + currypath)
+    moduleobj = interp._import_(modulename, currypath=[moduledir] + currypath)
     moduleobj.__file__ = curryfile
     h = handle.Handle(moduleobj)
     icur = h.icurry

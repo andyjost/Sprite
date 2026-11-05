@@ -4,7 +4,7 @@ from ..utility.locking import Lock as _SpriteLock
 from collections.abc import Iterator, Mapping
 from typing import NamedTuple
 import functools, threading
-from ..utility.locking import check_entry
+from ..utility.locking import check_entry, entry
 
 def _consuming(function):
   @functools.wraps(function)
@@ -150,6 +150,7 @@ class Bindings(Mapping):
   def __len__(self):
     return len(self._items)
 
+  @entry
   def __hash__(self):
     return hash(frozenset((name, _key(value)) for name, value in self.items()))
 
@@ -166,6 +167,7 @@ class Bindings(Mapping):
     return '{%s}' % ', '.join('%s=%s' % (name, show(value, context=context))
         for name, value in self.items())
 
+  @entry
   def __str__(self):
     return self._show(self._context())
 
@@ -176,6 +178,7 @@ class Answer(NamedTuple):
   value: object
   bindings: Bindings
 
+  @entry
   def __str__(self):
     from .termshow import show
     context = self.bindings._context(self.value)

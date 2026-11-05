@@ -430,7 +430,7 @@ def currentfile(
           for path in list(_modulefiles(plan, dep, search))[:1]
           if not _installed_library_file(path)]
     if names:
-      plan.interp.import_(names, currypath=import_path(plan.interp,
+      plan.interp._import_(names, currypath=import_path(plan.interp,
           imports_path(currypath, is_sourcefile)))
     if os.path.isfile(curryfile) and not os.path.isfile(icyfile) \
         and not _interfaces.is_current(icyfile, effective):

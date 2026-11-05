@@ -224,7 +224,7 @@ def _load_module_once(interp, sofile, from_plan, fresh, _saved_payload):
   # imports of a program given as a file are (_findcurry.program_path).
   currypath = _program_path(interp, sofile)
   for modulename in needed:
-    module = interp.import_(modulename, currypath=currypath)
+    module = interp._import_(modulename, currypath=currypath)
     if getHandle(module).sofilename is None:
       raise exceptions.LoadError(
           'cannot load %r: its import %s runs without a compiled object'
@@ -278,7 +278,7 @@ def _open_module(interp, sofile, name, from_plan, fresh, before, _saved_payload)
         tiered.warn_mapped_name(name, result['error'])
         imodule = image.load(interp, _filenames.icurryfilename(sofile),
                              _program_path(interp, sofile))
-        return interp.import_(imodule)
+        return interp._import_(imodule)
       raise exceptions.LoadError('cannot load %r: %s' % (sofile, result['error']))
     shlib = owner.shlib
     tiered._refresh(name, interp)
@@ -312,6 +312,6 @@ def _open_module(interp, sofile, name, from_plan, fresh, before, _saved_payload)
     , aliases   = bom.aliases
     , metadata  = metadata
     )
-  result = interp.import_(imodule, _saved_payload=_saved_payload)
+  result = interp._import_(imodule, _saved_payload=_saved_payload)
   logger.info('module %s: compiled object loaded (%s)', imodule.fullname, sofile)
   return result

@@ -463,7 +463,7 @@ class Term:
             raise _conversion_error(error, inputs[index]) from None
         raise
     with raw_symbols():
-      apply_ = self._interp.prelude.apply
+      apply_ = self._interp._prelude.apply
     head = self
     for arg in values:
       head = Term(self._interp, [apply_, head, arg])
@@ -484,7 +484,7 @@ class Term:
       _convert(self._interp, right)
     except ConversionError:
       return NotImplemented
-    return self._interp.prelude[name](left, right)
+    return self._interp._prelude[name](left, right)
 
   def __add__(self, other): return self._op('+', self, other)
   def __radd__(self, other): return self._op('+', other, self)
@@ -500,7 +500,8 @@ class Term:
   def __rmod__(self, other): return self._op('mod', other, self)
   def __and__(self, other): return self._op('&', self, other)
   def __rand__(self, other): return self._op('&', other, self)
-  def __neg__(self): return self._interp.prelude.negate(self)
+  @entry
+  def __neg__(self): return self._interp._prelude.negate(self)
 
   def __infix__(self, op, other):
     return self._infix(op, other, False)
@@ -510,7 +511,7 @@ class Term:
 
   @entry
   def _infix(self, op, other, reflected):
-    modules = [self._interp.prelude]
+    modules = [self._interp._prelude]
     for value in walk_forms((self, other)):
       if isinstance(value, Term):
         held = ([value.symbol.module] if value.symbol is not None else [])
@@ -530,13 +531,16 @@ class Term:
   def __bool__(self):
     raise TypeError('a Curry term has no truth value; evaluate it: curry.eval(t).one()')
 
+  @entry
   def __str__(self):
     from .termshow import show
     return show(self)
 
+  @entry
   def __repr__(self):
     return '<Term %s :: %s>' % (self, self._signature)
 
+  @entry
   def __eq__(self, other):
     from .classes import constructor_term
     other = constructor_term(other)
@@ -544,6 +548,7 @@ class Term:
       return self is other
     return isinstance(other, Term) and _graph_key(self._node, variable_nodes(self)) == _graph_key(other._node, variable_nodes(other))
 
+  @entry
   def __hash__(self):
     return hash(_graph_key(self._node, variable_nodes(self)))
 
@@ -567,12 +572,13 @@ class Data(Term):
   def __repr__(self):
     return str(self)
 
+  @entry
   def _compare(self, other, accepted):
     if not isinstance(other, Data):
       return NotImplemented
     from ..exceptions import CurryTypeError
     try:
-      result = self._interp.eval(self._interp.prelude.compare(self, other)).one()
+      result = self._interp._eval(self._interp._prelude.compare(self, other)).one()
     except CurryTypeError:
       raise TypeError('ordering Data requires an Ord instance for its type') from None
     return result.symbol.name in accepted
@@ -593,7 +599,7 @@ class Function(Term):
       return super().__call__()
     check_live(self)
     with raw_symbols():
-      apply_ = self._interp.prelude.apply
+      apply_ = self._interp._prelude.apply
     result = self
     for arg in args:
       result = Term(self._interp, [apply_, result, _convert(self._interp, arg)])
@@ -1060,7 +1066,7 @@ def choice(interp, first, second, *more):
   values = (first, second, *more)
   result = values[-1]
   for value in reversed(values[:-1]):
-    result = interp.prelude['?'](value, result)
+    result = interp._prelude['?'](value, result)
   return result
 
 

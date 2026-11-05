@@ -18,15 +18,15 @@ def currytype(interp, ty):
   Python ``bool`` type, this returns the type object for ``Prelude.Bool``.
   '''
   if issubclass(ty, bool):
-    return interp.type('Prelude.Bool')
+    return interp._type('Prelude.Bool')
   elif issubclass(ty, str):
-    return interp.type('Prelude.Char')
+    return interp._type('Prelude.Char')
   elif issubclass(ty, numbers.Integral):
-    return interp.type('Prelude.Int')
+    return interp._type('Prelude.Int')
   elif issubclass(ty, numbers.Real):
-    return interp.type('Prelude.Float')
+    return interp._type('Prelude.Float')
   elif issubclass(ty, list):
-    return interp.type('Prelude.[]')
+    return interp._type('Prelude.[]')
   # raise TypeError('cannot convert %r to a Curry type' % ty.__name__)
 
 def unbox(arg):

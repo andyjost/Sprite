@@ -256,23 +256,29 @@ itself is never enclosed in a Python mutex or a metadata transaction. The
 large-stack worker therefore requires no Python lock ownership transfer.
 
 JIT compilation, cached-function resolution, cache indexing and publication
-collect log records under their existing locks. The product-lock helper's own
+enqueue log records in one ordered queue per thread under their existing
+locks. The product-lock helper's own
 diagnostics and the C++ object compiler, stamp and product-cache diagnostics
-join the enclosing message list, as do front-end conversion and ICurry-cache
+join that queue immediately, as do front-end conversion and ICurry-cache
 diagnostics. The outer holder emits after releasing its
 product and JIT locks, including on exceptional exits. The Python binding that
 applies posted LLVM steps takes the heap gate before changing a step pointer.
 
-Each thread records Sprite lock ownership from acquisition through release,
-and the caller records the large-stack worker handoff until ownership returns.
+Native binding methods acquire and record Sprite mutex ownership, or release
+and clear it, without running Python between those steps; native context entry
+rolls back acquisition if dispatching a pending signal raises, and the
+caller records the large-stack worker handoff until ownership returns.
 One shared entry check raises ``curry.ReentrancyError`` for a host call into
-Sprite under that boundary, and also prevents a native heap wait under it.
+Sprite under that boundary through package functions, interpreter methods or
+public objects, and also prevents a native heap wait under it.
 Signal polling enters the same boundary, so signal handlers cannot wait for
 the evaluation they interrupted.
 Heap ownership alone permits reentry, preserving Python primitive callbacks
 that evaluate terms.
-Internal nested locking follows the existing order, and deferred log records
-are emitted only after the outermost lock releases, including on errors.
+Internal calls use unchecked implementations and follow the existing lock
+order; after the outermost release, every queued record is emitted in order
+even on exceptional exit, then the first handler exception (including
+``SystemExit``) is raised with a body exception retained as its context.
 
 Open items: property bindings do not apply the custom ``heap_access`` precall
 guard because pybind11 constructs getters before processing their attributes

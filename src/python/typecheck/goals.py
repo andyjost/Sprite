@@ -126,7 +126,7 @@ def dictionaries(interp, defaulting):
                 , defaulting.scheme.fullname, defaulting.scheme
                 )
         )
-    nodes.append(interp.expr(interp.symbol(inst.fullname)))
+    nodes.append(interp._expr(interp._symbol(inst.fullname)))
   return nodes
 
 def defaulted_goal(interp, symbol, scheme, args=(), what=None, hint=None):
@@ -144,7 +144,7 @@ def defaulted_goal(interp, symbol, scheme, args=(), what=None, hint=None):
       scheme, what=what, type_arity=type_arity(interp), **kwds
     )
   dicts = dictionaries(interp, defaulting)
-  return interp.expr(symbol, *dicts, *args)
+  return interp._expr(symbol, *dicts, *args)
 
 def symbol_goal(interp, symbol):
   '''
@@ -225,7 +225,7 @@ def make_goal(interp, args, exprtype=None, anchors=None):
       if expr is not None:
         return Goal(expr)
   try:
-    return fresh(interp.expr(*args, exprtype=exprtype, **anchors))
+    return fresh(interp._expr(*args, exprtype=exprtype, **anchors))
   except DefaultingError as error:
     if len(args) != 1 or not isinstance(args[0], Term):
       raise

@@ -318,7 +318,7 @@ class TypedBuilder:
     self.X = expressions
     self.interp = interp
     self.target = target
-    self.prelude = interp.prelude
+    self.prelude = interp._prelude
     self.fsyms = interp.backend.fundamental_symbols
     self._mknode = interp.backend.make_node
     self.counter = itertools.count(1)
@@ -784,7 +784,7 @@ class TypedBuilder:
     if isinstance(spec, Tuple):
       n = len(args)
       name = 'Prelude.()' if n == 0 else 'Prelude.(%s)' % (',' * (n - 1))
-      return make(self.interp.symbol(name), *args, target=target)
+      return make(self.interp._symbol(name), *args, target=target)
     if isinstance(spec, Free):
       return self._forward(self._free_node(problem, spec), target)
     if isinstance(spec, Iter):
@@ -824,7 +824,7 @@ class TypedBuilder:
     else:
       symbol = app.symbol
       if not isinstance(symbol, CurryNodeInfo):
-        symbol = self.interp.symbol(app.scheme.fullname)
+        symbol = self.interp._symbol(app.scheme.fullname)
       dicts = [self.dict_node(d) for d in app.dicts]
     apply_ = self.prelude.apply
     if app.erased:
@@ -858,7 +858,7 @@ class TypedBuilder:
     '''
     node = self._dicts.get(d)
     if node is None:
-      symbol = self.interp.symbol(d.fullname)
+      symbol = self.interp._symbol(d.fullname)
       args = [self.dict_node(a) for a in d.args]
       node = self._dicts[d] = self._mknode(
           symbol, *args, partial_info=self.fsyms.PartApplic
@@ -1068,7 +1068,7 @@ def item_converter(interp, elemtype, surface=False):
   ``[Char]``, and the typed builder for everything else.
   '''
   make = interp.backend.make_node
-  prelude = interp.prelude
+  prelude = interp._prelude
   name = None
   if isinstance(elemtype, fc.TCons):
     if not elemtype.args:
