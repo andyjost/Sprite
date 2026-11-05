@@ -265,7 +265,17 @@ with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') 
   def test_llvm_internal_hard_reset_discards_taken_work(self):
     self._llvm_reset_work(False, hard='helper')
 
-  def _llvm_reset_work(self, between, cross=False, hard=False):
+  def test_llvm_lazy_cross_interpreter_after_reset(self):
+    self._llvm_reset_work(False, lazy=True)
+
+  def test_llvm_reload_discards_taken_work(self):
+    self._llvm_reset_work(False, reload=True)
+
+  def test_llvm_reload_discards_posted_work(self):
+    self._llvm_reset_work(False, reload=True, posted=True)
+
+  def _llvm_reset_work(self, between, cross=False, hard=False, lazy=False,
+                       reload=False, posted=False):
     try:
       import llvmlite
     except ImportError:
@@ -273,13 +283,13 @@ with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') 
     self.run_child(r'''
 import os, sys, tempfile, threading, time
 from pathlib import Path
-os.environ['SPRITE_JIT_THRESHOLD'] = '2'
+os.environ['SPRITE_JIT_THRESHOLD'] = '1' if %r else '2'
 import curry, importlib, logging
 from curry.interpreter import Interpreter
 from curry.backends.cxx import curryrtbindings as rt, llvmjit
 flags = {'interpret': 'all', 'jit': 'hot', 'jit_backend': 'llvm', 'inline_budget': 0}
 first, second = Interpreter(flags=flags), Interpreter(flags=flags)
-cross, hard = %r, %r
+cross, hard, lazy, reload, posted = %r, %r, %r, %r, %r
 if hard:
     curry._interpreter_ = first
 entered, release, done = threading.Event(), threading.Event(), threading.Event()
@@ -319,13 +329,25 @@ with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') 
         compiled.extend(info for info, name in items if info in old)
         return batch(items, **kw)
     llvmjit._jit.compile_batch = record
+    posts = []
+    post_step = rt.icurry_post_step
+    def record_post(ticket, step):
+        if ticket.info in old:
+            posts.append(ticket.info)
+        result = post_step(ticket, step)
+        return result
+    rt.icurry_post_step = record_post
     original = llvmjit._compile_groups_locked
     def held(*args, **kw):
-        if not between:
+        if not between and not posted:
             entered.set()
             assert release.wait(30)
         try:
-            return original(*args, **kw)
+            result = original(*args, **kw)
+            if posted:
+                entered.set()
+                assert release.wait(30)
+            return result
         finally:
             done.set()
     llvmjit._compile_groups_locked = held
@@ -337,9 +359,15 @@ with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') 
         else:
             sleep(seconds)
     llvmjit.time.sleep = pause
+    # Prepare the receiving interpreter's goal while the source is live.
+    if lazy:
+        results = second.eval(a.f0(0))
+        first.reset()
     # The group lock holds all calls until every function is queued.
     with llvmjit._group_lock:
-        for i in range(33):
+        if lazy:
+            assert results.one() == 11
+        for i in range(0 if lazy else 1 if posted else 33):
             for _ in range(2):
                 assert (second if cross else first).eval(getattr(a, 'f%%d' %% i)(0)).one() == 11
         for _ in range(2):
@@ -347,11 +375,16 @@ with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') 
     take.set()
     assert entered.wait(30), 'hot thread did not reach hold'
     # Leave another entry queued while the worker holds the taken group.
-    for _ in range(2):
-        assert first.eval(a.f33(0)).one() == 11
+    if not lazy and not posted:
+        for _ in range(2):
+            assert first.eval(a.f33(0)).one() == 11
     owner = first._its.registry_id
     try:
-        if hard:
+        if reload:
+            curry._interpreter_ = first
+            again = curry.reload(a, text='g :: Int -> Int\ng n = 33\n')
+            assert again is a and not hasattr(again, 'f0')
+        elif hard:
             if hard == 'helper':
                 from curry.interpreter import reload as hard_reload
                 hard_reload('curry', flags)
@@ -360,12 +393,13 @@ with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') 
                 importlib.reload(curry)
             first = curry._interpreter_
             first.path.insert(0, work)
-        else:
+        elif not lazy:
             first.reset()
         remaining = rt.icurry_take_hot()
         assert all(ticket.owner != owner for ticket in remaining)
         write(33)
-        again = first.import_('RetiredHot')
+        if not reload:
+            again = first.import_('RetiredHot')
     finally:
         release.set()
     assert done.wait(30)
@@ -376,13 +410,15 @@ with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') 
         sleep(0.01)
     rt.icurry_apply_posted()
     assert all(not rt.icurry_is_jit(info) for info in old), 'retired generation was swapped'
-    assert len(compiled) == (2 if between else 0), ('stale batches compiled', len(compiled))
-    assert first.eval(again.f0(0)).one() == 33
+    assert len(compiled) == (2 if between else 1 if posted else 0), ('stale batches compiled', len(compiled))
+    if not between and not posted:
+        assert not posts, ('retired steps posted', posts)
+    assert first.eval((again.g if reload else again.f0)(0)).one() == 33
     assert second.eval(b.f(0)).one() == 22
     assert logged.wait(30), logs
-    if not between:
+    if not between and not posted:
         assert not any('jit hot: compiled RetiredHot.' in line for line in logs), logs
-''' % (cross, hard, between))
+''' % (lazy, cross, hard, lazy, reload, posted, between))
 
   def test_eager_reset_preserves_other_cxx_hot_threshold(self):
     self.run_child(r'''

@@ -103,8 +103,7 @@ namespace curryrt
     auto bc = icurry_bytecode(info);
     if(!bc || !bc->owner)
       throw std::invalid_argument("icurry_work: table has no owned bytecode");
-    auto owner = bc->owner;
-    return {info, owner, owner->generation.load()};
+    return {info, bc->owner, bc->generation};
   }
   void icurry_set_hot_threshold(InterpreterState & state, uint32_t threshold)
     { state.hot_threshold = threshold; }
@@ -537,6 +536,7 @@ namespace curryrt
           std::string("icurry_attach: ") + info->name + " has a step already"
         );
     code->owner = owner.storage;
+    code->generation = owner.storage->generation.load();
     info->aux = code.get();
     info->step = &icurry_step;
     g_functions.push_back(std::move(code));

@@ -120,8 +120,9 @@ namespace curryrt
 
   struct Bytecode
   {
-    // The registry of the module whose table received this bytecode.
+    // The registry and generation at this attachment of the bytecode.
     std::shared_ptr<ModuleRegistry::Storage> owner;
+    size_t generation = 0;
     std::vector<uint32_t>     code;
     std::vector<void const *> consts;
     uint32_t                  nregs = 0;

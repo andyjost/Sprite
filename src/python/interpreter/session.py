@@ -189,6 +189,8 @@ def _replace_module(interp, module, source, text, imports):
   check_module(module)
   name = module.__name__
   old = module.__dict__.copy()
+  from ..backends.cxx import llvmjit
+  llvmjit.invalidate(interp._its)
   getHandle(module).unlink(interp, keep_package=True)
   interp.sigtable.clear()
   try:
