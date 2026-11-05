@@ -76,7 +76,7 @@ __all__ = ['compile', 'write_module', 'FORMAT_VERSION']
 # the library's named wrapper exceptions; the native record version is 3
 # (the primitives branch used 21 to 25 for these steps, never published).
 # Format 29: verified private library copies keep native wrapper semantics.
-FORMAT_VERSION = 29
+FORMAT_VERSION = 30
 
 # The runtime headers every generated file includes, as vEmitHeader writes
 # them: one directive per name.  The toolchain digests the include closure

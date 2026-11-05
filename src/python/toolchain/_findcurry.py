@@ -47,7 +47,7 @@ def with_loader_inputs(function):
 
 
 def is_loader_snapshot(modulename, filename, records=None):
-  """Check the current job's authorization and the installed source bytes."""
+  """Check installed origin and unchanged bytes in the job's authorization."""
   import hashlib
   try:
     source = os.path.realpath(_filenames.curryfilename(filename))
@@ -61,19 +61,30 @@ def is_loader_snapshot(modulename, filename, records=None):
         'curry', modulename.replace('.', os.sep) + '.curry')
     with open(installed, 'rb') as stream:
       expected = hashlib.sha256(stream.read()).hexdigest()
-    return record == dict(name=modulename, digest=digest) and digest == expected
+    return record == dict(name=modulename, digest=digest,
+        origin=os.path.realpath(installed)) and digest == expected
   except (OSError, ValueError):
     return False
 
 
-def record_loader_input(modulename, filename):
-  """Authorize the copier's input within the current job, without a side file."""
+def record_loader_input(modulename, filename, origin, records=None):
+  """Authorize only copies of the installed source or its authorized copies."""
   import hashlib
-  records = _loader_inputs.get()
-  if records is not None:
+  active = _loader_inputs.get()
+  if active is None:
+    return
+  installed = config.installed_path(
+      'curry', modulename.replace('.', os.sep) + '.curry')
+  try:
+    if not (os.path.samefile(origin, installed) or
+        is_loader_snapshot(modulename, origin, records=records)):
+      return
     with open(filename, 'rb') as stream:
       digest = hashlib.sha256(stream.read()).hexdigest()
-    records[os.path.realpath(filename)] = dict(name=modulename, digest=digest)
+    active[os.path.realpath(filename)] = dict(name=modulename, digest=digest,
+        origin=os.path.realpath(installed))
+  except OSError:
+    return
 
 
 def reject_library_shadow(modulename, filename, interp):

@@ -158,6 +158,34 @@ moduleFilter = null (readsAnyUnqualifiedTerm ["Prelude"] "Leaf 1")
 
 
 class TestUnsafePrimitives(cytest.TestCase):
+  def test_identical_user_copy_keeps_ordinary_wrappers(self):
+    '''A read-only user source has its own semantics even with library bytes.'''
+    code = '''
+import curry, os, shutil, tempfile
+from curry import config
+from curry.objects.handle import getHandle
+with tempfile.TemporaryDirectory() as directory:
+  parent = os.path.join(directory, 'System', 'IO')
+  os.makedirs(parent)
+  source = os.path.join(parent, 'Unsafe.curry')
+  shutil.copyfile(os.path.join(config.system_curry_path(), 'System', 'IO', 'Unsafe.curry'), source)
+  os.chmod(parent, 0o555)
+  try:
+    curry.reset(interpret='off', jit='off')
+    curry.path.insert(0, directory)
+    module = curry.import_('System.IO.Unsafe')
+    assert getHandle(module).sofilename is not None
+    assert os.path.realpath(module.__file__) != os.path.realpath(source)
+    assert os.listdir(parent) == ['Unsafe.curry']
+    probe = curry.compile(%r)
+    actual = sorted(curry.eval(probe.generatedBranches))
+    assert actual == [(0, False), (1, False), (2, False), (2, False)], actual
+  finally:
+    os.chmod(parent, 0o755)
+''' % PROGRAM
+    result = cytest.run_in_subprocess(code, timeout=180)
+    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
   def test_compiled_private_wrappers(self):
     '''A verified private library copy keeps configuration-sensitive primitives.'''
     code = '''
@@ -167,6 +195,11 @@ from curry.objects.handle import getHandle
 from curry.toolchain import _findcurry, _filenames
 curry.reset(interpret='all', jit='off')
 module = curry.import_('System.IO.Unsafe')
+with _findcurry.loader_inputs(interp=curry._interpreter_):
+  source, search = tiered._private_copy(getHandle(module).icurry)
+  curry.reset(interpret='all', jit='off')
+  curry.path[:0] = search[:1]
+  module = curry.import_(source)
 with _findcurry.loader_inputs(interp=curry._interpreter_):
   source, search = tiered._private_copy(getHandle(module).icurry)
   os.unlink(_filenames.replacesuffix(source, '.img'))

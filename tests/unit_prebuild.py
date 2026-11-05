@@ -173,7 +173,7 @@ class TestStagedLibrary(cytest.TestCase):
     ambient = {
         'SPRITE_HOME': '/other', 'CURRYPATH': '/other',
         'SPRITE_INTERPRETER_FLAGS': 'backend:cxx,interpret:all', 'CXXFLAGS': '-bad',
-        'SPRITE_PRODUCT_CACHE': '/products'}
+        'SPRITE_PRODUCT_CACHE': '/products', 'SPRITE_STAGE_LIBRARY': '1'}
     for pythonpath, expected in [
         (None, '/stage/python'), ('', '/stage/python'),
         ('/build-env/site', '/stage/python' + os.pathsep + '/build-env/site')]:
@@ -187,9 +187,25 @@ class TestStagedLibrary(cytest.TestCase):
         self.assertEqual(env['SPRITE_HOME'], '/stage')
         self.assertEqual(env['PYTHONPATH'], expected)
         self.assertEqual(env['SPRITE_PRODUCT_CACHE'], '/products')
-        self.assertEqual(env['SPRITE_STAGE_LIBRARY'], '1')
-        for name in ['CURRYPATH', 'CXXFLAGS', 'SPRITE_INTERPRETER_FLAGS']:
+        for name in ['CURRYPATH', 'CXXFLAGS', 'SPRITE_INTERPRETER_FLAGS',
+                     'SPRITE_STAGE_LIBRARY']:
           self.assertNotIn(name, env)
+
+  def test_stage_authorization_is_carried_by_compile_job(self):
+    import argparse
+    from curry.toolchain import _destination
+    args = argparse.Namespace(cxx=True, so=True, icy=True, image=True,
+        keep_going=False, quiet=True, tidy=False, curry2icurry=None, goal=None)
+    source = os.path.join(config.system_curry_path(), 'Prelude.curry')
+    with mock.patch.dict(os.environ, SPRITE_STAGE_LIBRARY='1'):
+      self.assertFalse(_destination.staging())
+      ordinary = make.Job('Prelude', source)
+      with _destination.stage_library():
+        staged = make.Job('Prelude', source)
+        self.assertTrue(_destination.staging())
+      self.assertFalse(_destination.staging())
+    self.assertNotIn('--stage-library', make.child_command(args, ordinary))
+    self.assertIn('--stage-library', make.child_command(args, staged))
 
   @unittest.skipIf(config.cxx_tool() is None, 'no C++ compiler is installed')
   @unittest.skipIf(config.curry_frontend() is None, 'interface changes need the front end')
@@ -229,6 +245,33 @@ class TestStagedLibrary(cytest.TestCase):
                        config.module_object_suffix() + '.abi'):
           self.assertTrue((prefix / 'curry' / SUBDIR / (name + suffix)).is_file(),
               name + suffix)
+      # Run a captured job after the parent leaves its stage context. Its
+      # child must stage the missing imported image rather than isolate it.
+      (prefix / 'curry' / SUBDIR / 'A.img').unlink()
+      child_code = '''
+import argparse, os, sys
+from curry.tools import make
+from curry.toolchain import _destination
+source = os.path.join(os.environ['SPRITE_HOME'], 'curry', 'B.curry')
+args = argparse.Namespace(cxx=False, so=False, icy=True, image=True,
+    keep_going=False, quiet=True, tidy=False, curry2icurry=None, goal=None)
+with _destination.stage_library(sys.argv[1] == 'stage'):
+  job = make.Job('B', source)
+assert not _destination.staging()
+errors = make.handle_program_errors('stage-child', exit_status=None)
+make.run_jobs('stage-child', [job], 2, args, errors)
+assert errors.nerrors == 0
+'''
+      env = dict(os.environ, SPRITE_HOME=str(prefix),
+          PYTHONPATH=str(prefix / 'python'), CURRYPATH=str(prefix / 'curry'),
+          SPRITE_INTERPRETER_FLAGS='backend:cxx,interpret:all,jit:off',
+          SPRITE_STAGE_LIBRARY='1')
+      for operation in ('ordinary', 'stage'):
+        result = subprocess.run([sys.executable, '-c', child_code, operation], env=env,
+            text=True, capture_output=True, timeout=180)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual((prefix / 'curry' / SUBDIR / 'A.img').is_file(),
+            operation == 'stage')
       products = [prefix / 'curry' / SUBDIR / ('B' + suffix)
           for suffix in ('.icy', '.cpp', '.so', '.so.abi')]
       self.assertTrue(all(p.is_file() for p in products))

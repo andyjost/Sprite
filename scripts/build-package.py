@@ -22,14 +22,17 @@ def jit_cache_fill(modules):
   return (
       "import curry\n"
       "from curry.backends.cxx import llvmjit\n"
+      "from curry.toolchain._destination import stage_library\n"
       "if not llvmjit.available():\n"
       "  print('library JIT cache not filled: ' + str(llvmjit._reason), flush=True)\n"
       "else:\n"
       "  print('filling library JIT cache', flush=True)\n"
-      "  try: curry.reset(interpret='all', jit='eager', jit_backend='llvm')\n"
+      "  try:\n"
+      "    with stage_library(): curry.reset(interpret='all', jit='eager', jit_backend='llvm')\n"
       "  except Exception as exc: print('library JIT cache setup: %s' % exc, flush=True)\n"
       "  for name in " + repr(modules) + ":\n"
-      "    try: curry.import_(name)\n"
+      "    try:\n"
+      "      with stage_library(): curry.import_(name)\n"
       "    except Exception as exc:\n"
       "      print('library JIT cache: %s: %s' % (name, exc), flush=True)\n"
     )
@@ -106,7 +109,7 @@ def build_environment(prefix):
       p for p in [str(Path(prefix) / 'python'), os.environ.get('PYTHONPATH', '')]
         if p)
   env.update(SPRITE_HOME=str(prefix), PYTHONPATH=pythonpath,
-             SPRITE_FRONTEND_WARNINGS='0', SPRITE_STAGE_LIBRARY='1')
+             SPRITE_FRONTEND_WARNINGS='0')
   return env
 
 
@@ -225,9 +228,9 @@ def main():
       # digest. Remove derived products rather than trusting their stamps.
       for suffix in ('.icy', '.img', '.cpp', object_suffix + '.abi'):
         dest.with_suffix(suffix).unlink(missing_ok=True)
-      run(sys.executable, '-m', 'curry.tools.make', '--rewrite-flat', lib / rel,
+      run(sys.executable, '-m', 'curry.tools.make', '--stage-library', '--rewrite-flat', lib / rel,
           '-o', dest.with_suffix('.icy'))
-  make = [sys.executable, '-m', 'curry.tools.make']
+  make = [sys.executable, '-m', 'curry.tools.make', '--stage-library']
   supported = [m for m in modules if m not in unsupported]
   run(*make, '--image', *supported)
   # An unsupported module gets no image, but its ICurry and interfaces are

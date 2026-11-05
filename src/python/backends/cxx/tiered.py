@@ -295,7 +295,8 @@ def _private_copy(imodule):
   if os.path.isfile(filename):
     shutil.copy2(filename, copy)
     os.chmod(copy, 0o644)
-    record_loader_input(imodule.fullname, copy)
+    record_loader_input(imodule.fullname, copy, filename,
+        records=generation.inputs if generation is not None else None)
   stem = _filenames.icurryfilename(filename)[:-len('.icy')]
   products = [(generation.image if generation is not None and generation.image else stem + suffix)
       if suffix == '.img' else stem + suffix
@@ -328,7 +329,7 @@ def _private_copy(imodule):
     if item.source and os.path.isfile(item.source):
       shutil.copy2(item.source, target)
       os.chmod(target, 0o644)
-      record_loader_input(item.name, target)
+      record_loader_input(item.name, target, item.source, records=item.inputs)
     stem = _filenames.icurryfilename(item.source_spelling)[:-4] if item.source else None
     output = _filenames.icurryfilename(target)[:-4]
     os.makedirs(os.path.dirname(output), exist_ok=True)
@@ -596,6 +597,9 @@ def submit(interp, moduleobj, currypath, hot=False):
       _tmpdir(), 'compile%d-%s.log' % (next(_state.counter), name)
     )
   argv = [sys.executable, '-m', 'curry.tools.make', '--so', '-q', source]
+  from ...toolchain import _destination
+  if _destination.staging():
+    argv.append('--stage-library')
   # The ICurry file of the module and its digest: the swap refuses an object
   # of another text (see the module docstring).  The record of the module
   # names the object this job writes, for the swap of its importers.

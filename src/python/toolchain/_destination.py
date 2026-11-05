@@ -27,6 +27,17 @@ def writable(filename):
 
 
 _importing = ContextVar('product_importing', default=False)
+_staging = ContextVar('stage_library', default=False)
+
+
+@contextmanager
+def stage_library(enabled=True):
+  """Authorize installation publication for one explicit stage operation."""
+  token = _staging.set(enabled)
+  try:
+    yield
+  finally:
+    _staging.reset(token)
 
 
 @contextmanager
@@ -41,8 +52,8 @@ def publication(importing):
 
 
 def staging():
-  """The installation builder's sanitized child environment owns this flag."""
-  return os.environ.get('SPRITE_STAGE_LIBRARY') == '1'
+  """Only an explicit stage operation and its compiler jobs may stage."""
+  return _staging.get()
 
 
 def needs_private(filename, products):

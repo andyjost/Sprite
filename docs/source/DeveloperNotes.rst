@@ -546,18 +546,30 @@ explicitly. Stale source-free translations are refused.
 Image publication replaces a complete file by rename, including a path that
 was previously attached. An attached process keeps its mapped generation;
 a later tool read still checks the recorded digest. Private rebuild inputs
-are authorized by the copier in the import or build job's scope. A child
-receives that authorization in its job description. Loaded private
+are authorized by the copier only when the origin is the installed source
+itself or an already authorized copy. Byte-identical user sources do not
+acquire library identity. Authorization records retain the installed origin
+and check both the copied and installed bytes in the import or build job's
+scope. A child receives that authorization in its job description. Loaded private
 generations retain their input provenance for subsequent saves and compile
 jobs. Adjacent files and a directory's spelling do not authorize an outside reserved module.
 The internal ``_SPRITE_LOADER_INPUTS`` environment variable carries this
 provenance; deliberately setting it by hand is outside the module rules, which
 refuse accidental path overrides.
 
+The installation builder invokes ``sprite-make --stage-library`` for its
+library passes. This explicit operation sets a scoped publication context,
+including imports performed by the compiler. Parallel compile jobs capture
+it and pass the option to their children; leaving the operation clears it.
+The optional stage JIT fill enters the same context explicitly. Environment
+variables grant no stage authorization: the former ``SPRITE_STAGE_LIBRARY``
+setting is ignored. Runtime imports, the REPL and saved programs keep private
+library destinations, as do compiler imports without the stage option.
+
 The module image
 ================
 
-Format 12 (2026-11-01)
+Format 14 (2026-11-05)
 ----------------------
 
 A module image, ``M.img``, lives beside ``M.icy``. The translator writes it
@@ -1150,7 +1162,7 @@ own source, with their source definitions and arities checked. These bind
 directly so strict application cannot normalize shared terms before the
 configuration-sensitive observation. A shadowing user module keeps its bodies.
 Native record version 3 rejects older objects even on explicit load; generated
-code uses format 28 and images use version 12. ICurry uses
+code uses format 30 and images use version 14. ICurry uses
 ``Prelude.(?)`` as a compiler intrinsic to lower nondeterministic rules. All twelve
 ``System.Directory`` externals use ``std::filesystem``; modification times are
 ``Data.Time.CTime`` values in POSIX seconds. Directory listings include ``.``

@@ -17,7 +17,7 @@ from . import bytecode, curryrtbindings as curryrt
 logger = logging.getLogger(__name__)
 MAGIC = b'SPRTIMG\0'
 # Version 13 invalidates summaries that inlined private primitive wrappers.
-VERSION = 13
+VERSION = 14
 PREFIX = struct.Struct('<8sII')
 
 class _InputChanged(Exception):

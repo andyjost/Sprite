@@ -25,6 +25,34 @@ class TestModuleReview(cytest.TestCase):
     self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
     return result
 
+  def test_inherited_stage_environment_cannot_publish_image(self):
+    from unittest import mock
+    with mock.patch.dict(os.environ, SPRITE_STAGE_LIBRARY='1'):
+      self.child('''
+        import curry, os, shutil
+        from pathlib import Path
+        from unittest import mock
+        from curry import config
+        from curry.backends.cxx import image
+        from curry.objects.handle import getHandle
+        library = Path(root) / 'library'
+        shutil.copytree(config.system_curry_path(), library)
+        target = library / '.curry' / config.intermediate_subdir() / 'Prelude.img'
+        target.unlink()
+        installed = config.installed_path
+        def local(*parts):
+          return str(library.joinpath(*parts[1:])) if parts[0] == 'curry' else installed(*parts)
+        with mock.patch.object(config, 'installed_path', local), \\
+            mock.patch.object(config, 'system_curry_path', return_value=str(library)):
+          curry._interpreter_.reset(flags=dict(curry.flags, interpret='all', jit='off'))
+          curry.path[:] = [str(library)]
+          module = curry.import_('Prelude')
+          actual = getHandle(module).icurry._attached_image
+          assert image.read(actual)['name'] == 'Prelude'
+          assert not target.exists(), 'runtime import published the installed image'
+          assert not os.path.realpath(actual).startswith(str(library) + os.sep), actual
+      ''')
+
   def test_object_receipt_refuses_old_or_foreign_abi_without_cpp(self):
     from curry.backends.cxx import compiler, toolchain
     from unittest import mock
