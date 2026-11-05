@@ -61,23 +61,35 @@ class TestImage(cytest.TestCase):
       self.assertIsNone(_curry2icurry._load_completions.get())
 
   def test_icurry_replaced_after_parse(self):
-    from curry.toolchain import _loadcurry
+    self.check_icurry_replaced_after_parse()
+
+  def test_incomplete_icurry_replacement_after_parse(self):
+    self.check_icurry_replaced_after_parse(incomplete=True)
+
+  def check_icurry_replaced_after_parse(self, incomplete=False):
+    from curry.toolchain import _loadcurry, _curry2icurry
+    from curry import cache
     with tempfile.TemporaryDirectory() as directory:
       source = os.path.join(directory, 'ImageParseRace.curry')
       with open(source, 'w') as stream:
         stream.write('module ImageParseRace where\nanswer :: Int\nanswer = 41\n')
       icyfile = toolchain.curry2icurry(source, curry.path)
-      with open(icyfile) as stream:
-        original = stream.read()
-      replacement = original.replace('41', '42')
-      self.assertNotEqual(original, replacement)
+      published = []
       load = _loadcurry.loadicurry
       def replace_after_parse(path):
         raw = load(path)
-        image.cache.write_file(icyfile, replacement)
+        if path == icyfile and not published:
+          published.append(True)
+          with open(source, 'w') as stream:
+            stream.write('module ImageParseRace where\nanswer :: Int\nanswer = 42\n')
+          toolchain.curry2icurry(source, curry.path)
+          if incomplete:
+            os.unlink(cache.interface_filename(icyfile, '.fint'))
         return raw
       with mock.patch.object(_loadcurry, 'loadicurry', side_effect=replace_after_parse):
         image.ensure(curry._interpreter_, icyfile)
+      self.assertEqual(published, [True])
+      self.assertTrue(_curry2icurry.source_matches(source, icyfile))
       module = curry._interpreter_.import_(image.load(curry._interpreter_, icyfile))
       self.assertEqual(curry.eval(module.answer).one(), 42)
 
@@ -254,6 +266,35 @@ class TestImage(cytest.TestCase):
       subprocess.check_call(cytest.tool_command([curry.config.sprite_make(),
           '--image', source]), timeout=120)
       self.assertEqual(image.read(image.filename(source))['name'], 'ImageCommand')
+
+  def test_sprite_make_explicit_icurry_freshness(self):
+    from curry.toolchain import _curry2icurry
+    from curry import cache
+    with tempfile.TemporaryDirectory() as directory:
+      source = os.path.join(directory, 'ImageExplicit.curry')
+      with open(source, 'w') as stream:
+        stream.write('module ImageExplicit where\nanswer :: Int\nanswer = 41\n')
+      icyfile = toolchain.curry2icurry(source, curry.path)
+      command = cytest.tool_command([curry.config.sprite_make(), '--image', icyfile])
+      subprocess.check_call(command, timeout=120)
+      first = image.digest(image.filename(source))
+      with open(source, 'w') as stream:
+        stream.write('module ImageExplicit where\nanswer :: Int\nanswer = 42\n')
+      subprocess.check_call(command, timeout=120)
+      self.assertNotEqual(first, image.digest(image.filename(source)))
+      for suffix in cache.INTERFACE_SUFFIXES:
+        for damage in ('missing', 'corrupt'):
+          with self.subTest(suffix=suffix, damage=damage):
+            product = cache.interface_filename(icyfile, suffix)
+            if damage == 'missing':
+              os.unlink(product)
+            else:
+              with open(product, 'w') as stream:
+                stream.write('corrupt')
+            subprocess.check_call(command, timeout=120)
+            self.assertTrue(_curry2icurry.source_matches(source, icyfile))
+      module = curry.import_(source)
+      self.assertEqual(curry.eval(module.answer).one(), 42)
 
   def test_import_image_changes_before_compile(self):
     from curry.backends.cxx import toolchain as cxx_toolchain

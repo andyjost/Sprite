@@ -454,13 +454,12 @@ def _publication_path(interp, source, path, imports, importing=False):
 def ensure(interp, icyfile, currypath=None, importing=False):
   from ...toolchain import _findcurry
   with _findcurry.loader_inputs(), _findcurry.resolving(interp):
-    check_completion = True
     while True:
       try:
-        result = _ensure(interp, icyfile, currypath, importing, check_completion)
+        result = _ensure(interp, icyfile, currypath, importing)
         break
       except _InputChanged:
-        check_completion = False
+        pass
     generation = _findcurry.generation_for_source(icyfile, interp)
     if generation is not None and generation.image is None:
       generation.image = result[0]
@@ -468,7 +467,7 @@ def ensure(interp, icyfile, currypath=None, importing=False):
     return result
 
 
-def _ensure(interp, icyfile, currypath=None, importing=False, check_completion=True):
+def _ensure(interp, icyfile, currypath=None, importing=False):
   icyfile = _destination.canonical(icyfile)
   source = _filenames.sourcefilename(icyfile)
   from ...toolchain import _findcurry, _interfaces, _curry2icurry
@@ -480,6 +479,18 @@ def _ensure(interp, icyfile, currypath=None, importing=False, check_completion=T
       imports = {name: generation_digest(dep) if dep is not None else None
           for name, dep in generation.imports}
       return path, dict(_facts(interp, source, imports), name=generation.name)
+  if generation is None:
+    # Explicit ICurry inputs enter at this writer too. Resolve imports before
+    # testing the translation receipt, just as the normal build plan does.
+    interp.import_(_interfaces.imports(icyfile), currypath=currypath)
+    search = _findcurry.import_path(interp, currypath)
+    search = interp.path if search is None else search
+    if _curry2icurry.icurry_is_stale(icyfile, search):
+      if source == icyfile or not os.path.isfile(source):
+        raise ValueError('stale ICurry imports without source for rebuilding')
+      with _destination.publication(importing):
+        selected = _curry2icurry.curry2icurry(source, search)
+      return ensure(interp, selected, currypath, importing=importing)
   path = _path(interp, source)
   if not importing:
     from . import tiered
@@ -496,18 +507,6 @@ def _ensure(interp, icyfile, currypath=None, importing=False, check_completion=T
   except (OSError, ValueError, KeyError, exceptions.CurryError) as exc:
     log = logger.warning if os.path.isfile(path) and str(exc) != 'stale module image' else logger.info
     log('module image %s: %s: %s; translating again', path, type(exc).__name__, exc)
-  if generation is None and check_completion:
-    # Explicit ICurry inputs enter at this writer too. Resolve imports before
-    # testing the translation receipt, just as the normal build plan does.
-    interp.import_(_interfaces.imports(icyfile), currypath=currypath)
-    search = _findcurry.import_path(interp, currypath)
-    search = interp.path if search is None else search
-    if _curry2icurry.icurry_is_stale(icyfile, search):
-      if source == icyfile or not os.path.isfile(source):
-        raise ValueError('stale ICurry imports without source for rebuilding')
-      with _destination.publication(importing):
-        selected = _curry2icurry.curry2icurry(source, search)
-      return ensure(interp, selected, currypath, importing=importing)
   from ... import toolchain
   raw = _loadcurry.loadicurry(icyfile)
   interp.import_(raw.imports, currypath=currypath)

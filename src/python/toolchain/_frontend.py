@@ -294,42 +294,6 @@ def command(file_in, currypath, quiet=False, search=None, library=None):
   cmd.append(name[:-len('.curry')])
   return cmd
 
-def validate_option_paths(options):
-  """Reject relative user paths without changing front-end arguments."""
-  paths = {'-i', '-P', '-o', '--import-dir', '--lib-dir', '--outdir',
-           '--htmldir', '--pgmF'}
-  tokens = iter(options)
-  for token in tokens:
-    # Preprocessor arguments are opaque, even when they resemble -i paths.
-    if token == '--optF':
-      next(tokens, None)
-      continue
-    option, separator, value = token.partition('=')
-    if option in paths:
-      if not separator:
-        value = next(tokens, '')
-    elif token[:2] in ('-i', '-P', '-o') and len(token) > 2:
-      option, value = token[:2], token[2:]
-    else:
-      continue
-    if option == '--pgmF' and value and not os.path.dirname(value):
-      continue # bare commands use PATH
-    values = value.split(os.pathsep) if option in (
-        '-i', '-P', '--import-dir', '--lib-dir') else [value]
-    if any(not os.path.isabs(path) for path in values):
-      raise CompileError('%s: relative paths in front-end options are not '
-                         'supported; use an absolute path or a command on PATH'
-                         % option)
-
-
-def validate_target_options(source):
-  validate_option_paths(shlex.split(config.frontend_flags()))
-  with open(source, encoding='utf-8') as stream:
-    text = stream.read()
-  for pragma in _preprocessor.PRAGMA.finditer(text):
-    validate_option_paths(shlex.split(pragma.group(1)))
-
-
 def frontend_environment():
   """Use UTF-8 for Haskell source input when no UTF-8 locale is selected."""
   env = os.environ.copy()
@@ -358,7 +322,6 @@ def protected_translation(file_in, currypath, quiet=False, rewrite=True, externa
   from . import _destination, _findcurry
   from ._interfaceview import interface_view, loaded_interface_view
   original = os.path.abspath(file_in)
-  validate_target_options(original)
   selected = _destination.select(original,
       _destination.interfaces(original, currypath, source_imports=True))
   if selected == original and _findcurry._installed_library_file(selected) \

@@ -554,8 +554,8 @@ class TestModuleReview(cytest.TestCase):
       try:
         curry.import_(os.path.abspath('Main.curry'))
       except curry.CompileError as error:
-        assert '--pgmF' in str(error), error
-        assert 'absolute path or a command on PATH' in str(error), error
+        assert './preprocess' in str(error), error
+        assert 'Preprocessor exited with exit code' in str(error), error
       else:
         raise AssertionError('relative target preprocessor accepted')
     ''')
@@ -571,8 +571,8 @@ class TestModuleReview(cytest.TestCase):
         try:
           curry.import_(os.path.join(root, 'project', 'Main.curry'))
         except curry.CompileError as error:
-          assert '--pgmF' in str(error), error
-          assert 'absolute path or a command on PATH' in str(error), error
+          assert './preprocess' in str(error), error
+          assert 'Preprocessor exited with exit code' in str(error), error
         else:
           raise AssertionError('relative configured preprocessor accepted')
     ''')
@@ -605,22 +605,15 @@ class TestModuleReview(cytest.TestCase):
     finally:
       leaf.parent.chmod(0o755)
 
-  def test_frontend_option_arguments(self):
-    from curry.toolchain._frontend import validate_option_paths
-    for options in (['--optF', '-include'], ['--optF=-include']):
-      self.assertIsNone(validate_option_paths(options))
-    for key in ('-i', '-P', '--import-dir', '--lib-dir', '-o', '--outdir',
-                '--htmldir', '--pgmF'):
-      forms = [[key, './first']]
-      forms.append([key + '=./first'] if key.startswith('--') else [key + './first'])
-      for options in forms:
-        with self.assertRaisesRegex(curry.CompileError, 'absolute path or a command on PATH'):
-          validate_option_paths(options)
-      self.assertIsNone(validate_option_paths([key, str(self.root)]))
-    self.assertIsNone(validate_option_paths(['--pgmF', 'preprocess']))
-    for key in ('-i', '-P', '--import-dir', '--lib-dir'):
-      with self.assertRaises(curry.CompileError):
-        validate_option_paths([key, os.pathsep.join((str(self.root), 'relative'))])
+  def test_commented_frontend_options(self):
+    self.source('project', 'Main',
+        '-- {-# OPTIONS_FRONTEND -i./unused #-}\nanswer :: Int\nanswer = 42')
+    self.child('''
+      import curry, os
+      curry.reset(interpret='new', jit='off')
+      module = curry.import_(os.path.join(root, 'project', 'Main.curry'))
+      assert curry.eval(module.answer).one() == 42
+    ''')
 
   @cytest.posix_only('executable preprocessor script')
   def test_preprocessor_opaque_argument(self):
