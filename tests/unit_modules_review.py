@@ -551,67 +551,84 @@ class TestModuleReview(cytest.TestCase):
       import curry, os
       os.chdir(os.path.join(root, 'project'))
       curry.reset(interpret='new', jit='off')
-      module = curry.import_(os.path.abspath('Main.curry'))
-      assert curry.eval(module.answer).one() == 1
+      try:
+        curry.import_(os.path.abspath('Main.curry'))
+      except curry.CompileError as error:
+        assert '--pgmF' in str(error), error
+        assert 'absolute path or a command on PATH' in str(error), error
+      else:
+        raise AssertionError('relative target preprocessor accepted')
     ''')
 
-  @cytest.posix_only('executable preprocessor script')
-  def test_relative_dependency_preprocessor(self):
-    self.relative_dependency_preprocessor(False)
-
-  @cytest.posix_only('executable preprocessor script')
-  def test_relative_dependency_preprocessor_after_edit(self):
-    self.relative_dependency_preprocessor(True)
-
-  def relative_dependency_preprocessor(self, after_edit):
-    source = self.source('project', 'Leaf', 'answer :: Int\nanswer = 1')
-    source.write_text('{-# OPTIONS_FRONTEND -F --pgmF=./preprocess #-}\n' + source.read_text())
-    if after_edit:
-      self.source('project', 'Main', 'answer :: Int\nanswer = 1')
-      self.child('''
-        import curry, os
-        curry.reset(interpret='new', jit='off')
-        curry.path.insert(0, os.path.join(root, 'project'))
-        curry.import_('Main')
-      ''')
-    self.source('project', 'Main', 'import Leaf\nanswer :: Int\nanswer = Leaf.answer')
-    script = self.root / 'project' / 'preprocess'
-    script.write_text('#!/bin/sh\ncp "$2" "$3"\n')
-    script.chmod(0o755)
+  def test_relative_configured_preprocessor(self):
+    source = self.source('project', 'Main', 'answer :: Int\nanswer = 1')
     self.child('''
       import curry, os
-      os.chdir(os.path.join(root, 'project'))
+      from unittest import mock
       curry.reset(interpret='new', jit='off')
-      module = curry.import_(os.path.abspath('Main.curry'))
-      assert curry.eval(module.answer).one() == 1
+      with mock.patch.object(curry.config, 'frontend_flags',
+                             return_value='-F --pgmF=./preprocess'):
+        try:
+          curry.import_(os.path.join(root, 'project', 'Main.curry'))
+        except curry.CompileError as error:
+          assert '--pgmF' in str(error), error
+          assert 'absolute path or a command on PATH' in str(error), error
+        else:
+          raise AssertionError('relative configured preprocessor accepted')
     ''')
 
+  def test_qualified_readonly_dependency_after_edit(self):
+    self.source('project', 'Main', 'answer :: Int\nanswer = 1')
+    self.child('''
+      import curry, os
+      curry.reset(interpret='new', jit='off')
+      curry.path.insert(0, os.path.join(root, 'project'))
+      curry.import_('Main')
+    ''')
+    leaf = self.source('readonly', 'Leaf', 'answer :: Int\nanswer = 2')
+    self.source('project', 'Main', 'import {- before qualifier -} qualified '
+        '{- before name {- nested -} -} Leaf\nanswer :: Int\nanswer = Leaf.answer')
+    leaf.parent.chmod(0o555)
+    try:
+      self.child('''
+        import curry, os
+        from curry.objects.handle import getHandle
+        curry.reset(interpret='new', jit='off')
+        curry.path[:0] = [os.path.join(root, d) for d in ('project', 'readonly')]
+        module = curry.import_('Main')
+        assert curry.eval(module.answer).one() == 2
+        raw = getHandle(curry.import_('Leaf')).icurry
+        assert not os.path.realpath(raw.filename).startswith(
+            os.path.realpath(os.path.join(root, 'readonly')) + os.sep), raw.filename
+        assert not os.path.exists(os.path.join(root, 'readonly', '.curry'))
+      ''')
+    finally:
+      leaf.parent.chmod(0o755)
+
   def test_frontend_option_arguments(self):
-    from curry.toolchain._frontend import resolve_option_paths
-    root = str(self.root)
-    for options in (['--optF', '-include'], ['--optF=-include'],
-                    ['-D', '-include'], ['--case-mode', '-include']):
-      self.assertEqual(resolve_option_paths(options, root), options)
+    from curry.toolchain._frontend import validate_option_paths
+    for options in (['--optF', '-include'], ['--optF=-include']):
+      self.assertIsNone(validate_option_paths(options))
+    for key in ('-i', '-P', '--import-dir', '--lib-dir', '-o', '--outdir',
+                '--htmldir', '--pgmF'):
+      forms = [[key, './first']]
+      forms.append([key + '=./first'] if key.startswith('--') else [key + './first'])
+      for options in forms:
+        with self.assertRaisesRegex(curry.CompileError, 'absolute path or a command on PATH'):
+          validate_option_paths(options)
+      self.assertIsNone(validate_option_paths([key, str(self.root)]))
+    self.assertIsNone(validate_option_paths(['--pgmF', 'preprocess']))
     for key in ('-i', '-P', '--import-dir', '--lib-dir'):
-      value = os.pathsep.join(('first', 'second'))
-      expected = os.pathsep.join(str(self.root / part) for part in ('first', 'second'))
-      self.assertEqual(resolve_option_paths([key, value], root), [key, expected])
-      if key.startswith('--'):
-        self.assertEqual(resolve_option_paths([key + '=' + value], root), [key + '=' + expected])
-    for key in ('-o', '--outdir', '--htmldir', '--pgmF'):
-      value = './first' + os.pathsep + 'second'
-      expected = str(self.root / ('first' + os.pathsep + 'second'))
-      self.assertEqual(resolve_option_paths([key, value], root), [key, expected])
-      if key.startswith('--'):
-        self.assertEqual(resolve_option_paths([key + '=' + value], root), [key + '=' + expected])
+      with self.assertRaises(curry.CompileError):
+        validate_option_paths([key, os.pathsep.join((str(self.root), 'relative'))])
 
   @cytest.posix_only('executable preprocessor script')
   def test_preprocessor_opaque_argument(self):
     for index, option in enumerate(('--optF -include', '--optF=-include')):
       directory = 'project%d' % index
       source = self.source(directory, 'Main', 'answer :: Int\nanswer = 1')
-      source.write_text('{-# OPTIONS_FRONTEND -F --pgmF=./preprocess %s #-}\n' % option + source.read_text())
       script = source.parent / 'preprocess'
+      source.write_text('{-# OPTIONS_FRONTEND -F --pgmF=%s %s #-}\n' % (script, option) + source.read_text())
       script.write_text('#!/bin/sh\n[ "$4" = "-include" ] || exit 42\ncp "$2" "$3"\n')
       script.chmod(0o755)
       self.child('''

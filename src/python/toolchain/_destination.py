@@ -73,10 +73,10 @@ def interfaces(source, currypath, dependencies=None, source_imports=False):
   from . import _interfaces
   from ..utility import curryname
   def source_names(path):
-    with open(_filenames.sourcefilename(path), encoding='utf-8') as stream:
-      tokens = list(_filenames._header_tokens(stream.read()))
-    return [tokens[i + 1] for i, token in enumerate(tokens[:-1])
-            if token == 'import']
+    from ..cache import SourceInfo
+    source = _filenames.sourcefilename(path)
+    with open(source, 'rb') as stream:
+      return SourceInfo(source, stream.read()).imports
   search = _interfaces.search_path(canonical(source),
       curryname.makeCurryPath(currypath))
   pending = [canonical(source)]

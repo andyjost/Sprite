@@ -525,7 +525,9 @@ Named imports keep Curry path order throughout translation and execution.
 Only an explicit source-file operation puts the program's source root first;
 parallel make children inherit that effective path and the resolved input.
 The external translator receives a view containing only its selected target,
-and relative path options of the front end retain their source-root meaning.
+and the front end runs in an empty directory to preserve module path order.
+Relative paths in front-end options are unsupported; use absolute paths or
+name preprocessors on PATH.
 Batch tools share loaded imports until a target needs products replaced by
 a preceding target, then reset before reading them.
 A local CPM project's sources are present even without installed packages.

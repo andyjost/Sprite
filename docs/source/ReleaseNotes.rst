@@ -10,7 +10,9 @@ Unreleased
   retain local CPM sources without packages, and validate private rebuild
   provenance under the loaded-module boundary. Saved objects retain their
   signed bytes with dependency side records; direct rewrites, external
-  translation and relative preprocessor paths keep their resolution scope.
+  translation keep their resolution scope. Relative paths in front-end options
+  are no longer supported because the front end runs in an empty directory
+  to preserve module path order; use absolute paths or preprocessors on PATH.
 - Validate reusable products by content and publish complete generations:
   protect cache and JIT mappings, ICurry receipts, image inputs, exported
   files, precompiled headers and tiered adoption; require publication locks.

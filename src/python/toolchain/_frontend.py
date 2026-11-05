@@ -286,7 +286,7 @@ def command(file_in, currypath, quiet=False, search=None, library=None):
     cmd.extend(QUIET_FLAGS)
   else:
     cmd.extend(WARNING_FLAGS)
-  cmd.extend(resolve_option_paths(shlex.split(config.frontend_flags()), source_root(file_in)))
+  cmd.extend(shlex.split(config.frontend_flags()))
   if library is not None:
     cmd.extend(['-P', library])
   for dirname in searchdirs(file_in, currypath) if search is None else search:
@@ -294,36 +294,40 @@ def command(file_in, currypath, quiet=False, search=None, library=None):
   cmd.append(name[:-len('.curry')])
   return cmd
 
-def resolve_option_paths(options, directory):
-  """Keep path options relative to their source context across chdir."""
-  path_options = {'-i', '-P', '-o', '--import-dir', '--lib-dir', '--outdir', '--htmldir', '--pgmF'}
-  list_options = {'-i', '-P', '--import-dir', '--lib-dir'}
-  argument_options = path_options | {'--optF', '-v', '--verbosity', '-c', '--case-mode',
-                                    '-X', '-W', '-d', '-O', '-D'}
-  result = []
-  pending = None
-  def resolve(value, option):
-    if option not in path_options:
-      return value
-    if option == '--pgmF' and not os.path.dirname(value):
-      return value # bare commands still use PATH
-    return os.pathsep.join(os.path.abspath(os.path.join(directory, part))
-        for part in (value.split(os.pathsep) if option in list_options else [value]))
-  for option in options:
-    if pending is not None:
-      result.append(resolve(option, pending))
-      pending = None
-    elif option in argument_options:
-      result.append(option)
-      pending = option
-    elif len(option) > 2 and option[:2] in argument_options:
-      result.append(option[:2] + resolve(option[2:], option[:2]))
-    elif '=' in option and option.partition('=')[0] in path_options:
-      key, _, value = option.partition('=')
-      result.append(key + '=' + resolve(value, key))
+def validate_option_paths(options):
+  """Reject relative user paths without changing front-end arguments."""
+  paths = {'-i', '-P', '-o', '--import-dir', '--lib-dir', '--outdir',
+           '--htmldir', '--pgmF'}
+  tokens = iter(options)
+  for token in tokens:
+    # Preprocessor arguments are opaque, even when they resemble -i paths.
+    if token == '--optF':
+      next(tokens, None)
+      continue
+    option, separator, value = token.partition('=')
+    if option in paths:
+      if not separator:
+        value = next(tokens, '')
+    elif token[:2] in ('-i', '-P', '-o') and len(token) > 2:
+      option, value = token[:2], token[2:]
     else:
-      result.append(option)
-  return result
+      continue
+    if option == '--pgmF' and value and not os.path.dirname(value):
+      continue # bare commands use PATH
+    values = value.split(os.pathsep) if option in (
+        '-i', '-P', '--import-dir', '--lib-dir') else [value]
+    if any(not os.path.isabs(path) for path in values):
+      raise CompileError('%s: relative paths in front-end options are not '
+                         'supported; use an absolute path or a command on PATH'
+                         % option)
+
+
+def validate_target_options(source):
+  validate_option_paths(shlex.split(config.frontend_flags()))
+  with open(source, encoding='utf-8') as stream:
+    text = stream.read()
+  for pragma in _preprocessor.PRAGMA.finditer(text):
+    validate_option_paths(shlex.split(pragma.group(1)))
 
 
 def frontend_environment():
@@ -354,8 +358,9 @@ def protected_translation(file_in, currypath, quiet=False, rewrite=True, externa
   from . import _destination, _findcurry
   from ._interfaceview import interface_view, loaded_interface_view
   original = os.path.abspath(file_in)
+  validate_target_options(original)
   selected = _destination.select(original,
-      _destination.interfaces(original, currypath))
+      _destination.interfaces(original, currypath, source_imports=True))
   if selected == original and _findcurry._installed_library_file(selected) \
       and _findcurry._translation_interp.get() is None:
     yield selected, None, None
@@ -379,13 +384,13 @@ def protected_translation(file_in, currypath, quiet=False, rewrite=True, externa
     seen = {original, selected}
     def prepare(source):
       dependencies = []
-      _destination.interfaces(source, currypath, dependencies)
+      _destination.interfaces(source, currypath, dependencies, source_imports=True)
       for dependency in dependencies:
         if dependency in seen:
           continue
         seen.add(dependency)
         prepare(dependency)
-        products = _destination.interfaces(dependency, currypath)
+        products = _destination.interfaces(dependency, currypath, source_imports=True)
         if _destination.needs_private(dependency, products):
           if _destination._importing.get() and _findcurry._installed_library_file(dependency):
             from . import _curry2icurry, _filenames
@@ -441,46 +446,10 @@ def _run_frontend(file_in, currypath, quiet=False, rewrite=True,
         cmd, cwd=moduledir, with_stderr=True, env=frontend_environment())
   else:
     import tempfile
-    from . import _destination
     cmd[-1] = os.path.join(moduledir, cmd[-1])
     with tempfile.TemporaryDirectory(prefix='sprite-frontend-') as work:
-      # Pragmas override command-line options. Normalize their paths in a
-      # private view of every selected source the run may compile, including
-      # dependencies. Keep the working directory empty for implicit lookup.
-      dependencies = []
-      # A previous ICurry file may predate imports added to today's source.
-      _destination.interfaces(file_in, roots, dependencies, source_imports=True)
-      copies = []
-      view = os.path.join(work, 'inputs')
-      for source in dict.fromkeys([os.path.abspath(file_in)] + dependencies):
-        with open(source, encoding='utf-8') as stream:
-          text = stream.read()
-        def normalize(match):
-          options = shlex.split(match.group(1))
-          resolved = resolve_option_paths(options, source_root(source))
-          return match.group(0) if options == resolved else (
-              '{-# OPTIONS_FRONTEND ' + shlex.join(resolved) + ' #-}')
-        normalized = _preprocessor.PRAGMA.sub(normalize, text)
-        if normalized != text:
-          target = os.path.join(view, module_name(source).replace('.', os.sep) + '.curry')
-          os.makedirs(os.path.dirname(target), exist_ok=True)
-          with open(target, 'w', encoding='utf-8') as stream:
-            stream.write(normalized)
-          copies.append((source, target))
-          if source == os.path.abspath(file_in):
-            cmd[-1] = target
-      if copies:
-        cmd[1:1] = ['-i', view]
       stdout, stderr = _system.pexec(
           cmd, cwd=work, with_stderr=True, env=frontend_environment())
-      import shutil
-      for source, target in copies:
-        for suffix in ('.fcy', '.fint', '.icurry'):
-          generated = flatcurryfile(target)[:-4] + suffix
-          destination = flatcurryfile(source)[:-4] + suffix
-          if os.path.isfile(generated):
-            os.makedirs(os.path.dirname(destination), exist_ok=True)
-            shutil.copyfile(generated, destination)
   if logger.isEnabledFor(logging.INFO):
     from ._filenames import logging_module_name
     logger.info('module %s: front end ran in %.2f s (%d warnings)',
