@@ -210,6 +210,9 @@ assert curry.eval(E.getArgs).one() == []
   def test_private_cpm_launcher_selection_without_executing_scripts(self):
     with tempfile.TemporaryDirectory() as directory:
       root = Path(directory)
+      if os.name != 'nt':
+        (root / 'alias').symlink_to('.', target_is_directory=True)
+        root = root / 'alias'
       for name in ('bin', 'tools', 'fallback'):
         (root / name).mkdir()
       launcher = root / 'bin/cypm'
@@ -218,19 +221,33 @@ assert curry.eval(E.getArgs).one() == []
       for name in ('tools', 'fallback'):
         (root / name / 'cypm').touch()
       for selected in ('tools', 'fallback'):
-        with mock.patch.object(config, 'installed_path', side_effect=lambda *p: str(root.joinpath(*p))), \
-             mock.patch.object(os, 'get_exec_path', return_value=[str(root / 'bin'), str(root / 'fallback')]), \
-             mock.patch.object(os, 'access', return_value=True), \
-             mock.patch.object(os, 'execv', side_effect=RuntimeError('selected')) as execute, \
-             mock.patch.dict(os.environ), mock.patch.object(sys, 'path', sys.path[:]), \
-             mock.patch.object(sys, 'argv', [str(launcher), 'test']):
-          os.environ.pop('SPRITE_CPM_FORWARDED', None)
-          with self.assertRaisesRegex(RuntimeError, 'selected'):
-            runpy.run_path(str(launcher), run_name='__main__')
-          command, arguments = execute.call_args.args
-          self.assertEqual(Path(command), (root / selected / 'cypm').resolve())
-          self.assertEqual(arguments[1:], ['-d', 'CURRYBIN=' + str(root / 'bin/curry'), 'test'])
-          self.assertEqual(os.environ['SPRITE_CPM_FORWARDED'], '1')
+        for definition in ([], ['-d', 'CURRYBIN=chosen-compiler'],
+                           ['--define', 'CURRYBIN=chosen-compiler'],
+                           ['--define=CURRYBIN=chosen-compiler'],
+                           ['--d', 'CURRYBIN=chosen-compiler'],
+                           ['--d=CURRYBIN=chosen-compiler'],
+                           ['-dCURRYBIN=chosen-compiler']):
+          with self.subTest(selected=selected, definition=definition), \
+               mock.patch.object(config, 'installed_path', side_effect=lambda *p: str(root.joinpath(*p))), \
+               mock.patch.object(os, 'get_exec_path', return_value=[str(root / 'bin'), str(root / 'fallback')]), \
+               mock.patch.object(os, 'access', return_value=True), \
+               mock.patch.object(os, 'execv', side_effect=RuntimeError('selected')) as execute, \
+               mock.patch.dict(os.environ), mock.patch.object(sys, 'path', sys.path[:]), \
+               mock.patch.object(sys, 'argv', [str(launcher), *definition, 'test']):
+            os.environ.pop('SPRITE_CPM_FORWARDED', None)
+            with self.assertRaisesRegex(RuntimeError, 'selected'):
+              runpy.run_path(str(launcher), run_name='__main__')
+            command, arguments = execute.call_args.args
+            self.assertEqual(Path(command).resolve(), (root / selected / 'cypm').resolve())
+            if definition:
+              self.assertEqual(arguments[1:], [*definition, 'test'])
+            else:
+              self.assertEqual(arguments[1], '-d')
+              key, value = arguments[2].split('=', 1)
+              self.assertEqual(key, 'CURRYBIN')
+              self.assertEqual(Path(value).resolve(), (root / 'bin/curry').resolve())
+              self.assertEqual(arguments[3:], ['test'])
+            self.assertEqual(os.environ['SPRITE_CPM_FORWARDED'], '1')
         if selected == 'tools':
           (root / 'tools/cypm').unlink()
 

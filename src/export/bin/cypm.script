@@ -13,6 +13,19 @@ sys.path.insert(0, str(prefix / 'python' if (prefix / 'python').is_dir()
                        else prefix.parent.parent))
 from curry import config
 
+arguments = sys.argv[1:]
+definitions = []
+for index, argument in enumerate(arguments):
+  if argument in ('-d', '--d', '--define') and index + 1 < len(arguments):
+    definitions.append(arguments[index + 1])
+  elif argument.startswith(('--define=', '--d=')):
+    definitions.append(argument.split('=', 1)[1])
+  elif argument.startswith('-d'):
+    definitions.append(argument[2:])
+# CPM keeps the first definition of a key. Preserve the caller's compiler.
+defaults = ([] if any(value.startswith('CURRYBIN=') for value in definitions)
+            else ['-d', 'CURRYBIN=' + str(prefix / 'bin/curry')])
+
 if os.environ.get('SPRITE_CPM_FORWARDED'):
   sys.exit('Stock CPM is missing; install stock CPM beside configured PAKCS or on PATH')
 
@@ -25,6 +38,5 @@ for candidate in candidates:
   if candidate.is_file() and candidate.resolve() != launcher and os.access(candidate, os.X_OK):
     command = str(candidate.resolve())
     os.environ['SPRITE_CPM_FORWARDED'] = '1'
-    os.execv(command, [command, '-d', 'CURRYBIN=' + str(prefix / 'bin/curry'),
-                      *sys.argv[1:]])
+    os.execv(command, [command, *defaults, *arguments])
 sys.exit('cypm is unavailable; install CPM and add its executable to PATH')

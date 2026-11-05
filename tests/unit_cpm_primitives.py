@@ -57,10 +57,16 @@ run command = do
 
   def test_closed_command_is_reaped_at_next_close_or_launch(self):
     from curry.backends.cxx import curryrtbindings as bindings
+    import errno
     import shlex
+    import socket
     for operation, trigger in [('exec', 'close'), ('connect', 'launch')]:
-      with self.subTest(operation=operation, trigger=trigger):
-        script = 'import time; time.sleep(.2)'
+      with self.subTest(operation=operation, trigger=trigger), socket.socket() as listener:
+        listener.bind(('127.0.0.1', 0))
+        listener.listen()
+        listener.settimeout(5)
+        script = ('import socket; s = socket.create_connection(' +
+                  repr(listener.getsockname()) + '); s.settimeout(5); s.sendall(b"r"); s.recv(1)')
         command = (subprocess.list2cmdline([sys.executable, '-c', script])
                    if sys.platform == 'win32' else
                    'exec ' + shlex.quote(sys.executable) + ' -c ' + shlex.quote(script))
@@ -68,24 +74,41 @@ run command = do
         tokens = list(map(int, bindings._standard_stream(0, operation, command, 0).split()))
         process, = bindings._command_processes - before
         try:
-          started = time.monotonic()
-          for token in tokens:
-            bindings._standard_stream(token, 'prim_hClose', '', 0)
-          self.assertLess(time.monotonic() - started, .15)
-          # Let the child exit without a test-side poll/wait reaping it.
-          time.sleep(.5)
+          with listener.accept()[0] as child:
+            child.settimeout(5)
+            self.assertEqual(child.recv(1), b'r')
+            # The child cannot exit until these nonblocking closes return.
+            for token in tokens:
+              bindings._standard_stream(token, 'prim_hClose', '', 0)
+            self.assertIn(process, bindings._command_pending)
+            child.sendall(b'x')
+          if sys.platform == 'win32':
+            import ctypes
+            wait = ctypes.WinDLL('kernel32', use_last_error=True).WaitForSingleObject
+            wait.argtypes = [ctypes.c_void_p, ctypes.c_ulong]
+            wait.restype = ctypes.c_ulong
+            self.assertEqual(wait(int(process._handle), 5000), 0)
+          elif all(hasattr(os, name) for name in ('waitid', 'P_PID', 'WEXITED', 'WNOWAIT')):
+            try:
+              os.waitid(os.P_PID, process.pid, os.WEXITED | os.WNOWAIT)
+            except OSError as error:
+              if error.errno not in (errno.EINVAL, errno.ENOSYS, errno.ENOTSUP):
+                raise
+              process.wait(timeout=5)
+          else:
+            # Without a non-reaping wait, observe exit via Popen; retirement
+            # must also release resources for an already-reaped leader.
+            process.wait(timeout=5)
           if trigger == 'close':
             bindings._standard_stream(tokens[0], 'prim_hClose', '', 0)
           else:
-            later = list(map(int, bindings._standard_stream(0, operation, command, 0).split()))
+            later = list(map(int, bindings._standard_stream(0, operation, 'echo done', 0).split()))
             for token in later:
               bindings._standard_stream(token, 'release', '', 0)
           self.assertNotIn(process, bindings._command_processes)
           if sys.platform == 'win32':
-            import ctypes
-            flags = ctypes.c_ulong()
-            self.assertFalse(ctypes.windll.kernel32.GetHandleInformation(
-                ctypes.c_void_p(int(process._handle)), ctypes.byref(flags)))
+            # Windows can reuse the old numeric handle for the next launch.
+            self.assertTrue(process._handle.closed)
           else:
             with self.assertRaises(ChildProcessError):
               os.waitpid(process.pid, os.WNOHANG)
@@ -93,6 +116,25 @@ run command = do
           for token in tokens:
             bindings._standard_stream(token, 'release', '', 0)
           process.wait(timeout=5)
+
+  def test_windows_pending_command_releases_owned_handles_after_exit(self):
+    from curry.backends.cxx import curryrtbindings as b
+    from unittest import mock
+    process = mock.Mock(returncode=None)
+    process.poll.side_effect = [None, 0]
+    with mock.patch.object(sys, 'platform', 'win32'), \
+         mock.patch.object(b, '_command_processes', {process}), \
+         mock.patch.object(b, '_command_pending', {process}):
+      b._reap_commands()
+      self.assertIn(process, b._command_pending)
+      process.wait.assert_not_called()
+      process._handle.Close.assert_not_called()
+      b._reap_commands()
+      process.wait.assert_called_once_with(timeout=1)
+      process._command_job.close.assert_called_once_with()
+      process._handle.Close.assert_called_once_with()
+      self.assertNotIn(process, b._command_pending)
+      self.assertNotIn(process, b._command_processes)
 
   @unittest.skipUnless(all(hasattr(os, name) for name in ('P_PID', 'WEXITED', 'WNOWAIT', 'WNOHANG')),
                        'requires non-reaping wait constants')

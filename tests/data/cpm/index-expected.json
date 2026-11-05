@@ -1077,10 +1077,9 @@
     "flatcurry-xml": {
       "version": "1.0.0",
       "measured_seconds": 63.2,
-      "result": "open",
+      "result": "exception",
       "issue": "#216",
-      "reason": "Evaluate deterministic search to its sole value inside IO instead of rejecting an intermediate choice.",
-      "issue_text": "Evaluate deterministic search to its sole value inside IO instead of rejecting an intermediate choice.",
+      "reason": "Sprite reports a choice that reaches an I/O step as an error, by design",
       "failure_class": "test failure",
       "shard": 7,
       "failure_set": [
@@ -1422,17 +1421,8 @@
     "xml": {
       "version": "3.0.0",
       "measured_seconds": 43.3,
-      "result": "open",
-      "issue": "#213",
-      "reason": "Prevent null tuple-constructor dispatch while normalizing a functional-pattern property in a search capsule.",
-      "issue_text": "Prevent null tuple-constructor dispatch while normalizing a functional-pattern property in a search capsule.",
-      "failure_class": "Sprite error",
-      "shard": 4,
-      "failure_set": [
-        "test: class: Sprite error",
-        "test: diagnostic: Segmentation fault",
-        "test: termination: 139"
-      ]
+      "result": "pass",
+      "shard": 4
     },
     "xmldata": {
       "version": "3.0.0",

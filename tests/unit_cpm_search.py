@@ -13,7 +13,6 @@ import unittest
 class TestCPMSearch(cytest.TestCase):
   @unittest.skipUnless(os.environ.get('SPRITE_CPM_INDEX_CHECKER'),
                        'the prepared CPM index framework is absent')
-  @unittest.expectedFailure
   def test_functional_tree_pattern_property(self):
     checker = Path(os.environ['SPRITE_CPM_INDEX_CHECKER']).resolve()
     home = checker.parent
@@ -88,8 +87,7 @@ compilerIsSprite = curryCompiler -=- "sprite"
       self.assertIn('TOTAL NUMBER OF TESTS: 4', output)
       self.assertNotIn('No tests, just compiling', output)
 
-  @unittest.expectedFailure
-  def test_deterministic_search_inside_io(self):
+  def test_choice_reaching_io_is_an_error(self):
     import curry
     module = curry.compile('''onlyTrue True = True
 value :: Bool
@@ -98,8 +96,11 @@ goal :: IO Bool
 goal = if value then return True else return False
 ''')
     self.assertEqual(list(curry.eval(module.value)), [True])
-    self.assertTrue(curry.eval(module.goal).one())
+    with self.assertRaises(curry.NondetError):
+      curry.eval(module.goal).one()
 
+  @unittest.skipIf(config.frontend_version() == '2.0.0',
+                   'PAKCS 3.4.1 has no Control.Search.Unsafe library module')
   def test_pakcs_closed_boolean_choices(self):
     pakcs = Path(config.installed_path('tools', 'pakcs')).resolve()
     if not pakcs.is_file():
