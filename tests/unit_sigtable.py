@@ -675,7 +675,6 @@ with tempfile.TemporaryDirectory() as work:
     '''
     A module compiled from text keeps its generation's interface and typing
     after source-side interfaces are removed and the signature cache cleared.
-    An object loaded without interfaces still reports the typed-path error.
     '''
     interp = cytest.raw.interp()
     M = compile_without_cache(
@@ -699,6 +698,10 @@ with tempfile.TemporaryDirectory() as work:
     self.assertIsNotNone(interp.sigtable.interface(M))
     self.assertEqual(M.f.signature, 'Int -> Int')
     self.assertIsNotNone(M.f.scheme)
+
+  @cytest.skipUnlessObjectsLoad('loads a compiled object without interfaces')
+  def test_object_without_interface(self):
+    '''An object loaded without interfaces reports the typed-path error.'''
     code = r'''
 import curry
 import shutil

@@ -219,6 +219,7 @@ tiered.finish()
     self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
     print(child.stdout.strip())
 
+  @cytest.skipUnlessObjectsLoad('the saved program loads compiled objects')
   def test_source_symlink_compiles_and_saves(self):
     for mode in ('eager', 'hot'):
       with self.subTest(mode=mode), tempfile.TemporaryDirectory() as work:
