@@ -78,7 +78,8 @@ def property_results(output):
   """Count completed property reports, not individual generated test cases."""
   passed = re.findall(r'(?m)^.+:\n (?:Passed all available tests:|OK, passed)', output)
   passed += re.findall(r'(?m)^.+: OK$', output)
-  failed = re.findall(r'(?m)^.+(?: failed|: FAILED!|: EXECUTION FAILURE:.*|: FAILURE:.*)$', output)
+  failed = re.findall(r'(?m)^.+(?:: FAILED!|: EXECUTION FAILURE:.*|: FAILURE:.*)$', output)
+  failed += re.findall(r"(?m)^[A-Za-z_][\w.']* failed$", output)
   failed += re.findall(r'(?m)^.+:\n Arguments exhausted after', output)
   if not passed and not failed:
     return 'not run', 'not run'
@@ -114,6 +115,22 @@ def index_digest(index):
   return overlay.manifest_digest(index)
 
 
+def wait_for_proxy():
+  """Probe the public index, allowing thirty minutes for proxy recovery."""
+  def available():
+    return subprocess.run(['curl', '--silent', '--fail', '--head', '--max-time', '15',
+        'https://cpm.curry-lang.org/PACKAGES/INDEX.tar.gz'],
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0
+  if available():
+    return False
+  for _ in range(30):
+    print('Proxy unavailable; retrying in one minute.', flush=True)
+    time.sleep(60)
+    if available():
+      return True
+  raise ConnectionError('proxy unavailable after thirty minutes; retry this package on resume')
+
+
 def compare(rows, expected):
   failures, improvements = [], []
   for row in rows:
@@ -122,8 +139,15 @@ def compare(rows, expected):
       failures.append(row['package'] + ': wrong pinned version')
     elif wanted['result'] == 'pass' and row['result'] != 'pass':
       failures.append(row['package'] + ': ' + row['result'])
-    elif wanted['result'] == 'exception' and row['result'] == 'pass':
-      improvements.append(row['package'] + ': exception now passes')
+    elif wanted['result'] in ('exception', 'open', 'network'):
+      if row['result'] == 'pass':
+        improvements.append(row['package'] + ': ' + wanted['result'] + ' now passes')
+      elif wanted['result'] == 'open' and (
+          row['result'].split(':', 1)[0] != wanted['failure_class'] or
+          wanted.get('failure_match', '') not in row['result']):
+        failures.append(row['package'] + ': worse than ' + wanted['issue'] + ': ' + row['result'])
+      elif wanted['result'] == 'network' and not row['result'].startswith('network:'):
+        failures.append(row['package'] + ': ' + row['result'])
   return failures, improvements
 
 
@@ -155,8 +179,11 @@ def main():
     if not expected.get('packages'):
       parser.error('expected results must contain packages')
     for name, pin in expected['packages'].items():
-      if pin.get('result') not in ('pass', 'exception') or (
-          pin['result'] == 'exception' and not pin.get('reason')):
+      if pin.get('result') not in ('pass', 'exception', 'open', 'network') or (
+          pin['result'] != 'pass' and not pin.get('reason')) or (
+          pin['result'] == 'open' and not all(pin.get(key) for key in
+              ('issue', 'failure_class', 'failure_match'))) or (
+          pin['result'] == 'network' and not pin.get('url')):
         parser.error('invalid expected result for ' + name)
   selected = select_packages(args.index, expected)
   if args.newer:
@@ -235,6 +262,7 @@ def main():
       print(name, ver, stage, flush=True)
       stage_started = time.monotonic()
       while True:
+        attempt_started = time.monotonic()
         remaining = max(1, int(1800 - (time.monotonic() - started)))
         result = subprocess.run(['timeout', str(remaining), 'prlimit', '--as=8000000000',
                                  *command, *arguments], cwd=cwd, capture_output=True, text=True)
@@ -253,6 +281,14 @@ def main():
           outputs.append('Applied compatibility overlay to newly acquired manifests.\n')
           continue
         current = classify(output, result.returncode)
+        if current.startswith('network:'):
+          if wait_for_proxy():
+            # An infrastructure outage does not spend the package's budget.
+            outage = time.monotonic() - attempt_started
+            started += outage
+            stage_started += outage
+            outputs.append('Proxy recovered; retrying the interrupted package stage.\n')
+            continue
         break
       measurements[stage] = (round(time.monotonic() - stage_started, 1), current)
       if stage == 'test':
@@ -271,9 +307,22 @@ def main():
                           '-d', 'REPOSITORYPATH=' + str(index), 'test']
       environment = dict(os.environ, PATH=str(args.pakcs_checker.resolve()) +
                          os.pathsep + os.environ['PATH'])
-      result = subprocess.run(['timeout', '1800', 'prlimit', '--as=8000000000',
-                               *baseline_command], cwd=directory,
-                              env=environment, capture_output=True, text=True)
+      oracle_install = None
+      if data.get('executable') or data.get('executables'):
+        # Test scripts invoke package tools by name. Never compare PAKCS
+        # through the executable just built with Sprite.
+        oracle_bin = (args.work / 'pakcs-tools' / name / 'bin').resolve()
+        oracle_bin.mkdir(parents=True, exist_ok=True)
+        environment['PATH'] = str(oracle_bin) + os.pathsep + environment['PATH']
+        oracle_install = subprocess.run(['timeout', '1800', 'prlimit', '--as=8000000000',
+            *baseline_command[:-1], '-d', 'BININSTALLPATH=' + str(oracle_bin), 'install'],
+            cwd=directory, env=environment, capture_output=True, text=True)
+        outputs.append('PAKCS isolated install\n' + sanitize(
+            oracle_install.stdout + oracle_install.stderr))
+      remaining = max(1, int(1800 - (time.monotonic() - baseline_started)))
+      result = oracle_install if oracle_install and oracle_install.returncode else subprocess.run(
+          ['timeout', str(remaining), 'prlimit', '--as=8000000000', *baseline_command],
+          cwd=directory, env=environment, capture_output=True, text=True)
       output = sanitize(result.stdout + result.stderr)
       outputs.append('PAKCS test\n' + output)
       baseline = classify(output, result.returncode)

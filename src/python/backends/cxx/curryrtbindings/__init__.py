@@ -345,23 +345,49 @@ def _peek_standard_char(stream, index, nonblocking=False):
       restore()
 
 
+class _CommandStream:
+  """A command's output reader and input writer exposed as one handle."""
+  def __init__(self, reader, writer):
+    self.reader, self.writer = reader, writer
+
+  def __getattr__(self, name):
+    return getattr(self.reader, name)
+
+  def writable(self):
+    return self.writer.writable()
+
+  def write(self, text):
+    return self.writer.write(text)
+
+  def flush(self):
+    self.writer.flush()
+
+  def close(self):
+    try:
+      self.writer.close()
+    finally:
+      self.reader.close()
+
+
 def _standard_stream(index, operation, text, value):
   import io
   import select
   import time
   global _next_command_stream
-  if operation == 'exec':
+  if operation in ('exec', 'connect'):
     import subprocess
     # Retain each process until it exits, reaping completed children at the
     # next launch. Its pipes have the same explicit close semantics as files.
     for process in list(_command_processes):
       if process.poll() is not None: _command_processes.remove(process)
     process = subprocess.Popen(text, shell=True, stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE if operation == 'exec' else None, text=True,
         encoding='utf-8', errors='replace', bufsize=1)
     _command_processes.add(process)
     ids = []
-    for stream in (process.stdin, process.stdout, process.stderr):
+    streams = ((process.stdin, process.stdout, process.stderr) if operation == 'exec'
+               else (_CommandStream(process.stdout, process.stdin),))
+    for stream in streams:
       token = _next_command_stream
       _next_command_stream += 1
       _command_streams[token] = stream

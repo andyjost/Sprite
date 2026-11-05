@@ -1,6 +1,5 @@
 {
-  "complete": false,
-  "blocked_reason": "The configured survey proxy is unavailable. Finish the survey and resolve the reported design questions before enabling CI.",
+  "complete": true,
   "index": {
     "date": "2026-11-04",
     "sha256": "4380eee34d12d0f5be6b80ec07007c2fe09fdf90472ba59e7448a503287e8684",
@@ -782,371 +781,433 @@
   "packages": {
     "abstract-curry": {
       "version": "4.0.0",
+      "measured_seconds": 36.9,
       "result": "pass",
-      "shard": 4,
-      "observed": "pass"
+      "shard": 6
     },
     "allvalues": {
       "version": "4.0.0",
+      "measured_seconds": 26.9,
       "result": "exception",
-      "shard": 6,
-      "observed": "missing external",
-      "reason": "Requires the PAKCS foreign strong-encapsulation primitives Control.AllValues.allValues and oneValue."
+      "reason": "Requires the PAKCS foreign strong-encapsulation primitives Control.AllValues.allValues and oneValue.",
+      "shard": 6
     },
     "array": {
       "version": "3.0.0",
+      "measured_seconds": 19.8,
       "result": "pass",
-      "shard": 4,
-      "observed": "pass"
+      "shard": 4
     },
     "base": {
       "version": "3.4.0",
-      "result": "pass",
-      "shard": 6,
-      "observed": "Sprite error"
+      "measured_seconds": 17.4,
+      "result": "exception",
+      "reason": "The package puts the Prelude and the other runtime-reserved modules on its source path; Sprite refuses a path copy of a reserved module (module rule 2).",
+      "shard": 2
     },
     "bindata": {
       "version": "3.0.0",
+      "measured_seconds": 20.4,
       "result": "pass",
-      "shard": 7,
-      "observed": "pass"
+      "shard": 0
     },
     "binint": {
       "version": "3.1.0",
+      "measured_seconds": 22.6,
       "result": "pass",
-      "shard": 6,
-      "observed": "pass"
+      "shard": 2
     },
     "chr-curry": {
       "version": "3.2.0",
+      "measured_seconds": 37.1,
       "result": "pass",
-      "shard": 7,
-      "observed": "pass"
+      "shard": 2
     },
     "clp-pakcs": {
       "version": "3.2.0",
+      "measured_seconds": 17.9,
       "result": "exception",
-      "shard": 6,
-      "observed": "missing external",
-      "reason": "Requires the PAKCS Prolog CLP(R) solver."
+      "reason": "Requires the PAKCS Prolog CLP(R) solver.",
+      "shard": 5
     },
     "clpbool": {
       "version": "2.0.0",
+      "measured_seconds": 22.1,
       "result": "exception",
-      "shard": 3,
-      "observed": "missing external",
-      "reason": "Requires the PAKCS Prolog CLP(B) solver."
+      "reason": "Requires the PAKCS Prolog CLP(B) solver.",
+      "shard": 6
     },
     "combinatorial": {
       "version": "3.2.0",
+      "measured_seconds": 23.9,
       "result": "pass",
-      "shard": 3,
-      "observed": "pass"
+      "shard": 0
     },
     "containers": {
       "version": "3.0.0",
+      "measured_seconds": 24.8,
       "result": "pass",
-      "shard": 4,
-      "observed": "pass"
+      "shard": 7
     },
     "contract-prover": {
       "version": "4.0.0",
+      "measured_seconds": 232.8,
       "result": "exception",
-      "shard": 6,
-      "observed": "test failure",
-      "reason": "Requires the absent system solver z3; verification fails with PAKCS 3.10.0 too."
+      "reason": "Requires the absent system solver z3; verification fails with PAKCS 3.10.0 too.",
+      "shard": 7
     },
     "coosy": {
       "version": "3.1.0",
+      "measured_seconds": 112.4,
       "result": "pass",
-      "shard": 7,
-      "observed": "pass"
+      "shard": 4
     },
     "cpm": {
       "version": "3.3.0",
+      "measured_seconds": 451.8,
       "result": "pass",
-      "shard": 1,
-      "observed": "pass"
+      "shard": 0
     },
     "curry-interface": {
       "version": "2.0.1",
+      "measured_seconds": 73.2,
       "result": "pass",
-      "shard": 7,
-      "observed": "pass"
+      "shard": 0
     },
     "curry-source": {
       "version": "1.3.0",
+      "measured_seconds": 65.7,
       "result": "pass",
-      "shard": 6,
-      "observed": "pass"
+      "shard": 5
     },
     "currycheck": {
       "version": "4.0.0",
+      "measured_seconds": 385.7,
       "result": "pass",
-      "shard": 3,
-      "observed": "pass"
+      "shard": 3
     },
     "currypp": {
       "version": "3.2.0",
-      "result": "pass",
-      "shard": 0,
-      "observed": "Sprite error"
+      "measured_seconds": 403.2,
+      "result": "open",
+      "issue": "#214",
+      "reason": "Expose library sources to legacy analysis readers without changing reserved-module policy.",
+      "issue_text": "Expose library sources to legacy analysis readers without changing reserved-module policy.",
+      "failure_class": "Sprite error",
+      "failure_match": "'Prelude'",
+      "shard": 2
     },
     "db-pakcs": {
       "version": "1.0.0",
+      "measured_seconds": 17.7,
       "result": "exception",
-      "shard": 3,
-      "observed": "front-end error",
-      "reason": "Requires PAKCS-only Prolog database primitives; its metadata also rejects PAKCS 3.10.0."
+      "reason": "Requires PAKCS-only Prolog database primitives; its metadata also rejects PAKCS 3.10.0.",
+      "shard": 1
     },
     "dimacs": {
       "version": "3.0.0",
+      "measured_seconds": 42.3,
       "result": "exception",
-      "shard": 5,
-      "observed": "test failure",
-      "reason": "Its tests require the absent system solver z3; the solver actions fail with PAKCS 3.10.0 too."
+      "reason": "Its tests require the absent system solver z3; the solver actions fail with PAKCS 3.10.0 too.",
+      "shard": 5
     },
     "directory": {
       "version": "3.0.0",
+      "measured_seconds": 21.1,
       "result": "pass",
-      "shard": 5,
-      "observed": "pass"
+      "shard": 1
     },
     "dsdcurry": {
       "version": "1.0.0",
-      "result": "pass",
-      "shard": 7,
-      "observed": "front-end error"
+      "measured_seconds": 30.1,
+      "result": "exception",
+      "reason": "Imports retired Char and List modules absent from base 3.4.0; PAKCS 3.10.0 fails too after bypassing package compiler metadata.",
+      "shard": 6
     },
     "easycheck": {
       "version": "3.2.0",
+      "measured_seconds": 23.1,
       "result": "pass",
-      "shard": 5,
-      "observed": "pass"
+      "shard": 5
     },
     "exact-print": {
       "version": "2.0.0",
+      "measured_seconds": 70.5,
       "result": "pass",
-      "shard": 7,
-      "observed": "pass"
+      "shard": 4
     },
     "failfree": {
       "version": "4.0.0",
+      "measured_seconds": 341.3,
       "result": "exception",
-      "shard": 4,
-      "observed": "test failure",
-      "reason": "Requires the absent system solver z3; verification fails with PAKCS 3.10.0 too."
+      "reason": "Requires the absent system solver z3; verification fails with PAKCS 3.10.0 too.",
+      "shard": 5
     },
     "filepath": {
       "version": "3.0.0",
+      "measured_seconds": 23.6,
       "result": "pass",
-      "shard": 7,
-      "observed": "pass"
+      "shard": 4
     },
     "finite-map": {
       "version": "3.0.0",
+      "measured_seconds": 29.6,
       "result": "pass",
-      "shard": 6,
-      "observed": "pass"
+      "shard": 7
     },
     "flatcurry": {
       "version": "5.0.0",
+      "measured_seconds": 49.6,
       "result": "pass",
-      "shard": 6,
-      "observed": "pass"
+      "shard": 2
     },
     "flatcurry-xml": {
       "version": "1.0.0",
-      "result": "pass",
-      "shard": 5,
-      "observed": "test failure"
+      "measured_seconds": 63.2,
+      "result": "open",
+      "issue": "#216",
+      "reason": "Evaluate deterministic search to its sole value inside IO instead of rejecting an intermediate choice.",
+      "issue_text": "Evaluate deterministic search to its sole value inside IO instead of rejecting an intermediate choice.",
+      "failure_class": "test failure",
+      "failure_match": "testXML_test_for_rev",
+      "shard": 7
     },
     "global": {
       "version": "3.2.0",
-      "result": "pass",
-      "shard": 5,
-      "observed": "missing external"
+      "measured_seconds": 31.5,
+      "result": "open",
+      "issue": "#215",
+      "reason": "Implement interpreter-owned Data.Global initialization, reads and writes with GC and reset support.",
+      "issue_text": "Implement interpreter-owned Data.Global initialization, reads and writes with GC and reset support.",
+      "failure_class": "missing external",
+      "failure_match": "Data.Global.prim_globalT",
+      "shard": 4
     },
     "global-variables": {
       "version": "1.0.0",
-      "result": "pass",
-      "shard": 2,
-      "observed": "missing external"
+      "measured_seconds": 22.0,
+      "result": "open",
+      "issue": "#215",
+      "reason": "Implement interpreter-owned GlobalVariable reads and writes with GC and reset support.",
+      "issue_text": "Implement interpreter-owned GlobalVariable reads and writes with GC and reset support.",
+      "failure_class": "missing external",
+      "failure_match": "GlobalVariable.prim_writeGVar",
+      "shard": 3
     },
     "icurry": {
       "version": "3.3.0",
+      "measured_seconds": 147.0,
       "result": "pass",
-      "shard": 5,
-      "observed": "not run"
+      "shard": 6
     },
     "inversion": {
       "version": "3.0.0",
+      "measured_seconds": 22.7,
       "result": "pass",
-      "shard": 4,
-      "observed": "pass"
+      "shard": 7
     },
     "io-extra": {
       "version": "3.0.0",
+      "measured_seconds": 81.8,
       "result": "pass",
-      "shard": 5,
-      "observed": "missing external"
+      "shard": 1
     },
     "json": {
       "version": "4.0.0",
+      "measured_seconds": 44.1,
       "result": "pass",
-      "shard": 7,
-      "observed": "network"
+      "shard": 0
     },
     "keydb": {
       "version": "3.1.0",
-      "result": "pass",
-      "shard": 4,
-      "observed": "network"
+      "measured_seconds": 33.9,
+      "result": "open",
+      "issue": "#215",
+      "reason": "Provide interpreter-owned Data.Global storage required by the SQLite key database.",
+      "issue_text": "Provide interpreter-owned Data.Global storage required by the SQLite key database.",
+      "failure_class": "missing external",
+      "failure_match": "Data.Global.prim_globalT",
+      "shard": 7
     },
     "plural-arguments": {
       "version": "3.1.0",
+      "measured_seconds": 95.6,
       "result": "pass",
-      "shard": 7,
-      "observed": "network"
+      "shard": 3
     },
     "printf": {
       "version": "3.0.0",
+      "measured_seconds": 27.0,
       "result": "pass",
-      "shard": 7,
-      "observed": "pass"
+      "shard": 2
     },
     "property-prover": {
       "version": "2.0.0",
+      "measured_seconds": 423.8,
       "result": "exception",
-      "shard": 2,
-      "observed": "test failure",
-      "reason": "Requires the absent system solver z3; verification fails with PAKCS 3.10.0 too."
+      "reason": "Requires the absent system solver z3; verification fails with PAKCS 3.10.0 too.",
+      "shard": 1
     },
     "queue": {
       "version": "3.0.0",
+      "measured_seconds": 27.4,
       "result": "pass",
-      "shard": 5,
-      "observed": "not run"
+      "shard": 4
     },
     "redblacktree": {
       "version": "3.0.0",
+      "measured_seconds": 26.5,
       "result": "pass",
-      "shard": 2,
-      "observed": "not run"
+      "shard": 3
     },
     "regexp": {
       "version": "4.1.0",
+      "measured_seconds": 33.7,
       "result": "pass",
-      "shard": 4,
-      "observed": "not run"
+      "shard": 0
     },
     "runcurry": {
       "version": "3.0.0",
+      "measured_seconds": 41.7,
       "result": "pass",
-      "shard": 7,
-      "observed": "not run"
+      "shard": 3
     },
     "rw-data": {
       "version": "1.1.0",
+      "measured_seconds": 46.0,
       "result": "pass",
-      "shard": 3,
-      "observed": "not run"
+      "shard": 1
     },
     "rw-data-generator": {
       "version": "2.0.0",
+      "measured_seconds": 131.5,
       "result": "pass",
-      "shard": 1,
-      "observed": "not run"
+      "shard": 5
     },
     "searchtree": {
       "version": "3.0.0",
-      "result": "pass",
-      "shard": 0,
-      "observed": "not run"
+      "measured_seconds": 27.4,
+      "result": "exception",
+      "reason": "Requires the PAKCS foreign strong-encapsulation primitives of Control.Findall, including allValues and oneValue.",
+      "shard": 5
     },
     "searchtree-unsafe": {
       "version": "3.0.0",
-      "result": "pass",
-      "shard": 6,
-      "observed": "not run"
+      "measured_seconds": 28.0,
+      "result": "exception",
+      "reason": "Requires the PAKCS foreign strong-encapsulation primitives Control.Search.SearchTree.Unsafe.allNormalForms and prim_lookupVarId, preserving unbound results.",
+      "shard": 0
     },
     "setfunctions": {
       "version": "3.0.0",
-      "result": "pass",
-      "shard": 5,
-      "observed": "not run"
+      "measured_seconds": 28.8,
+      "result": "exception",
+      "reason": "The package puts runtime-reserved Control.SetFunctions source on its path; Sprite refuses that path copy (module rule 2).",
+      "shard": 3
     },
     "spicey": {
       "version": "4.2.0",
+      "measured_seconds": 351.6,
       "result": "pass",
-      "shard": 2,
-      "observed": "not run"
+      "shard": 4
     },
     "string-trie": {
       "version": "0.0.2",
+      "measured_seconds": 30.9,
       "result": "pass",
-      "shard": 4,
-      "observed": "not run"
+      "shard": 5
     },
     "time": {
       "version": "3.0.0",
+      "measured_seconds": 26.3,
       "result": "pass",
-      "shard": 7,
-      "observed": "not run"
+      "shard": 1
     },
     "transbooleq": {
       "version": "3.3.0",
+      "measured_seconds": 258.3,
       "result": "pass",
-      "shard": 3,
-      "observed": "not run"
+      "shard": 7
     },
     "transformers": {
       "version": "3.0.0",
+      "measured_seconds": 29.7,
       "result": "pass",
-      "shard": 1,
-      "observed": "not run"
+      "shard": 1
     },
     "traversal": {
       "version": "3.0.0",
+      "measured_seconds": 30.4,
       "result": "pass",
-      "shard": 0,
-      "observed": "not run"
+      "shard": 2
     },
     "ui": {
       "version": "1.0.0",
-      "result": "pass",
-      "shard": 6,
-      "observed": "not run"
+      "measured_seconds": 36.2,
+      "result": "exception",
+      "reason": "Imports retired modules including List and IOExts; PAKCS 3.10.0 fails too after bypassing package compiler metadata.",
+      "shard": 1
     },
     "verify": {
       "version": "3.1.0",
-      "result": "pass",
-      "shard": 5,
-      "observed": "not run"
+      "measured_seconds": 338.9,
+      "result": "open",
+      "issue": "#214",
+      "reason": "Let the legacy analysis reader locate Prelude source when generating verifier programs.",
+      "issue_text": "Let the legacy analysis reader locate Prelude source when generating verifier programs.",
+      "failure_class": "test failure",
+      "failure_match": "testCompileDouble",
+      "shard": 6
     },
     "wui": {
       "version": "1.1.0",
-      "result": "pass",
-      "shard": 2,
-      "observed": "not run"
+      "measured_seconds": 63.8,
+      "result": "exception",
+      "reason": "Imports retired modules including Time; PAKCS 3.10.0 also rejects its required html-2.0.0 dependency after bypassing top-level compiler metadata.",
+      "shard": 6
     },
     "wui2": {
       "version": "3.1.0",
+      "measured_seconds": 65.5,
       "result": "pass",
-      "shard": 4,
-      "observed": "not run"
+      "shard": 3
     },
     "xml": {
       "version": "3.0.0",
-      "result": "pass",
-      "shard": 7,
-      "observed": "not run"
+      "measured_seconds": 43.3,
+      "result": "open",
+      "issue": "#213",
+      "reason": "Prevent null tuple-constructor dispatch while normalizing a functional-pattern property in a search capsule.",
+      "issue_text": "Prevent null tuple-constructor dispatch while normalizing a functional-pattern property in a search capsule.",
+      "failure_class": "Sprite error",
+      "failure_match": "Segmentation fault",
+      "shard": 4
     },
     "xmldata": {
       "version": "3.0.0",
-      "result": "pass",
-      "shard": 3,
-      "observed": "not run"
+      "measured_seconds": 95.4,
+      "result": "open",
+      "issue": "#214",
+      "reason": "Let AbstractCurry.Files.readCurry locate or generate the Prelude AbstractCurry representation.",
+      "issue_text": "Let AbstractCurry.Files.readCurry locate or generate the Prelude AbstractCurry representation.",
+      "failure_class": "test failure",
+      "failure_match": "testGenerateXMLConversions",
+      "shard": 2
     }
+  },
+  "shards": {
+    "count": 8,
+    "setup_minutes": 30,
+    "package_budget_minutes": 90,
+    "measured_seconds": [
+      675.1,
+      682.6,
+      682.7,
+      665.8,
+      680.1,
+      680.1,
+      665.7,
+      665.3
+    ]
   }
 }

@@ -149,8 +149,15 @@ assert curry.eval(E.getArgs).one() == []
       root = Path(directory)
       dependencies = root / 'dependencies'
       dependencies.mkdir()
+      (root / 'Nested').mkdir()
+      (root / 'LocalDependency.curry').write_text(
+          'module LocalDependency where\nvalue :: Int\nvalue = 42\n')
+      (root / 'Nested/Consumer.curry').write_text(
+          'module Nested.Consumer where\nimport qualified LocalDependency\n'
+          'value :: Int\nvalue = LocalDependency.value\n')
       (root / 'LocalDriver.curry').write_text(
-          'module LocalDriver where\nvalue :: Int\nvalue = 42\n')
+          'module LocalDriver where\nimport qualified Nested.Consumer\n'
+          'value :: Int\nvalue = Nested.Consumer.value\n')
       result = subprocess.run([sys.executable, '-m', 'curry.tools.repl',
           '--nocypm', ':set', 'path', str(dependencies),
           ':load', 'LocalDriver', ':eval', 'value', ':quit'], cwd=root,
@@ -167,6 +174,35 @@ assert curry.eval(E.getArgs).one() == []
           text=True, capture_output=True, timeout=120)
       self.assertEqual((result.returncode, result.stdout, result.stderr),
           (0, 'True\n', ''))
+
+  def test_private_cpm_launcher_selects_sprite_and_avoids_itself(self):
+    with tempfile.TemporaryDirectory() as directory:
+      root = Path(directory)
+      for name in ('bin', 'tools', 'fallback', 'python/curry'):
+        (root / name).mkdir(parents=True, exist_ok=True)
+      launcher = root / 'bin/cypm'
+      shutil.copyfile(config.installed_path('bin', 'cypm'), launcher)
+      launcher.chmod(0o755)
+      (root / 'python/curry/__init__.py').write_text('')
+      (root / 'python/curry/config.py').write_text(
+          'from pathlib import Path\n'
+          'def installed_path(*parts):\n'
+          '  return str(Path(__file__).resolve().parents[2].joinpath(*parts))\n')
+      (root / 'tools/pakcs').write_text('configured tool\n')
+      for name in ('tools', 'fallback'):
+        tool = root / name / 'cypm'
+        tool.write_text('#!' + sys.executable + '\nimport sys\n'
+                        'print(' + repr(name) + ')\nprint("\\n".join(sys.argv[1:]))\n')
+        tool.chmod(0o755)
+      for selected in ('tools', 'fallback'):
+        result = subprocess.run([str(launcher), 'test'], text=True,
+            capture_output=True, timeout=120,
+            env=dict(os.environ, PATH=os.pathsep.join([
+                str(launcher.parent), str(root / 'fallback'), os.environ['PATH']])))
+        self.assertEqual((result.returncode, result.stdout, result.stderr),
+            (0, selected + '\n-d\nCURRYBIN=' + str(root / 'bin/curry') + '\ntest\n', ''))
+        if selected == 'tools':
+          (root / 'tools/cypm').unlink()
 
   def test_search_path_and_runtime_settings(self):
     with tempfile.TemporaryDirectory(prefix='repl path ') as directory:
@@ -190,3 +226,25 @@ assert curry.eval(E.getArgs).one() == []
           ':quit', '--numeric-version']), text=True, capture_output=True, timeout=120)
       self.assertEqual((result.returncode, result.stdout, result.stderr),
           (0, ':quit\n--numeric-version\n', ''))
+
+  def test_empty_runtime_arguments_clear_previous_values(self):
+    result = self.run_sprite(':load', 'System.Environment',
+        ':set', 'args', 'previous', ':eval', 'getArgs',
+        ':set', 'args', ':eval', 'getArgs', ':quit')
+    self.assertEqual((result.returncode, result.stdout, result.stderr),
+        (0, '["previous"]\n[]\n', ''))
+
+  def test_startup_settings_read_commands_and_add_import_from_stdin(self):
+    with tempfile.TemporaryDirectory() as directory:
+      root = Path(directory)
+      (root / 'LocalModel.curry').write_text(
+          'module LocalModel where\nvalue :: Int\nvalue = 42\n')
+      (root / 'ModelWriter.curry').write_text(
+          'module ModelWriter where\nwriteModel :: String -> Int -> IO ()\n'
+          'writeModel path value = writeFile path (show value)\n')
+      result = subprocess.run([sys.executable, '-m', 'curry.tools.repl',
+          '--nocypm', ':set', 'v0'], cwd=root, text=True, capture_output=True,
+          input=':load LocalModel\n:add ModelWriter\n:set jit off\n'
+                ':eval writeModel "result.txt" value\n:quit\n', timeout=120)
+      self.assertEqual(result.returncode, 0, result.stderr)
+      self.assertEqual((root / 'result.txt').read_text(), '42')

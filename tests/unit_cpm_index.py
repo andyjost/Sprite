@@ -119,10 +119,28 @@ class TestCPMIndex(cytest.TestCase):
     self.assertEqual(survey.classify('OK', 124), 'timeout')
     self.assertTrue(survey.classify('prop: FAILED!', 1).startswith('test failure:'))
     self.assertEqual(survey.property_results('prop: OK\nother: FAILED!\n'), (1, 1))
+    self.assertEqual(survey.property_results(
+        'prop: EXECUTION FAILURE:\nfail error: IO action failed\n'), (0, 1))
     self.assertEqual(survey.property_results('Compiling Main\n'), ('not run', 'not run'))
     self.assertIn('std::bad_alloc', survey.classify('what(): std::bad_alloc', 134))
     self.assertEqual(survey.classify('*** Evaluation suspended!', 1),
                      'Sprite error: *** Evaluation suspended!')
+
+  def test_open_issue_allows_only_the_recorded_failure(self):
+    pin = {'version': '1.0.0', 'result': 'open', 'issue': '#TBD',
+           'reason': 'Command primitive absent', 'failure_class': 'missing external',
+           'failure_match': 'prim_command'}
+    expected = {'packages': {'sample': pin}}
+    row = {'package': 'sample', 'version': '1.0.0',
+           'result': 'missing external: prim_command'}
+    self.assertEqual(survey.compare([row], expected), ([], []))
+    for result in ('timeout', 'network: https://example.org',
+                   'missing external: another_primitive'):
+      row['result'] = result
+      self.assertEqual(len(survey.compare([row], expected)[0]), 1)
+    row['result'] = 'pass'
+    self.assertEqual(survey.compare([row], expected),
+                     ([], ['sample: open now passes']))
 
   def test_network_retains_source_url(self):
     self.assertEqual(survey.classify('curl: (7) Failed to connect\nRecovered from cache', 0), 'pass')
@@ -131,6 +149,23 @@ class TestCPMIndex(cytest.TestCase):
                      'network: ' + url)
     kiel = 'https://www.informatik.uni-kiel.de/package.tar.gz'
     self.assertEqual(survey.classify('Downloading ' + kiel, 124), 'network: ' + kiel)
+
+  def test_proxy_outage_is_polled_and_recovered(self):
+    with mock.patch.object(survey.subprocess, 'run') as run, \
+         mock.patch.object(survey.time, 'sleep') as sleep:
+      run.side_effect = [mock.Mock(returncode=7), mock.Mock(returncode=7),
+                         mock.Mock(returncode=0)]
+      self.assertTrue(survey.wait_for_proxy())
+      self.assertEqual(sleep.call_args_list, [mock.call(60), mock.call(60)])
+      run.side_effect = None
+      run.return_value.returncode = 0
+      sleep.reset_mock()
+      self.assertFalse(survey.wait_for_proxy())
+      sleep.assert_not_called()
+      run.return_value.returncode = 7
+      with self.assertRaisesRegex(ConnectionError, 'thirty minutes'):
+        survey.wait_for_proxy()
+      self.assertEqual(sleep.call_count, 30)
 
   def test_snapshot_is_stable_and_covers_manifest_bytes(self):
     with tempfile.TemporaryDirectory() as work:
@@ -152,7 +187,8 @@ class TestCPMIndex(cytest.TestCase):
       index = root / 'index' / 'sample' / '1.0.0'
       index.mkdir(parents=True)
       (index / 'package.json').write_text(json.dumps({
-          'name': 'sample', 'version': '1.0.0', 'testsuite': [{'modules': ['Main']}]}))
+          'name': 'sample', 'version': '1.0.0', 'testsuite': [{'modules': ['Main']}],
+          'executable': {'name': 'sample-tool', 'main': 'Main'}}))
       expected = root / 'expected.json'
       expected.write_text(json.dumps({'packages': {
           'sample': {'version': '1.0.0', 'result': 'pass'}}}))
@@ -164,8 +200,12 @@ if 'checkout' in args:
     target = pathlib.Path(args[args.index('-o') + 1])
     target.mkdir()
     (target / 'package.json').write_text('{"name":"sample","version":"1.0.0"}')
+elif 'install' in args:
+    destination = next((a.split('=', 1)[1] for a in args if a.startswith('BININSTALLPATH=')), None)
+    if destination:
+        (pathlib.Path(destination) / 'sample-tool').write_text('oracle')
 elif 'test' in args:
-    if os.environ['PATH'].split(os.pathsep)[0].endswith('oracle'):
+    if (pathlib.Path(os.environ['PATH'].split(os.pathsep)[0]) / 'sample-tool').exists():
         print('prop: OK')
     else:
         print('prop: FAILED!')
@@ -193,6 +233,7 @@ elif 'test' in args:
       self.assertEqual(row['pakcs_properties_passed'], '1')
       self.assertEqual(row['properties_failed'], '1')
       self.assertIn('PAKCS test\nprop: OK', (home / 'work/sample.log').read_text())
+      self.assertIn('PAKCS isolated install', (home / 'work/sample.log').read_text())
       before = (root / 'results.csv').read_bytes()
       (home / 'work/STOP').touch()
       stopped = subprocess.run(result.args, env=dict(os.environ, HOME=str(home)),

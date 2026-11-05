@@ -13,6 +13,43 @@ import unittest
 class TestCPMSearch(cytest.TestCase):
   @unittest.skipUnless(os.environ.get('SPRITE_CPM_INDEX_CHECKER'),
                        'the prepared CPM index framework is absent')
+  @unittest.expectedFailure
+  def test_functional_tree_pattern_property(self):
+    checker = Path(os.environ['SPRITE_CPM_INDEX_CHECKER']).resolve()
+    home = checker.parent
+    cypm = Path(config.installed_path('tools', 'pakcs')).resolve().with_name('cypm')
+    with tempfile.TemporaryDirectory(dir=home, prefix='index-pattern-') as directory:
+      project = Path(directory)
+      (project / 'package.json').write_text(json.dumps({
+          'name': 'sprite-index-pattern-test', 'version': '0.0.1',
+          'author': 'Sprite', 'synopsis': 'Functional pattern regression test',
+          'dependencies': {'base': '= 3.4.0'},
+          'testsuite': {'src-dir': '.', 'modules': ['PatternProperty']}}))
+      (project / 'PatternProperty.curry').write_text('''module PatternProperty where
+import Test.Prop
+data Tree = Text String | Elem String [(String,String)] [Tree] deriving (Eq,Ord,Show)
+xml :: String -> [Tree] -> Tree
+xml tag children = Elem tag [] children
+xtxt :: String -> Tree
+xtxt = Text
+with :: Data a => [a] -> [a]
+with [] = unknown
+with (x:xs) = unknown ++ x : with xs
+match :: Tree -> String
+match (xml "entry" (with [xml "name" [xtxt name], xml "phone" [xtxt phone]])) = name ++ ":" ++ phone
+property :: Prop
+property = match (xml "entry" [xml "name" [xtxt "a"], xml "other" [xtxt "unused"], xml "phone" [xtxt "b"]]) -=- "a:b"
+''')
+      result = subprocess.run([str(cypm), '-d',
+          'CURRYBIN=' + config.installed_path('bin', 'sprite'), '-d',
+          'REPOSITORYPATH=' + str(home / 'sprite-index'), 'test'], cwd=project,
+          env=dict(os.environ, HOME=str(home),
+                   PATH=str(checker) + os.pathsep + os.environ['PATH']),
+          capture_output=True, text=True, timeout=180)
+      self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+  @unittest.skipUnless(os.environ.get('SPRITE_CPM_INDEX_CHECKER'),
+                       'the prepared CPM index framework is absent')
   def test_quantified_properties_use_sprite(self):
     checker = Path(os.environ['SPRITE_CPM_INDEX_CHECKER']).resolve()
     home = checker.parent

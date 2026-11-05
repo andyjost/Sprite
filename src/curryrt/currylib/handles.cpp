@@ -116,18 +116,19 @@ namespace
         h.release();
         return finish(C, node);
       }
-      if(op == "prim_execCmd")
+      if(op == "prim_execCmd" || op == "prim_connectToCmd")
       {
         auto command = extract_string(root[0].target);
         lock.unlock();
-        std::istringstream ids(standard_stream(-1, "exec", command, 0));
+        bool duplex = op == "prim_connectToCmd";
+        std::istringstream ids(standard_stream(-1, duplex ? "connect" : "exec", command, 0));
         Node * nodes[3];
-        for(int i = 0; i < 3; ++i)
+        for(int i = 0; i < (duplex ? 1 : 3); ++i)
         {
           auto h = std::make_unique<Handle>();
           if(!(ids >> h->standard) || h->standard < 3)
             throw std::runtime_error("invalid command stream");
-          h->readable = i != 0;
+          h->readable = duplex || i != 0;
           h->writable = i == 0;
           std::lock_guard<std::recursive_mutex> guard(handle_mutex());
           nodes[i] = Node::create(&handle_info, h.get());
@@ -135,6 +136,7 @@ namespace
           open_handles().insert(h.get());
           h.release();
         }
+        if(duplex) return finish(C, nodes[0]);
         auto tuple = Module::find_symbol("Prelude", "(,,)");
         if(!tuple) throw std::runtime_error("Prelude tuple constructor is not loaded");
         return finish(C, Node::create(tuple, nodes[0], nodes[1], nodes[2]));
@@ -331,6 +333,9 @@ namespace
     auto command = new InfoTable(T_FUNC, 1, sizeof(Node1),
         F_STATIC_OBJECT | F_MONADIC, "prim_execCmd", "p", step, nullptr);
     Module::register_primitive("System.IOExts.prim_execCmd", command);
+    auto connect = new InfoTable(T_FUNC, 1, sizeof(Node1),
+        F_STATIC_OBJECT | F_MONADIC, "prim_connectToCmd", "p", step, nullptr);
+    Module::register_primitive("System.IOExts.prim_connectToCmd", connect);
     return 0;
   }
   int const registered = register_handles();

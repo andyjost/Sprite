@@ -97,21 +97,24 @@ run command = do
       curry.eval(io.hClose(h)).one()
 
   @cytest.posix_only('the reduced package property uses cat')
-  @unittest.expectedFailure
   def test_bidirectional_command_stream(self):
     curry.path.insert(0, str(BINARY))
     module = curry.compile('''import System.IO
 import System.IOExts
-goal :: IO String
+goal :: IO (Bool,Bool,Bool,String)
 goal = do
   handle <- connectToCommand "cat"
+  readable <- hIsReadable handle
+  writable <- hIsWritable handle
   hPutStrLn handle "hello"
   hFlush handle
+  ready <- hWaitForInput handle 5000
   line <- hGetLine handle
   hClose handle
-  return line
+  hClose handle
+  return (readable,writable,ready,line)
 ''')
-    self.assertEqual(curry.eval(module.goal).one(), 'hello')
+    self.assertEqual(curry.eval(module.goal).one(), (True, True, True, 'hello'))
 
   @unittest.expectedFailure
   def test_named_global_storage(self):
@@ -199,11 +202,39 @@ sourceAvailable = doesFileExist (installDir ++ "/lib/Prelude.curry")
     self.assertEqual(curry.show(curry.eval(module.value).one()), 'Just 0')
 
   @unittest.expectedFailure
+  def test_legacy_findall_foreign_search(self):
+    module = curry.compile(ALL_VALUES.replace('Control.AllValues', 'Control.Findall'))
+    self.assertEqual(curry.eval(module.values).one(), [0, 1, 1, 2])
+
+  @unittest.expectedFailure
+  def test_strong_search_keeps_unbound_results(self):
+    module = curry.compile('''module Control.Search.SearchTree.Unsafe where
+allNormalForms :: a -> [a]
+allNormalForms external
+goal :: Int
+goal = length (allNormalForms (id (_ :: Bool)))
+''')
+    self.assertEqual(curry.eval(module.goal).one(), 1)
+
+  @unittest.expectedFailure
   def test_base_package_startup_with_prelude_source(self):
     with tempfile.TemporaryDirectory() as directory:
       shutil.copyfile(config.installed_path('curry', 'Prelude.curry'),
                       Path(directory) / 'Prelude.curry')
       result = subprocess.run([sys.executable, '-c', 'import curry; curry.reset()'],
+          env=dict(os.environ, CURRYPATH=directory), text=True,
+          capture_output=True, timeout=120)
+      self.assertEqual(result.returncode, 0, result.stderr)
+
+  @unittest.expectedFailure
+  def test_setfunctions_package_reserved_source(self):
+    with tempfile.TemporaryDirectory() as directory:
+      target = Path(directory) / 'Control'
+      target.mkdir()
+      shutil.copyfile(config.installed_path('curry', 'Control', 'SetFunctions.curry'),
+                      target / 'SetFunctions.curry')
+      result = subprocess.run([sys.executable, '-c',
+          "import curry; curry.import_('Control.SetFunctions')"],
           env=dict(os.environ, CURRYPATH=directory), text=True,
           capture_output=True, timeout=120)
       self.assertEqual(result.returncode, 0, result.stderr)

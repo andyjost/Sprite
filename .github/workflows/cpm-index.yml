@@ -29,15 +29,25 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.14'
-      - name: Require a completed expectation file
+      - name: Check completed expectations and measured shard budget
+        env:
+          CPM_INDEX_SHARD: ${{ matrix.shard }}
         run: |
           python - <<'PYTHON'
           import json
+          import os
           import sys
           with open('tests/data/cpm/index-expected.json') as stream:
               expected = json.load(stream)
           if not expected.get('complete', False):
               sys.exit('CPM index expectations are incomplete; finish the survey before enabling CI.')
+          shard = int(os.environ['CPM_INDEX_SHARD'])
+          packages = [pin for pin in expected['packages'].values() if pin['shard'] == shard]
+          seconds = sum(pin['measured_seconds'] for pin in packages)
+          if not packages or seconds > 90 * 60:
+              sys.exit('CPM shard exceeds its measured 90-minute package budget.')
+          print(f'Shard {shard}: {len(packages)} packages, {seconds / 60:.1f} measured minutes; '
+                '30 minutes reserved for setup.')
           PYTHON
       - name: Install system packages
         run: |
@@ -80,6 +90,7 @@ jobs:
           done
           timeout 600 "$pakcs_home/bin/cypm" update
           python scripts/cpm-test-overlay.py "$HOME/.cpm/index" "$HOME/sprite-index" --snapshot tests/data/cpm/index-expected.json
+          printf 'REPOSITORYPATH=%s\n' "$HOME/sprite-index" >> "$HOME/.cpmrc"
           timeout 1800 "$pakcs_home/bin/cypm" -d REPOSITORYPATH="$HOME/sprite-index" -d CURRYBIN="$pakcs_home/bin/pakcs" install currypp
           limit_stack "$HOME/.cpm/bin/currypp"
           export PATH="$HOME/.cpm/bin:$PATH"
