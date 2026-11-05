@@ -158,7 +158,7 @@ Audit of shared state
 
    * - Module wrappers and constructor classes
      - ``objects/terms.py; classes.py``
-     - ModuleInfo cache locks cover Python-only wrapper construction. Classes/fields finish before module publication and are immutable for that version. Reload prepares complete replacements and updates owner references before publication. Raw-symbol selection remains a ContextVar.
+     - ModuleInfo cache locks cover cache inspection and version-checked publication. Native term construction and nullary computation copies run after releasing the lock. Classes/fields finish before module publication and are immutable for that version. Reload prepares complete replacements and updates owner references before publication. Raw-symbol selection remains a ContextVar.
 
    * - Shared free variables and iterator payloads
      - ``expressions.py; typecheck/builder.py; objects/terms.py``
@@ -170,7 +170,7 @@ Audit of shared state
 
    * - Evaluation statistics
      - ``backends/generic/eval/evaluator.py; interpreter/stats.py``
-     - A totals lock covers Python counters/weak registry and its version. Native counter reads happen outside the lock; version changes retry the snapshot. Direct single_step accounting remains supported. Returned stats are private snapshots, not a global pause of all activity.
+     - A totals lock covers Python counters/weak registry and its version. Native counter reads happen outside the lock; version changes retry the snapshot. The native value/event pull saves counts in its existing heap section, including completion and errors; generator closure publishes that Python snapshot without entering the heap. Direct single_step accounting remains supported. Returned stats are private snapshots, not a global pause of all activity.
 
    * - Compilation time, warnings and parser caches
      - ``toolchain/_makecurry.py; _curry2icurry.py; flat2icurry/interfaces.py; backends/cxx/toolchain.py``
@@ -192,37 +192,60 @@ File publication and lock order
 -------------------------------
 
 First use remains lazy: a trapped function compiles when it is first called,
-and unused functions do not move compilation failures earlier. There is no
-product-lock-to-heap edge. Importing dependencies, materializing native
-symbols, rendering source and preparing the linker command precede the
-file-production lock. The lock covers only producing/rechecking/publishing
-files. A producer writes a unique temporary name and publishes by rename;
-another producer that finds a current published product takes it. Failed
-compilation retains the previous published object and stamp. Publication
-invalidates the old stamp, renames the completed object, then publishes its
-new stamp; a missing stamp makes the object stale.
-The ICurry sidecar, generated C++ and ABI stamp record imported interface
-digests (and imported ICurry for C++ inlining), so changed imports make
-the corresponding products stale too.
+and unused functions do not move compilation failures earlier. Image and object
+publication prepare runtime facts before product locking. Importing
+dependencies, materializing native
+symbols, snapshotting imported constructor tags and registered primitive names
+for image, stamp and cache checks, rendering source and preparing the linker
+command/environment precede the file-production lock. Locked image checks, ABI
+checks and cache stores use those snapshots rather than reading runtime
+metadata again. The native object-publication binding performs file operations
+without taking the heap gate. The lock covers only
+producing/rechecking/publishing files. A producer writes a unique temporary
+name and publishes by rename; another producer that finds a current published
+product takes it. Failed compilation retains the previous published object and
+stamp. Publication invalidates the old stamp, renames the completed object,
+then publishes its new stamp; a missing stamp makes the object stale. The
+ICurry sidecar, generated C++ and ABI stamp record imported interface digests
+(and imported ICurry for C++ inlining), so changed imports make the
+corresponding products stale too.
 
-A reader checks a product before importing its dependencies and rechecks
-its file identity/stamp afterward, retrying if a producer replaced it.
-Restore similarly releases file locks before consulting interpreter/native
-state. Cache entries are immutable and first-producer-wins; a separate
-thread/process lock pins store/restore/prune operations. Lock order there
-is module product lock, then cache-root lock. No cache-root lock leads to
-an interpreter import or native heap entry. An external deletion of an
-entire cache is handled as a miss/I/O failure, as before.
+A reader checks a product before importing its dependencies and rechecks its
+file identity/stamp afterward, retrying if a producer replaced it. Restore
+similarly releases file locks before consulting interpreter/native state. Cache
+entries are immutable and first-producer-wins; a separate thread/process lock
+pins store/restore/prune operations. Lock order there is module product lock,
+then cache-root lock. Cache-root file operations do not directly import
+interpreter modules or enter the native heap. An external deletion of an entire cache is handled as a
+miss/I/O failure, as before.
 
-The trap hook already holds the heap and may take a product lock. The
-reverse order does not exist. Python interpreter/cache/counter mutexes are
-short metadata locks: no such mutex is held while waiting for the native
-heap or evaluating. Native metadata transactions acquire the existing heap
-gate first and group the associated native operations and registry
-publication. Dependency preparation and job waits are kept outside those
-transactions. Evaluation itself is never enclosed in a Python mutex or a
-metadata transaction. The large-stack worker therefore requires no Python
-lock ownership transfer.
+The trap hook already holds the heap and may take a product lock. These
+publication paths avoid the reverse order. Python interpreter/cache/counter mutexes are short
+metadata locks: no such mutex is held while waiting for the native heap or
+evaluating. Native metadata transactions acquire the existing heap gate first
+and group the associated native operations and registry publication. Dependency
+preparation and job waits are kept outside those transactions. Evaluation
+itself is never enclosed in a Python mutex or a metadata transaction. The
+large-stack worker therefore requires no Python lock ownership transfer.
+
+JIT compilation, cached-function resolution, cache indexing and publication
+collect log records under their existing locks. The product-lock helper's own
+diagnostics and the C++ object compiler, stamp and product-cache diagnostics
+join the enclosing message list. The outer holder emits after releasing its
+product and JIT locks, including on exceptional exits. The Python binding that
+applies posted LLVM steps takes the heap gate before changing a step pointer.
+
+Open items: front-end conversion and the ICurry cache still log under a product
+lock (#194). Property bindings do not apply the custom ``heap_access`` precall
+guard because pybind11 constructs getters before processing their attributes
+(#195); the constructor-tag test substitutes an explicitly guarded descriptor
+hook. The ``icurry_is_jit`` race with native step/aux writers also remains open
+(#196); guarding posted swaps alone does not synchronize those readers and
+writers.
+
+``tests/unit_heap_edges.py`` forces symbol-cache/heap and product-lock/heap
+inversions, abandoned-result/stream collection under the JIT lock, and a
+logging handler that reenters evaluation.
 
 Regression coverage is in ``tests/unit_free_threading.py``: complete module
 publication, concurrent imports/builds/consumption, cross-thread reset and
@@ -1060,14 +1083,24 @@ Deferred native finalization
 ============================
 
 The process-wide heap gate also protects native root and state lifetimes.
-Python finalization can run on the LLVM hot-compile thread while it holds
-its JIT lock. A finalizer must never wait for the heap: reset and cached
-function resolution may already own the heap while waiting for that lock.
-``RootHolder``, ``HeapDeleter`` and the shared module deleter transfer a
-preallocated ``PendingHeapAction`` to ``heap_dispose``. If the thread owns
-the heap, or can acquire it immediately, removal runs immediately. Otherwise
-the action goes on a list guarded by a separate small mutex. That mutex is
-released before any heap acquisition or wait, and before running an action.
+Python finalization can run on the LLVM hot-compile thread while it holds its
+JIT lock. A finalizer must never wait for the heap: reset and cached function
+resolution may already own the heap while waiting for that lock. The native
+value/event pull saves evaluation counters before returning, under the heap
+section that already produces the value. No additional heap acquisition is
+needed per value. Closure, including cyclic collection, adds only this Python
+snapshot to the totals; it never reads native counters from its finalization
+path. Normal exhaustion and evaluation errors refresh the snapshot before
+closing, including the work since the last yielded value. Suspended stream
+closure also drops its runtime holder through deferred native disposal; it does
+not call the heap-taking explicit state close or poll the backend. Ordinary
+completion and evaluation errors still close the state and poll; later ordinary
+use resumes backend polling. ``RootHolder``, ``HeapDeleter`` and the shared
+module deleter transfer a preallocated ``PendingHeapAction`` to
+``heap_dispose``. If the thread owns the heap, or can acquire it immediately,
+removal runs immediately. Otherwise the action goes on a list guarded by a
+separate small mutex. That mutex is released before any heap acquisition or
+wait, and before running an action.
 
 Every successful heap acquisition, including recursive acquisitions and wait
 completion, drains the list before the caller's work. A drain detaches the
