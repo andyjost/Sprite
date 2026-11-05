@@ -18,6 +18,12 @@ namespace curryrt { namespace python
 
 namespace
 {
+  PyObject * held_locks = nullptr; // retained with the host hooks
+  bool python_lock_held()
+  {
+    pybind11::gil_scoped_acquire gil;
+    return pybind11::reinterpret_borrow<pybind11::function>(held_locks)().cast<bool>();
+  }
   void python_wait(void (*wait)(void *), void * data)
   {
     // Native destructors can enter the heap without a bound-function
@@ -40,6 +46,10 @@ namespace
 
 PYBIND11_MODULE(_curryrtbindings, mod, pybind11::mod_gil_not_used())
 {
+  pybind11::object held = pybind11::module_::import("curry.utility.locking").attr("_held");
+  held_locks = held.release().ptr();
+  curryrt::set_host_lock_held(&python_lock_held);
+  mod.def("_check_reentrancy", &curryrt::check_reentrancy);
   // Group native metadata operations and their Python publication without
   // acquiring a Python mutex before a heap wait. Never used for stepping.
   mod.def("_metadata_call", [](pybind11::function action) { return action(); },

@@ -11,6 +11,7 @@ markers of this module (:class:`anchor`, :class:`choice`, :class:`cons`,
 :class:`unboxed`) describe the parts of an expression that are no Python
 value.
 '''
+from .utility.locking import Lock as _SpriteLock
 
 from . import backends, config, icurry, objects, utility
 from .common import T_FUNC
@@ -217,7 +218,7 @@ class free(object):
   ``vid``, 0 by default; that form serves the tests of the runtime.
   '''
   def __init__(self, vid=0, exprtype=None):
-    self._type_lock = threading.Lock()
+    self._type_lock = _SpriteLock()
     self.vid = int(vid)
     self.exprtype = exprtype
     # The shared node and a weak reference to the interpreter state it was

@@ -1,3 +1,4 @@
+from ..utility.locking import Lock as _SpriteLock
 from .. import config, exceptions
 from . import plans, _filenames, _findcurry, _productlock, _productcache
 from ..utility import formatDocstring
@@ -17,7 +18,7 @@ class CompileClock(object):
   def __init__(self):
     self.seconds = 0.0
     self._local = threading.local()
-    self._lock = threading.Lock()
+    self._lock = _SpriteLock()
 
   def __enter__(self):
     if getattr(self._local, 'depth', 0) == 0:

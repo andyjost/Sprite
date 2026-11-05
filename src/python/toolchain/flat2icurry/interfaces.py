@@ -8,11 +8,12 @@ Sprite keeps per-directory products under ``<root>/A/.curry/<subdir>/B.fint``.
 The finder tries both.  When no interface exists, the full ``.fcy`` serves,
 because the translation uses only names, visibilities, and data types.
 '''
+from ...utility.locking import Lock as _SpriteLock
 
 from . import flatcurry as fc
 from .errors import Flat2ICurryError
 import os, threading
-_loaded_lock = threading.Lock()
+_loaded_lock = _SpriteLock()
 
 __all__ = ['InterfaceFinder', 'load_interface', 'local_type_interfaces', 'module_root', 'product_path']
 

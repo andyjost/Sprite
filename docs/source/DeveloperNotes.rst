@@ -258,12 +258,23 @@ large-stack worker therefore requires no Python lock ownership transfer.
 JIT compilation, cached-function resolution, cache indexing and publication
 collect log records under their existing locks. The product-lock helper's own
 diagnostics and the C++ object compiler, stamp and product-cache diagnostics
-join the enclosing message list. The outer holder emits after releasing its
+join the enclosing message list, as do front-end conversion and ICurry-cache
+diagnostics. The outer holder emits after releasing its
 product and JIT locks, including on exceptional exits. The Python binding that
 applies posted LLVM steps takes the heap gate before changing a step pointer.
 
-Open items: front-end conversion and the ICurry cache still log under a product
-lock (#194). Property bindings do not apply the custom ``heap_access`` precall
+Each thread records Sprite lock ownership from acquisition through release,
+and the caller records the large-stack worker handoff until ownership returns.
+One shared entry check raises ``curry.ReentrancyError`` for a host call into
+Sprite under that boundary, and also prevents a native heap wait under it.
+Signal polling enters the same boundary, so signal handlers cannot wait for
+the evaluation they interrupted.
+Heap ownership alone permits reentry, preserving Python primitive callbacks
+that evaluate terms.
+Internal nested locking follows the existing order, and deferred log records
+are emitted only after the outermost lock releases, including on errors.
+
+Open items: property bindings do not apply the custom ``heap_access`` precall
 guard because pybind11 constructs getters before processing their attributes
 (#195); the constructor-tag test substitutes an explicitly guarded descriptor
 hook. The ``icurry_is_jit`` race with native step/aux writers also remains open

@@ -23,6 +23,7 @@ answers for it and ``curry.eval`` hands the static type of a goal to the
 converter.  :class:`Description` holds a tree of specs for the DSL and types
 it only when a consumer asks for nodes.
 '''
+from ..utility.locking import Lock as _SpriteLock
 
 import threading
 from ..utility.locking import native_metadata
@@ -250,7 +251,7 @@ class TypeRecord:
   def __init__(self):
     self._entries = {}
     self._pending_removals = []
-    self._lock = threading.Lock()
+    self._lock = _SpriteLock()
 
   def _purge(self):
     while self._pending_removals:
@@ -992,7 +993,7 @@ class IteratorCursor:
   '''One evaluation's position in a held Python iterator.'''
   _live = {}
   _pending_removals = []
-  _live_lock = threading.Lock()
+  _live_lock = _SpriteLock()
 
   def __init__(self, interp, source, elemtype, where, index=0):
     self.interp, self.source = interp, source

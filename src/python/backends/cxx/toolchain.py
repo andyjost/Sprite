@@ -43,6 +43,7 @@ cached products of a module instead of generating and compiling it when the
 cache holds them.  See Cpp2So.restore, Cpp2So.store and
 curry.toolchain._productcache.
 '''
+from ...utility.locking import Lock as _SpriteLock
 from ..generic.toolchain import ICurry2TargetSource
 from . import compiler, msvc
 from ... import cache, config, exceptions
@@ -55,7 +56,7 @@ from ...toolchain import (
 import functools, hashlib, itertools, json, logging, os, re, sys, tempfile, threading, time
 
 logger = logging.getLogger(__name__)
-_warning_lock = threading.Lock()
+_warning_lock = _SpriteLock()
 
 # A quoted include directive, the form the runtime headers use for one
 # another.  The pattern matches a directive inside an #if block as well: a

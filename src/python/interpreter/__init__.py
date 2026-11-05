@@ -4,6 +4,7 @@ A Curry interpreter.
 The Interpreter manages compilation and evaluation of Curry code.  Each
 instance has a separate copy of the settings and runtime.
 '''
+from ..utility.locking import RLock as _SpriteRLock
 
 __all__ = ['Interpreter']
 
@@ -78,7 +79,7 @@ class Interpreter(object):
     self._modules = {}
     self._module_view = contextvars.ContextVar('sprite_module_view', default=None)
     self._path_view = contextvars.ContextVar('sprite_path_view', default=None)
-    self._state_lock = threading.RLock()
+    self._state_lock = _SpriteRLock()
     self._path = list(config.currypath(reset=True))
     # The steps and forks of the evaluations of this interpreter; see stats.
     self._evaluation_totals = _evaluator.EvaluationTotals()

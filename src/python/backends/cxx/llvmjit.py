@@ -29,6 +29,7 @@ The JIT is unavailable without llvmlite or without the bitcode, which CMake
 builds when it finds clang (WITH_CLANG); the materializer then leaves the
 function interpreted and logs the reason once.
 '''
+from ...utility.locking import Lock as _SpriteLock, RLock as _SpriteRLock
 from ... import config
 from . import bytecode
 from . import curryrtbindings as curryrt
@@ -47,8 +48,8 @@ class Unavailable(Exception):
 # A tag below T_CTOR is a status, not a constructor.
 T_CTOR = curryrt.T_CTOR
 
-_lock = threading.Lock()
-_group_lock = threading.Lock()
+_lock = _SpriteLock()
+_group_lock = _SpriteLock()
 _jit = None       # the JIT of the process, made at the first compile
 _reason = None    # why the JIT is unavailable, once known
 BATCH_SIZE = 32
@@ -143,8 +144,8 @@ def _after_fork_in_child():
   # one of them held at the fork would never open: the child starts with a
   # fresh lock and no hot thread, and the next start_hot_tier starts one.
   global _lock, _group_lock, _hot_thread
-  _lock = threading.Lock()
-  _group_lock = threading.Lock()
+  _lock = _SpriteLock()
+  _group_lock = _SpriteLock()
   _hot_thread = None
 
 if hasattr(os, "register_at_fork"):
@@ -657,7 +658,7 @@ class _IndexedObjects:
   '''Decoded entries, without per-function file views until they are used.'''
   def __init__(self, path, entries, stream):
     self.path, self.entries, self.stream = path, entries, stream
-    self.read_lock = threading.RLock()
+    self.read_lock = _SpriteRLock()
     self.extra = []
     self.others = []
     self.remaining = len(entries)

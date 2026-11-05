@@ -1,10 +1,11 @@
 '''Typed Curry terms and the metadata of their names.'''
+from ..utility.locking import RLock as _SpriteRLock
 
 import threading, types
 from ..typecheck.defaulting import DefaultingError
 from ..typecheck.errors import ConversionError, MismatchError, ExprTypeMismatchError
 from ..exceptions import StaleError
-from ..utility.locking import synchronized
+from ..utility.locking import synchronized, entry, check_entry
 
 
 from contextlib import contextmanager
@@ -45,15 +46,16 @@ class Symbol:
   name = property(lambda self: self._info.name)
   fullname = property(lambda self: self._info.fullname)
   kind = property(lambda self: 'constructor' if self._info.info.tag >= T_CTOR else 'function')
-  arity = property(lambda self: self._info.info.arity if self._info.scheme is None
-      else self._info.scheme.source_arity)
-  signature = property(lambda self: None if self._info.signature is None
-      else unqualify(self._info.signature))
+  arity = property(entry(lambda self: self._info.info.arity if self._info.scheme is None
+      else self._info.scheme.source_arity))
+  signature = property(entry(lambda self: None if self._info.signature is None
+      else unqualify(self._info.signature)))
   public = property(lambda self: not getattr(self._info.icurry, 'is_private', False))
   fields = property(lambda self: getattr(self.module, '.info')._fields.get(self.name))
   info = property(lambda self: self._info.info)
 
   @property
+  @entry
   def fixity(self):
     from ..typecheck import exprtype
     interp = self._info.interpreter
@@ -126,7 +128,7 @@ class ModuleInfo:
     self._classes = {}
     self._fields = {}
     self._terms = {}
-    self._cache_lock = threading.RLock()
+    self._cache_lock = _SpriteRLock()
 
   name = property(lambda self: self._module.__name__)
 
@@ -139,6 +141,7 @@ class ModuleInfo:
     return None if icy.metadata.get('all.tmpd') is not None else icy.filename
 
   @property
+  @entry
   def symbols(self):
     with self._cache_lock:
       return self._symbol_cache()
@@ -151,6 +154,7 @@ class ModuleInfo:
     return self._symbols
 
   @property
+  @entry
   def types(self):
     with self._cache_lock:
       return self._type_cache()
@@ -218,6 +222,7 @@ class Term:
   def _defaulted(self, value):
     self._defaulted_value = value
 
+  @entry
   def __init__(self, interp, form, symbol=None, args=(), annotation=None):
     check_live(form)
     self._interp = interp
@@ -364,6 +369,7 @@ class Term:
   free_vars = property(lambda self: dict(self._free_vars))
 
   @property
+  @entry
   def args(self):
     if self.symbol is not None:
       return tuple(a if isinstance(a, Term) else Term(self._interp, a) for a in self._args)
@@ -391,6 +397,7 @@ class Term:
 
   @classmethod
   def from_symbol(cls, info, module):
+    check_entry()
     metadata = getattr(module, '.info')
     name = info.name
     with metadata._cache_lock:
@@ -422,6 +429,7 @@ class Term:
         result._typed_node = held._typed_node.copy()
     return result
 
+  @entry
   def __call__(self, *args):
     check_live(self)
     if not args:
@@ -461,12 +469,15 @@ class Term:
       head = Term(self._interp, [apply_, head, arg])
     return head
 
+  @entry
   def __choice__(self, other):
     return choice(self._interp, self, other)
 
+  @entry
   def __rchoice__(self, other):
     return choice(self._interp, other, self)
 
+  @entry
   def _op(self, name, left, right):
     try:
       _convert(self._interp, left)
@@ -497,6 +508,7 @@ class Term:
   def __rinfix__(self, op, other):
     return self._infix(op, other, True)
 
+  @entry
   def _infix(self, op, other, reflected):
     modules = [self._interp.prelude]
     for value in walk_forms((self, other)):
@@ -538,6 +550,7 @@ class Term:
   # The old API reads symbol metadata directly until its removal task.
   def __getattr__(self, name):
     if name in ('successor', 'successors'):
+      check_entry()
       return getattr(self._node, name)
     if self.symbol is not None:
       return getattr(self.symbol._info, name)
@@ -574,6 +587,7 @@ class Function(Term):
   '''A function value, including a partial constructor application.'''
   args = property(lambda self: self._value_args)
 
+  @entry
   def __call__(self, *args):
     if not args:
       return super().__call__()
@@ -793,6 +807,7 @@ anonymous = Anonymous()
 
 class Var(Term):
   """One Python object, one free variable, with a persistent static type."""
+  @entry
   def __init__(self, interp, name=None, type=None):
     from ..expressions import free
     if name is not None and not re.fullmatch(r"[a-z_][A-Za-z0-9_']*", name):
@@ -831,6 +846,7 @@ class LetForm:
 
 class Reference(Term):
   """A binding reference, resolved only by its enclosing let."""
+  @entry
   def __init__(self, interp, name):
     self._interp = interp
     self._session = interp._session
