@@ -716,7 +716,9 @@ with tempfile.TemporaryDirectory(ignore_cleanup_errors=os.name == 'nt') as work:
   module = curry.import_(source)
   saved = root / 'saved'
   saved.mkdir()
-  cpp = Path(curry.inspect.geticurryfile(module)).with_suffix('.cpp')
+  # Keep the saved code separate from the loaded module's captured products.
+  cpp = saved / 'code' / '.curry' / curry.config.intermediate_subdir() / 'X.cpp'
+  cpp.parent.mkdir(parents=True)
   curry._interpreter_.save(module, str(cpp), module_main=False, interfaces=False)
   obj = toolchain.Cpp2So(curry._interpreter_)(str(cpp), curry.path)
   from curry.interpreter.loadsave import record_saved_imports
