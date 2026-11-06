@@ -886,12 +886,12 @@ jobs:
           test -f "$HOME/sprite-index/REPOSITORY_CACHE.db"
           export CPM_TEST_HOME="$HOME"
           export SPRITE_DISABLE_SYSLIB_CHECKS=1
-          timeout 1800 cypm -d REPOSITORYPATH="$HOME/sprite-index" -d CURRYBIN="$GITHUB_WORKSPACE/install/bin/sprite" checkout currycheck -o "$HOME/currycheck-download"
+          timeout 1800 cypm -d REPOSITORYPATH="$HOME/sprite-index" -d CURRYBIN="$GITHUB_WORKSPACE/install/curry/bin/curry" checkout currycheck -o "$HOME/currycheck-download"
           python "$GITHUB_WORKSPACE/scripts/cpm-test-overlay.py" "$HOME/.cpm/index" "$HOME/sprite-index" --packages "$HOME/.cpm/packages"
-          timeout 1800 cypm -d REPOSITORYPATH="$HOME/sprite-index" -d CURRYBIN="$GITHUB_WORKSPACE/install/bin/sprite" install currycheck > "$HOME/currycheck-install.log" 2>&1 || { status=$?; cat "$HOME/currycheck-install.log"; exit "$status"; }
+          timeout 1800 cypm -d REPOSITORYPATH="$HOME/sprite-index" -d CURRYBIN="$GITHUB_WORKSPACE/install/curry/bin/curry" install currycheck > "$HOME/currycheck-install.log" 2>&1 || { status=$?; cat "$HOME/currycheck-install.log"; exit "$status"; }
           cat "$HOME/currycheck-install.log"
-          timeout 600 cypm -d REPOSITORYPATH="$HOME/sprite-index" -d CURRYBIN="$GITHUB_WORKSPACE/install/bin/sprite" install
-          SPRITE_CPM_PATH=0 timeout 600 cypm -d REPOSITORYPATH="$HOME/sprite-index" -d CURRYBIN="$GITHUB_WORKSPACE/install/bin/sprite" exec "python -c 'import curry; M = curry.import_(\"Data.Map\"); print(curry.eval(M.size(M.empty)).one())'"
+          timeout 600 cypm -d REPOSITORYPATH="$HOME/sprite-index" -d CURRYBIN="$GITHUB_WORKSPACE/install/curry/bin/curry" install
+          SPRITE_CPM_PATH=0 timeout 600 cypm -d REPOSITORYPATH="$HOME/sprite-index" -d CURRYBIN="$GITHUB_WORKSPACE/install/curry/bin/curry" exec "python -c 'import curry; M = curry.import_(\"Data.Map\"); print(curry.eval(M.size(M.empty)).one())'"
           env -u CURRYPATH python -c 'import curry; M = curry.import_("Data.Map"); print(curry.eval(M.size(M.empty)).one())'
           cd "$GITHUB_WORKSPACE/tests"
           test -x "$CPM_TEST_HOME/.cpm/bin/curry-check"
