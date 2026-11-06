@@ -5,6 +5,7 @@ from ..tools.utility import make_exception
 from ..utility import curryname, filesys, formatDocstring
 import logging, os
 from contextvars import ContextVar
+from ..utility.procfork import work as fork_work
 from contextlib import contextmanager
 from dataclasses import dataclass
 
@@ -38,6 +39,7 @@ def loader_inputs(records=None, interp=None):
 
 def with_loader_inputs(function):
   from functools import wraps
+  @fork_work
   @wraps(function)
   def wrapped(*args, **kwds):
     owner = getattr(args[0], 'interp', args[0]) if args else None
@@ -125,6 +127,7 @@ def resolving(interp):
 
 def with_resolution(function):
   from functools import wraps
+  @fork_work
   @wraps(function)
   def wrapped(plan, *args, **kwds):
     from . import _frontend

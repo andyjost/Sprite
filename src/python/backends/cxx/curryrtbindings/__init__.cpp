@@ -1,9 +1,17 @@
 #include "pybind11/pybind11.h"
 #include "curryrt/evaluation.hpp"
+#include "curryrt/exceptions.hpp"
+#include "curryrt/platform.hpp"
 #include "heap.hpp"
 #include <atomic>
+#include <cerrno>
 #include <csignal>
 #include <exception>
+#include <system_error>
+#ifndef _WIN32
+#include <pthread.h>
+#include <sys/wait.h>
+#endif
 
 namespace curryrt { namespace python
 {
@@ -21,6 +29,76 @@ namespace curryrt { namespace python
 
 namespace
 {
+  pybind11::object command_call(long long owner, bool builtin_only,
+                               pybind11::object operation,
+                               pybind11::args args, pybind11::kwargs kwargs)
+  {
+    // Enter the built-in directly after checking ownership. Buffered IO can
+    // block or take locks, so signals must remain unmasked throughout it.
+    if(builtin_only && !PyCFunction_Check(operation.ptr()))
+      throw pybind11::type_error("command operation must be a built-in method");
+    if(owner != curryrt::platform::process_id()) throw curryrt::ForkError();
+    auto result = pybind11::reinterpret_steal<pybind11::object>(
+        PyObject_Call(operation.ptr(), args.ptr(), kwargs.ptr()));
+    if(!result) throw pybind11::error_already_set();
+    return result;
+  }
+
+#ifndef _WIN32
+  pybind11::tuple command_posix_call(long long owner, int operation,
+                                     pid_t pid, int value)
+  {
+    if(operation < 0 || operation > 2)
+      throw pybind11::value_error("unknown bounded command operation");
+    struct SignalMask
+    {
+      sigset_t previous;
+      SignalMask()
+      {
+        sigset_t blocked;
+        sigfillset(&blocked);
+        auto error = pthread_sigmask(SIG_BLOCK, &blocked, &previous);
+        if(error) throw std::system_error(error, std::generic_category());
+      }
+      ~SignalMask() { pthread_sigmask(SIG_SETMASK, &previous, nullptr); }
+    };
+    int result = 0, status = 0, error = 0;
+    bool owned;
+    {
+      SignalMask mask;
+      owned = owner == curryrt::platform::process_id();
+      // No Python calls, lock acquisition or blocking waits under the mask.
+      if(owned)
+      {
+        if(operation == 0)
+          result = killpg(pid, value);
+        else if(operation == 1)
+          result = waitpid(pid, &status, WNOHANG);
+        else
+        {
+#ifdef WNOWAIT
+          siginfo_t info{};
+          result = waitid(P_PID, pid, &info, WEXITED | WNOWAIT | WNOHANG);
+          status = info.si_pid != 0;
+#else
+          result = -1;
+          errno = ENOSYS;
+#endif
+        }
+        error = errno;
+      }
+    }
+    if(!owned) throw curryrt::ForkError();
+    if(result < 0)
+    {
+      errno = error;
+      PyErr_SetFromErrno(PyExc_OSError);
+      throw pybind11::error_already_set();
+    }
+    return pybind11::make_tuple(result, status);
+  }
+#endif
+
   thread_local size_t lock_depth = 0;
   thread_local bool logs_pending = false;
   thread_local int drain_snapshot_signal = 0, drain_between_signal = 0;
@@ -264,6 +342,20 @@ namespace
 
 PYBIND11_MODULE(_curryrtbindings, mod, pybind11::mod_gil_not_used())
 {
+  mod.def("_fork_prepare", &curryrt::fork_prepare);
+  mod.def("_fork_check", &curryrt::fork_check);
+  mod.def("_fork_poisoned", &curryrt::fork_poisoned);
+  mod.def("_fork_work_begin", &curryrt::fork_work_begin);
+  mod.def("_fork_work_end", &curryrt::fork_work_end);
+  mod.def("_command_call", &command_call);
+#ifndef _WIN32
+  mod.def("_command_posix_call", &command_posix_call);
+#endif
+  mod.def("_fork_abandon", [](pybind11::object value) {
+    // Retain inherited executable owners without invoking LLVM destructors
+    // or acquiring any of the vanished compiler thread's internal locks.
+    (void) new pybind11::object(std::move(value));
+  });
   mod.def("_check_reentrancy", &curryrt::check_reentrancy);
   register_host_locks(mod);
   curryrt::set_host_lock_held(&python_lock_held);

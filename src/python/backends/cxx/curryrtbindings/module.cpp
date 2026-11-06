@@ -314,12 +314,14 @@ namespace
         throw py::value_error(
             "no interpreter owns this evaluation; primitives need one");
       py::object result = callable(interp, *args);
+      fork_check();
       Node * node = from_python(result);
       root->forward_to(is_monadic(primitive->info) ? io(node) : node);
       return T_FWD;
     }
     catch(py::error_already_set & exc)
     {
+      fork_check();
       if(exc.matches(PyExc_KeyboardInterrupt) || exc.matches(PyExc_SystemExit))
         throw;
       try
@@ -334,6 +336,7 @@ namespace
       exc.restore();
       PyErr_Clear();
     }
+    catch(ForkError const &) { throw; }
     catch(std::exception const & exc) { error = exc.what(); }
     error = "primitive " + primitive->qualified_name + ": " + error;
     if(is_monadic(primitive->info))
@@ -361,12 +364,14 @@ namespace
     {
       py::object hook = *g_trap_hook; // retain across a reentrant replacement
       py::object result = hook(py::cast(info, reference));
+      fork_check();
       if(result.is_none())
         return {};
       return py::str(result).cast<std::string>();
     }
     catch(py::error_already_set & exc)
     {
+      fork_check();
       if(exc.matches(PyExc_KeyboardInterrupt) || exc.matches(PyExc_SystemExit))
         throw;
       std::string text;
@@ -383,6 +388,7 @@ namespace
       PyErr_Clear();
       return text;
     }
+    catch(ForkError const &) { throw; }
     catch(std::exception const & exc)
     {
       return exc.what();
@@ -403,13 +409,19 @@ namespace curryrt { namespace python
       }
     });
     mod.def("_test_handle_shutdown_race", &test_handle_shutdown_race, heap_access{});
+    mod.def("_test_handle_mutex_held", &test_handle_mutex_held);
     mod.def("shutdown_handles", &shutdown_handles, heap_access{});
     mod.def("set_stream_hook", [](py::object callable) {
       auto retained = new py::object(std::move(callable));
       set_stream_hook([retained](int stream, std::string const & operation,
                                 std::string const & text, long long value) {
         py::gil_scoped_acquire gil;
-        try { return (*retained)(stream, operation, text, value).cast<std::string>(); }
+        try
+        {
+          auto result = (*retained)(stream, operation, text, value);
+          fork_check();
+          return result.cast<std::string>();
+        }
         catch(py::error_already_set & exc)
         {
           if(exc.matches(PyExc_KeyboardInterrupt) || exc.matches(PyExc_SystemExit))

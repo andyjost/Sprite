@@ -95,6 +95,7 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 import warnings
 from ..utility import curryname
+from ..utility.procfork import work as fork_work
 import logging, os, re, shlex, sys, time
 
 __all__ = [
@@ -305,6 +306,7 @@ def frontend_environment():
     env['LC_ALL'] = 'UTF-8' if sys.platform == 'darwin' else 'C.UTF-8'
   return env
 
+@fork_work
 def curry2flat(file_in, currypath, quiet=False, rewrite=True):
   """Hide installed sources unless translating in place in the installation.
 
@@ -409,9 +411,9 @@ def _run_frontend(file_in, currypath, quiet=False, rewrite=True,
     stdout, stderr = _system.pexec(
         cmd, cwd=moduledir, with_stderr=True, env=frontend_environment())
   else:
-    import tempfile
+    from . import _destination
     cmd[-1] = os.path.join(moduledir, cmd[-1])
-    with tempfile.TemporaryDirectory(prefix='sprite-frontend-') as work:
+    with _destination.temporary_directory(prefix='sprite-frontend-') as work:
       stdout, stderr = _system.pexec(
           cmd, cwd=work, with_stderr=True, env=frontend_environment())
   if logger.isEnabledFor(logging.INFO):
@@ -511,6 +513,7 @@ def flat2icy(fcyfile, file_out, searchdirs):
   iprog = flat2icurry.translate_file(fcyfile, finder, icurry_compat=False)
   flat2icurry.write_icurry(iprog, file_out)
 
+@fork_work
 def curry2icurry(file_in, file_out, currypath, quiet=False):
   '''
   Converts the Curry file ``file_in`` to the ICurry file ``file_out``: the

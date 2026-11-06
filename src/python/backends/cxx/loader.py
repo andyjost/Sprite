@@ -6,6 +6,7 @@ from ... import config, exceptions
 from . import curryrtbindings as curryrt
 from . import elf, macho, pe
 from ...utility.locking import native_metadata
+from ...utility.procfork import work as fork_work
 import hashlib, logging, os, sys
 
 logger = logging.getLogger(__name__)
@@ -172,6 +173,7 @@ def _program_path(interp, sofile):
     return None
   return _findcurry.program_path(curryfile, interp.path, is_sourcefile=True)
 
+@fork_work
 def load_module(interp, sofile, from_plan=False, fresh=False, _saved_payload=False):
   _findcurry.verify_loaded_product(sofile, interp)
   _findcurry.verify_loaded_product(sofile + ".abi", interp)

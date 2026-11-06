@@ -44,6 +44,8 @@
 // branch runs to its own end.
 namespace curryrt
 {
+  struct ForkWork;
+  void icurry_after_fork();
   enum Opcode : uint32_t
   {
     // r i       regs[r] = the node in slot i of the redex
@@ -188,7 +190,8 @@ namespace curryrt
 
 
   // The hot tier.  A step counts the calls of its bytecode; at the
-  // threshold (0 turns the count off) the function joins a list, which
+  // threshold (0 turns the count off) an armed C++ job starts; otherwise
+  // an LLVM-enabled interpreter lets the function join a list, which
   // icurry_take_hot hands over and clears.  The JIT of the Python package
   // reads the list from a thread of its own, compiles the functions, and
   // swaps their steps while the evaluation runs (backends/cxx/llvmjit.py).
@@ -198,13 +201,17 @@ namespace curryrt
     Bytecode const * bytecode;
     std::shared_ptr<ModuleRegistry::Storage> owner;
     size_t generation;
+    // Only hot-queue tickets carry activity. Copies retain the same count
+    // through dequeue and posting; finish releases it at completion/drop.
+    std::shared_ptr<ForkWork> activity;
     bool valid() const { return owner->generation.load() == generation; }
   };
   ICurryWork icurry_work(InfoTable *);
   void icurry_invalidate(InterpreterState &);
-  void icurry_set_hot_threshold(InterpreterState &, uint32_t);
+  void icurry_set_hot_threshold(InterpreterState &, uint32_t, bool llvm=true);
   uint32_t icurry_hot_threshold(InterpreterState const &);
   std::vector<ICurryWork> icurry_take_hot();
+  void icurry_finish_hot(std::vector<ICurryWork> const &);
 
   // The posted swaps of the hot tier.  The thread of the JIT posts a step for
   // a table (icurry_post_step); a scheduler applies the posted swaps at the

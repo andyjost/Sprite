@@ -889,6 +889,8 @@ def named_vars(root):
 
 
 def check_module(module):
+  from ..utility.procfork import check
+  check()
   interp = getattr(module, '.interp')
   name = module.__name__
   if getattr(module, '.session') is not interp._session:
@@ -935,6 +937,8 @@ def dependencies(root):
 
 
 def check_live(root):
+  from ..utility.procfork import check
+  check()
   from . import CurryModule
   from .classes import constructor_term
   for value in walk_forms(root):

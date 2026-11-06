@@ -1,9 +1,21 @@
 """Publication destinations shared by installed-module product writers."""
-import os
+import os, shutil, tempfile
 from contextlib import contextmanager
 from contextvars import ContextVar
 from . import _filenames, _findcurry
 from .. import config
+
+
+@contextmanager
+def temporary_directory(prefix):
+  """Remove a transient compiler view only in the process that made it."""
+  owner = os.getpid()
+  directory = tempfile.mkdtemp(prefix=prefix)
+  try:
+    yield directory
+  finally:
+    if owner == os.getpid():
+      shutil.rmtree(directory)
 
 
 def canonical(filename):

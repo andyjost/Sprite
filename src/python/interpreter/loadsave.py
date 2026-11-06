@@ -3,6 +3,7 @@ from ..typecheck import defaulting, goals
 from ..toolchain import _findcurry
 from ..utility.binding import binding
 from ..utility.strings import ensure_str
+from ..utility.procfork import work as fork_work
 from ..objects import handle
 import contextlib, io, logging, os
 
@@ -260,6 +261,7 @@ def _saved_snapshot(interp, names):
     return result
 
 
+@fork_work
 def record_saved_imports(interp, module, filename):
   """Keep dependency provenance beside the unmodified linked object."""
   import json

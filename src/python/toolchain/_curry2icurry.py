@@ -11,6 +11,7 @@ from . import _filenames, _frontend, _interfaces, _preprocessor, _system
 from . import flat2icurry
 from .flat2icurry import flatcurry, setlift
 from ..utility import curryname, filesys
+from ..utility.procfork import work as fork_work
 import hashlib, json, logging, os, re
 
 __all__ = [
@@ -516,6 +517,7 @@ class Curry2ICurryConverter(object):
                          and cache.icurry_cache_enabled() and not _frontend.frontend_warnings()
     self.tool = config.curry2icurry_tool(kwds.get('curry2icurry'))
 
+  @fork_work
   @_system.updateCheck
   def convert(self, file_in, currypath):
     from . import _destination
@@ -589,8 +591,8 @@ class Curry2ICurryConverter(object):
                 with _system.bindCurryPath(protected):
                   if logger.isEnabledFor(logging.DEBUG):
                     _deferred_log(logger, logging.DEBUG, 'Command: %s', ' '.join(cmd))
-                  import tempfile
-                  with tempfile.TemporaryDirectory(prefix='sprite-icurry-') as work:
+                  from . import _destination
+                  with _destination.temporary_directory(prefix='sprite-icurry-') as work:
                     # Give icurry a target-only working view. It otherwise
                     # resolves a bare name again or changes to the source's
                     # directory, either of which can change the selection.

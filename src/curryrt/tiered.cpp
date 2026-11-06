@@ -48,8 +48,6 @@ namespace curryrt
   namespace
   {
     using JobKey = std::pair<size_t, std::string>;
-    std::unordered_map<InfoTable const *, JobKey> hot_modules;
-    std::map<JobKey, TieredJob> hot_jobs;
 
     struct Finished
     {
@@ -67,6 +65,8 @@ namespace curryrt
     // its waiters left, which would hang the exit of the process.
     struct Shared
     {
+      std::unordered_map<InfoTable const *, JobKey> hot_modules;
+      std::map<JobKey, TieredJob> hot_jobs;
       std::mutex                mutex;
       std::condition_variable   work_cv;  // the worker waits here for a job
       std::condition_variable   idle_cv;  // waiters of tiered_wait
@@ -83,11 +83,12 @@ namespace curryrt
       uint64_t                  generation = 0;
     };
 
-    Shared & shared()
+    Shared *& shared_ptr()
     {
-      static Shared * const instance = new Shared;
-      return *instance;
+      static Shared * instance = new Shared;
+      return instance;
     }
+    Shared & shared() { return *shared_ptr(); }
 
     std::string errno_text(char const * what)
     {
@@ -385,6 +386,7 @@ namespace curryrt
           ).count();
         {
           std::lock_guard<std::mutex> lock(shared().mutex);
+          fork_work_end(platform::process_id());
           shared().running = false;
           if(generation == shared().generation)
           {
@@ -788,6 +790,13 @@ namespace curryrt
     }
   }
 
+  void tiered_after_fork()
+  {
+    // No parent job, PID, condition variable or armed private path is actionable.
+    shared_ptr() = new Shared;
+    g_tiered_pending.store(false);
+  }
+
   std::string tiered_file_digest(std::string const & path)
   {
     std::ifstream stream(path, std::ios::binary);
@@ -818,6 +827,7 @@ namespace curryrt
       fail_job(std::move(job), std::move(error));
       return;
     }
+    fork_work_begin();
     shared().queue.push_back(std::move(job));
     shared().work_cv.notify_one();
   }
@@ -827,29 +837,31 @@ namespace curryrt
     std::lock_guard<std::mutex> lock(shared().mutex);
     JobKey key{job.registry.storage->id, job.module};
     for(auto const & step: job.steps)
-      hot_modules[step.info] = key;
-    hot_jobs[key] = std::move(job);
+      shared().hot_modules[step.info] = key;
+    shared().hot_jobs[key] = std::move(job);
   }
 
-  void cxx_hot(InfoTable const * info)
+  bool cxx_hot(InfoTable const * info)
   {
     std::lock_guard<std::mutex> lock(shared().mutex);
-    auto module = hot_modules.find(info);
-    if(module == hot_modules.end())
-      return;
-    auto job = hot_jobs.find(module->second);
-    if(job == hot_jobs.end())
-      return;
+    auto module = shared().hot_modules.find(info);
+    if(module == shared().hot_modules.end())
+      return false;
+    auto job = shared().hot_jobs.find(module->second);
+    if(job == shared().hot_jobs.end())
+      return true;
     TieredJob taken = std::move(job->second);
-    hot_jobs.erase(job);
+    shared().hot_jobs.erase(job);
     std::string error;
     if(!start_worker(&error))
     {
       fail_job(std::move(taken), std::move(error));
-      return;
+      return true;
     }
+    fork_work_begin();
     shared().queue.push_back(std::move(taken));
     shared().work_cv.notify_one();
+    return true;
   }
 
   void tiered_apply_pending(bool in_evaluation)
@@ -953,17 +965,18 @@ namespace curryrt
     std::lock_guard<std::mutex> lock(shared().mutex);
     auto owns = [&](TieredJob const & job)
       { return !registry || job.registry.storage == registry->storage; };
-    for(auto it = hot_modules.begin(); it != hot_modules.end();)
+    for(auto it = shared().hot_modules.begin(); it != shared().hot_modules.end();)
       if(!registry || it->second.first == registry->storage->id)
-        it = hot_modules.erase(it);
+        it = shared().hot_modules.erase(it);
       else ++it;
-    for(auto it = hot_jobs.begin(); it != hot_jobs.end();)
-      if(owns(it->second)) it = hot_jobs.erase(it);
+    for(auto it = shared().hot_jobs.begin(); it != shared().hot_jobs.end();)
+      if(owns(it->second)) it = shared().hot_jobs.erase(it);
       else ++it;
     auto & queue = shared().queue;
     queue.erase(std::remove_if(queue.begin(), queue.end(), [&](TieredJob const & job)
       {
         if(!owns(job)) return false;
+        fork_work_end(platform::process_id());
         if(!job.logfile.empty())
         {
           std::error_code ignored;

@@ -1,10 +1,30 @@
 #pragma once
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <thread>
 
 namespace curryrt
 {
+  // Process forks are usable only when Sprite has no work in flight.
+  void fork_check();
+  bool fork_poisoned() noexcept;
+  void fork_prepare();
+  long long fork_work_begin();
+  void fork_work_end(long long owner) noexcept;
+  struct ForkWork
+  {
+    std::atomic<long long> owner;
+    ForkWork() : owner(fork_work_begin()) {}
+    void finish() noexcept
+    {
+      if(auto pid = owner.exchange(0)) fork_work_end(pid);
+    }
+    ~ForkWork() { finish(); }
+    ForkWork(ForkWork const &) = delete;
+    ForkWork & operator=(ForkWork const &) = delete;
+  };
+
   // Serialization of the shared heap is a stopgap for the concurrent runtime
   // of epic #28, not its design.  The allocator and collector currently own
   // one process-wide heap.  Bindings use this same lock, never a second one.
@@ -54,8 +74,8 @@ namespace curryrt
   void set_host_wait(host_wait_type);
   void host_poll();
 
-  // Python lock holders and native handoffs share one entry check. Heap
-  // ownership alone is deliberately absent: primitive callbacks may reenter.
+  // One entry check rejects a busy fork child before checking Python lock
+  // holders and native handoffs. Heap ownership alone permits callbacks.
   using host_lock_held_type = bool (*)();
   void set_host_lock_held(host_lock_held_type);
   void check_reentrancy();

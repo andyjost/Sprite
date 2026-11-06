@@ -27,14 +27,10 @@
 // waiters left, which would hang the exit of the process (see tiered.cpp).
 // The detached thread ends with the process.
 //
-// A thread does not survive fork.  A child handler of pthread_atfork gives
-// the child fresh state with no thread and a clear byte, and the count of
-// the evaluations in flight at the fork.  The first evaluation entered in
-// the child, nested in one of those or not, starts a ticker of its own,
-// because the state has none.  An evaluation in flight at the fork runs in
-// the child without a ticker until then.  A host that forks after an
-// evaluation in time mode is multi-threaded, which Python's os.fork warns
-// about; step mode starts no thread.
+// A thread does not survive process fork. The child starts with no ticker,
+// no active count and a clear byte. Its first evaluation starts a ticker
+// when the fork occurred at the idle boundary; a busy child instead raises
+// ForkError before resuming Sprite work. Step mode starts no ticker thread.
 //
 // The native workers of the performance program poll the same byte at their
 // back-edges through ticker_due and return to the scheduler when it is set.

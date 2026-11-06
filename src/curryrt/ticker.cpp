@@ -6,6 +6,7 @@
 #include <string>
 #include <thread>
 #include "curryrt/ticker.hpp"
+#include "curryrt/evaluation.hpp"
 
 // The ticker thread of time mode.  See ticker.hpp.
 namespace curryrt
@@ -78,22 +79,12 @@ namespace curryrt
       }
     }
 
-    // The child of a fork has no thread.  Fresh state with no thread and a
-    // clear byte lets the first evaluation entered in the child start a
-    // ticker of its own (ticker_enter starts the thread whenever the state
-    // has none).  The count of the evaluations in flight carries over, so
-    // the scope of an evaluation that spans the fork leaves a consistent
-    // count.  The old state leaks: its mutex may be held by a thread that
-    // does not exist here.  glibc makes malloc usable in the child before
-    // the handlers of pthread_atfork run.
+    // A child starts its own ticker on its first idle-boundary evaluation.
+    // Interrupted evaluation scopes only unwind; they never use this state.
     void child_after_fork()
     {
       State * const old = state_ptr();
       State * const fresh = new State;
-      fresh->active.store(
-          old->active.load(std::memory_order_relaxed)
-        , std::memory_order_relaxed
-        );
       fresh->quantum_ns.store(
           old->quantum_ns.load(std::memory_order_relaxed)
         , std::memory_order_relaxed
@@ -126,10 +117,7 @@ namespace curryrt
         );
     State & st = *state_ptr();
     st.quantum_ns.store(quantum_ns, std::memory_order_relaxed);
-    // The thread starts when the state has none, whatever the count: the
-    // state of a fork child carries the count of the evaluations in flight
-    // at the fork, and none of them has a ticker.  Otherwise the first
-    // evaluation wakes the parked thread.
+    // The first evaluation starts the thread or wakes the parked thread.
     size_t const before = st.active.fetch_add(1, std::memory_order_acq_rel);
     if(before == 0 || !st.started.load(std::memory_order_relaxed))
     {
@@ -157,6 +145,7 @@ namespace curryrt
 
   void ticker_leave()
   {
+    if(fork_poisoned()) return;
     state_ptr()->active.fetch_sub(1, std::memory_order_acq_rel);
   }
 

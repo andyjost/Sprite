@@ -39,6 +39,27 @@ serializes its process-wide heap: two evaluations still step one at a time
 per heap, while Python work outside native metadata/heap operations can run
 in parallel on a free-threaded interpreter. Curry evaluations are serialized.
 
+Process fork is supported only while no evaluation, compilation, JIT work
+or native handle operation is in flight in any thread; hot requests for the active
+backend count continuously from enqueue through completion or discard, including
+after dequeue, while unarmed C++ functions create no LLVM request.
+Python and native preparation hooks record activity before the fork;
+a busy child raises ``curry.exceptions.ForkError`` on subsequent Sprite
+calls, including the return from a callback into an interrupted evaluation;
+if only the large-stack worker survives, it attempts to report ``ForkError`` to
+standard error with a one-second child-local exit alarm and exits with status 1
+without entering inherited worker state or changing shared descriptor flags.
+An idle child abandons inherited workers, jobs, compiler PIDs, locks and
+ticker state and starts its own state as needed.
+Child exit and collection never wait on inherited work, signal the parent's
+compiler group or remove the parent's temporary module directories.
+Completed executable mappings remain retained without entering or destroying
+their inherited compiler owners.
+Inherited nonstandard file handles must be reopened in the child.
+Buffered command close, flush, seek and write run unmasked immediately after
+a native ownership check, so a signal handler that forks during a blocking
+operation and returns in the child can let that operation retry there.
+
 The bindings release the GIL while the runtime steps or waits, take it
 for Python callbacks and conversion and poll signals while they wait.  A
 deep goal starts on the caller's thread; when an unwind and a retry make
@@ -268,7 +289,8 @@ Native binding methods acquire and record Sprite mutex ownership, or release
 and clear it, without running Python between those steps; native context entry
 rolls back acquisition if dispatching a pending signal raises, and the
 caller records the large-stack worker handoff until ownership returns.
-One shared native entry check raises ``curry.ReentrancyError`` for a host call into
+One shared native entry check rejects a busy fork child with ``curry.ForkError``
+first, then raises ``curry.ReentrancyError`` for a host call into
 Sprite under that boundary through package functions, interpreter methods or
 public objects, and also prevents a native heap wait under it.
 Signal polling enters the same boundary, so signal handlers cannot wait for
