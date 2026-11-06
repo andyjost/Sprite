@@ -456,37 +456,55 @@ class TestStaleness(PreRewriteCase):
 
   def test_cost(self):
     '''
-    The cost of the check: on the Prelude (the library is left out after
-    a path comparison), on a file the pass rewrote (a read and a scan),
-    and on a file with an equality outside a required position (the pass
-    over the text, once per process; the memo answers after).  The best
-    of five batches, so a loaded machine does not fail the test; the
-    bounds are wide for the same reason.  Measured on the development
-    machine: 0.05 ms, 0.1 ms, 1 ms for the parse and 0.1 ms after it.
+    Count the work of the rewrite check: the Prelude is left out after
+    a path comparison with no read, scan or parse; a rewritten file is
+    read and scanned but not parsed; an equality outside a required
+    position is parsed once per process, then answered from the memo.
+    Structural assertions catch extra work without depending on runner
+    speed (issue #254).  Previously measured costs were 0.05 ms, 0.1 ms,
+    1 ms for the parse and 0.1 ms after it.  One loose guard per case
+    allows 50 ms per check on average, at least 50 times those costs,
+    to catch only gross slowdowns.
     '''
-    def best_ms(fn, n=20):
-      best = None
-      for _ in range(5):
-        start = time.perf_counter()
-        for _ in range(n):
-          fn()
-        elapsed = (time.perf_counter() - start) / n * 1000
-        best = elapsed if best is None else min(best, elapsed)
-      return best
     prelude = os.path.join(config.system_curry_path(), SUBDIR, 'Prelude.icy')
     self.assertTrue(os.path.isfile(prelude))
-    cost = best_ms(lambda: _curry2icurry.icurry_is_stale(prelude))
-    self.assertLess(cost, 2.0, 'the check on the Prelude costs %.3f ms' % cost)
-    rewritten = self.convert(self.write('GuardF', guard('GuardF')))
-    cost = best_ms(lambda: _curry2icurry.icurry_is_stale(rewritten))
-    self.assertLess(cost, 5.0, 'the check on a rewritten file costs %.3f ms' % cost)
-    parsed = self.convert(self.write('IfEqF', ifeq('IfEqF')))
-    start = time.perf_counter()
-    self.assertFalse(_curry2icurry.icurry_is_stale(parsed))
-    cost = (time.perf_counter() - start) * 1000
-    self.assertLess(cost, 25.0, 'the check with a parse costs %.3f ms' % cost)
-    cost = best_ms(lambda: _curry2icurry.icurry_is_stale(parsed))
-    self.assertLess(cost, 5.0, 'the check after the parse costs %.3f ms' % cost)
+    rewritten_source = self.write('GuardF', guard('GuardF'))
+    rewritten = self.convert(rewritten_source)
+    parsed_source = self.write('IfEqF', ifeq('IfEqF'))
+    parsed = self.convert(parsed_source)
+    # Count only translated_before_rewrite: icurry_is_stale also checks
+    # source receipts and imported interfaces, which have their own I/O.
+    cases = [
+        ('Prelude', os.path.join(config.system_curry_path(), 'Prelude.curry'),
+         prelude, False, False)
+      , ('rewritten', rewritten_source, rewritten, True, False)
+      , ('memo', parsed_source, parsed, True, True)
+      ]
+    checks = 20
+    for name, source, icy, reads_file, parses_file in cases:
+      with self.subTest(case=name):
+        _curry2icurry.reset_counts()
+        with mock.patch.object(
+            _curry2icurry, 'open', wraps=open, create=True
+          ) as reads, mock.patch.object(
+            _curry2icurry, '_needs_rewrite', wraps=_curry2icurry._needs_rewrite
+          ) as scans, mock.patch.object(
+            _curry2icurry.flatcurry, 'read', wraps=_curry2icurry.flatcurry.read
+          ) as parses:
+          start = time.perf_counter()
+          for count in range(1, checks + 1):
+            self.assertFalse(_curry2icurry.translated_before_rewrite(source, icy))
+            self.assertEqual(reads.call_count, count if reads_file else 0,
+                             'file reads')
+            self.assertEqual(scans.call_count, count if reads_file else 0,
+                             'text scans')
+            self.assertEqual(parses.call_count, int(parses_file),
+                             'parses, including memo hits')
+          cost = (time.perf_counter() - start) / checks * 1000
+          if reads_file:
+            self.assertEqual(reads.call_args_list,
+                [mock.call(_frontend.flatcurryfile(source), 'rb')] * checks)
+          self.assertLess(cost, 50.0, '%s check costs %.3f ms' % (name, cost))
 
 
 class TestCacheKey(PreRewriteCase):
