@@ -11,6 +11,7 @@ from . import _filenames, _frontend, _interfaces, _preprocessor, _system
 from . import flat2icurry
 from .flat2icurry import flatcurry, setlift
 from ..utility import curryname, filesys
+from ..utility.procfork import work as fork_work
 import hashlib, json, logging, os, re
 
 __all__ = [
@@ -441,9 +442,9 @@ def icurry_is_stale(filename, currypath=None):
   try:
     curryfile = _filenames.curryfilename(filename)
   except ValueError:
-    return False
+    return not _interfaces.is_current(filename, currypath)
   if not os.path.isfile(curryfile):
-    return False
+    return not _interfaces.is_current(filename, currypath)
   if source_changed(curryfile, filename):
     return True
   if not all(os.path.isfile(cache.interface_filename(filename, suffix))
@@ -515,6 +516,7 @@ class Curry2ICurryConverter(object):
                          and cache.icurry_cache_enabled() and not _frontend.frontend_warnings()
     self.tool = config.curry2icurry_tool(kwds.get('curry2icurry'))
 
+  @fork_work
   @_system.updateCheck
   def convert(self, file_in, currypath):
     from . import _destination
@@ -585,8 +587,23 @@ class Curry2ICurryConverter(object):
                 with _system.bindCurryPath(protected):
                   if logger.isEnabledFor(logging.DEBUG):
                     _deferred_log(logger, logging.DEBUG, 'Command: %s', ' '.join(cmd))
-                  _system.pexec(cmd, cwd=_frontend.source_root(selected),
-                                env=_frontend.frontend_environment())
+                  from . import _destination
+                  with _destination.temporary_directory(prefix='sprite-icurry-') as work:
+                    # Give icurry a target-only working view. It otherwise
+                    # resolves a bare name again or changes to the source's
+                    # directory, either of which can change the selection.
+                    import shutil
+                    relative = os.path.relpath(selected, _frontend.source_root(selected))
+                    target = os.path.join(work, relative)
+                    os.makedirs(os.path.dirname(target), exist_ok=True)
+                    shutil.copy2(selected, target)
+                    for suffix in ('.fcy', '.fint', '.icurry'):
+                      source = _frontend.flatcurryfile(selected)[:-4] + suffix
+                      dest = _frontend.flatcurryfile(target)[:-4] + suffix
+                      if os.path.isfile(source):
+                        os.makedirs(os.path.dirname(dest), exist_ok=True)
+                        shutil.copy2(source, dest)
+                    _system.pexec(cmd, cwd=work, env=_frontend.frontend_environment())
             else:
               _frontend.curry2icurry(file_in, file_out, currypath, self.quiet)
             if logger.isEnabledFor(logging.INFO):

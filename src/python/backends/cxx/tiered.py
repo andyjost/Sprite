@@ -74,8 +74,8 @@ with the installation (make stage), and the swap maps the object of such an
 import for its importers (above), so a library module an interpreter runs
 (interpret:all, or a stale object) runs compiled once an importer swaps.  A
 library source in a dependency view must pass the loader-snapshot
-namesake check (issue #168), which authenticates the declared name and
-installed source bytes. A dependency view belongs to one job.
+namesake check (issue #168), which checks the copier authorization
+in the job description, declared name and installed source bytes. A dependency view belongs to one job.
 
 The check of the swap.  The child compiles the source as it is when the
 child runs.  An edit of the source between the import and the compile would
@@ -174,7 +174,6 @@ class _State(object):
     self.pending = {}    # (registry identity, module name) -> the object of a compile not applied
     self.modules = {}    # (registry identity, module name) -> a weak reference to its module object
     self.records = {}    # (registry identity, module name) -> _Record
-    self.private = []    # the directories of the private copies, in order
     self.warned = set()  # the keys of the messages logged once
     self.counter = itertools.count()
 
@@ -190,6 +189,7 @@ def _module_key(moduleobj):
 def _after_fork_in_child():
   global _state
   # No record may carry an actionable parent job or private product path.
+  # _State starts with tmpdir=None; only the parent may remove its products.
   old = _state
   _state = _State()
   _state.bindings = old.bindings.copy()
@@ -236,6 +236,8 @@ def _environment(interp, currypath=None):
         )
   if currypath is not None:
     env['CURRYPATH'] = os.pathsep.join(curryname.makeCurryPath(currypath))
+  env['_SPRITE_LOADER_INPUTS'] = json.dumps(_findcurry._loader_inputs.get())
+  env.pop('_SPRITE_BACKGROUND_MODULE', None)
   return ['%s=%s' % item for item in env.items()]
 
 def _foreign_flags(interp):
@@ -255,8 +257,8 @@ def _foreign_flags(interp):
 def _private_copy(imodule):
   '''
   Verify the loaded generation and its imports, then copy disk inputs into
-  a compile-job directory. Return the private source and dependency search
-  directories. Importing a module itself creates no files here.
+  private rebuild directory. Return the private source and dependency search
+  directories. Importer rebuilds also use this copier.
   '''
   generation = getattr(imodule, '_loaded_generation', None)
   filename = os.path.abspath(generation.source_spelling
@@ -269,7 +271,7 @@ def _private_copy(imodule):
   pending = [generation] if generation is not None else []
   seen = set()
   closure = []
-  from ...toolchain._findcurry import verify_product
+  from ...toolchain._findcurry import verify_product, record_loader_input
   from ...toolchain import _curry2icurry
   from .image import digest
   while pending:
@@ -297,6 +299,7 @@ def _private_copy(imodule):
       verify_product(item, item.object)
       verify_product(item, os.path.splitext(item.object)[0] + '.cpp')
       verify_product(item, item.object + '.abi')
+      verify_product(item, item.object + '.imports')
     pending.extend(dep for _, dep in item.imports if dep is not None)
   directory = os.path.join(_tmpdir(), 'private%d' % next(_state.counter))
   copy = os.path.join(directory, relpath)
@@ -304,6 +307,8 @@ def _private_copy(imodule):
   if os.path.isfile(filename):
     shutil.copy2(filename, copy)
     os.chmod(copy, 0o644)
+    record_loader_input(imodule.fullname, copy, filename,
+        records=generation.inputs if generation is not None else None)
   stem = _filenames.icurryfilename(filename)[:-len('.icy')]
   products = [(generation.image if generation is not None and generation.image else stem + suffix)
       if suffix == '.img' else stem + suffix
@@ -336,12 +341,15 @@ def _private_copy(imodule):
     if item.source and os.path.isfile(item.source):
       shutil.copy2(item.source, target)
       os.chmod(target, 0o644)
+      record_loader_input(item.name, target, item.source, records=item.inputs)
     stem = _filenames.icurryfilename(item.source_spelling)[:-4] if item.source else None
     output = _filenames.icurryfilename(target)[:-4]
     os.makedirs(os.path.dirname(output), exist_ok=True)
     for suffix in ('.icy', '.fint', '.icurry', '.icy.imports', '.icy.source', '.img',
-                   '.cpp', config.module_object_suffix(), config.module_object_suffix() + '.abi'):
-      if suffix in ('.cpp', config.module_object_suffix(), config.module_object_suffix() + '.abi') \
+                   '.cpp', config.module_object_suffix(), config.module_object_suffix() + '.abi',
+                   config.module_object_suffix() + '.imports'):
+      if suffix in ('.cpp', config.module_object_suffix(), config.module_object_suffix() + '.abi',
+                    config.module_object_suffix() + '.imports') \
           and not item.object:
         continue # only reuse objects actually loaded and verified above
       if suffix == '.img':
@@ -350,6 +358,8 @@ def _private_copy(imodule):
         product = item.object
       elif suffix == config.module_object_suffix() + '.abi' and item.object:
         product = item.object + '.abi'
+      elif suffix == config.module_object_suffix() + '.imports' and item.object:
+        product = item.object + '.imports'
       elif suffix == '.cpp' and item.object:
         product = os.path.splitext(item.object)[0] + '.cpp'
       else:
@@ -365,7 +375,6 @@ def _private_copy(imodule):
       except FileNotFoundError:
         _curry2icurry.invalidate_receipt(output + '.icy')
   searchdirs = [directory, root]
-  _state.private.append(directory)
   return copy, searchdirs
 
 def _runtime(info):
@@ -536,6 +545,9 @@ def _import_objects(interp, imodule):
     visit(depname)
   return out
 
+from ...toolchain import _findcurry
+
+@_findcurry.with_loader_inputs
 @native_metadata
 def submit(interp, moduleobj, currypath, hot=False):
   '''
@@ -598,6 +610,9 @@ def submit(interp, moduleobj, currypath, hot=False):
       _tmpdir(), 'compile%d-%s.log' % (next(_state.counter), name)
     )
   argv = [sys.executable, '-m', 'curry.tools.make', '--so', '-q', source]
+  from ...toolchain import _destination
+  if _destination.staging():
+    argv.append('--stage-library')
   # The ICurry file of the module and its digest: the swap refuses an object
   # of another text (see the module docstring).  The record of the module
   # names the object this job writes, for the swap of its importers.
@@ -611,7 +626,7 @@ def submit(interp, moduleobj, currypath, hot=False):
   if logger.isEnabledFor(logging.DEBUG):
     logger.debug('Compiling %s in the background: %s', name, ' '.join(argv))
   dispatch = curryrt.cxx_arm if hot else curryrt.tiered_submit
-  from ...toolchain import _interfaces, _findcurry
+  from ...toolchain import _interfaces
   expected = []
   with _findcurry.resolving(interp):
     pending = [(getattr(imodule, '_loaded_generation', None), sofile)]
@@ -879,6 +894,5 @@ def finish():
   if _state.tmpdir is not None:
     shutil.rmtree(_state.tmpdir, ignore_errors=True)
     _state.tmpdir = None
-    _state.private.clear()
 
 atexit.register(finish)

@@ -11,12 +11,14 @@ from ... import cache, exceptions, icurry
 from ...objects.handle import getHandle
 from ...utility.binding import binding
 from ...utility.strings import int_text
+from ...utility.procfork import work as fork_work
 from ...toolchain import _filenames, _loadcurry, _productlock, _destination
 from . import bytecode, curryrtbindings as curryrt
 
 logger = logging.getLogger(__name__)
 MAGIC = b'SPRTIMG\0'
-VERSION = 12
+# Version 15 records effective library wrapper authorization in freshness facts.
+VERSION = 15
 PREFIX = struct.Struct('<8sII')
 
 class _InputChanged(Exception):
@@ -52,7 +54,7 @@ def read(path):
   encoded = data[PREFIX.size:PREFIX.size + size]
   header = json.loads(encoded)
   if not isinstance(header, dict) or not all(key in header
-      for key in ('body', 'source', 'route', 'budget', 'imports', 'name', 'registry')) \
+      for key in ('body', 'source', 'route', 'budget', 'imports', 'name', 'registry', 'wrappers')) \
       or not isinstance(header['imports'], dict):
     raise ValueError('invalid module image header')
   if encoded != json.dumps(header, sort_keys=True, separators=(',', ':')).encode('ascii'):
@@ -67,12 +69,14 @@ def _facts(interp, source, imports, registry=None):
   source = _destination.canonical(source)
   from ...toolchain._frontend import ROUTE_VERSION
   from . import toolchain
+  from .materialize import primitive_wrapper_names
   from ...toolchain import _findcurry
   generation = _findcurry.generation_for_source(source, interp)
   icy_digest = generation.product_digest('.icy') if generation is not None else digest(
       _filenames.icurryfilename(source))
   return dict(source=icy_digest, route=ROUTE_VERSION,
       budget=interp.flags['inline_budget'], imports=imports,
+      wrappers=primitive_wrapper_names(source, interp, generation),
       registry=toolchain.registered_names(source) if registry is None else registry)
 
 
@@ -82,12 +86,14 @@ def writable(source):
   return _destination.writable(filename(source))
 
 
-_attached_paths = set()
-_image_generations = {}
 
 
-def _generation_key(interp, source):
-  return os.path.realpath(_filenames.sourcefilename(source)), interp.flags['inline_budget']
+def _private_generations(interp):
+  # These are writable destinations; loaded generations retain their own inputs.
+  if interp.__dict__.get('_product_generations_pid') != os.getpid():
+    interp._product_generations = {}
+    interp._product_generations_pid = os.getpid()
+  return interp._product_generations
 
 
 def _private_path(interp, source):
@@ -95,13 +101,18 @@ def _private_path(interp, source):
   source = _filenames.sourcefilename(_destination.canonical(source))
   from ...toolchain import _findcurry
   if _findcurry._installed_library_file(source):
-    generations = interp.__dict__.setdefault('_product_generations', {})
+    generations = _private_generations(interp)
     key = (source, digest(_filenames.icurryfilename(source)),
            interp.flags['inline_budget'])
-    if key not in generations or not _findcurry.is_loader_snapshot(
-        _filenames.module_name(source), generations[key]):
-      generations[key] = _destination.select(source, force=True)
-    return filename(generations[key])
+    with _findcurry.loader_inputs() as records:
+      generation = generations.get(key)
+      if generation is None or not _findcurry.is_loader_snapshot(
+          _filenames.module_name(source), generation[0], generation[1]):
+        copy = _destination.select(source, force=True)
+        generation = generations[key] = (copy, dict(records))
+      # Reusing this private image also reuses its copier authorization.
+      records.update(generation[1])
+      return filename(generation[0])
   key = '%s:%s' % (os.path.realpath(source), interp.flags['inline_budget'])
   return os.path.join(tiered._tmpdir(), hashlib.sha256(key.encode()).hexdigest() + '.img')
 
@@ -114,15 +125,12 @@ def _path(interp, source):
   generation = _findcurry.generation_for_source(source, interp)
   if generation is not None and generation.image is not None:
     return _findcurry.verify_product(generation, generation.image)
-  replacement = _image_generations.get(_generation_key(interp, source))
-  if replacement is not None and os.path.isfile(replacement):
-    return replacement
   if _findcurry._installed_library_file(source):
     key = (_filenames.sourcefilename(_destination.canonical(source)),
            digest(_filenames.icurryfilename(source)), interp.flags['inline_budget'])
-    generation = getattr(interp, '_product_generations', {}).get(key)
+    generation = _private_generations(interp).get(key)
     if generation is not None and not _findcurry.is_loader_snapshot(
-        _filenames.module_name(source), generation):
+        _filenames.module_name(source), generation[0], generation[1]):
       interp._product_generations.pop(key, None)
       generation = None
     if generation is None and not tiered._foreign_flags(interp):
@@ -144,7 +152,7 @@ def _check(interp, source, path, imports=None, registry=None):
   header = read(path)
   # Check local facts before resolving any dependency of an old source.
   facts = _facts(interp, source, {}, registry)
-  if any(header.get(k) != facts[k] for k in ('source', 'route', 'budget', 'registry')):
+  if any(header.get(k) != facts[k] for k in ('source', 'route', 'budget', 'registry', 'wrappers')):
     raise ValueError('stale module image')
   if imports is not None and header['imports'] != imports:
     raise ValueError('stale module image imports')
@@ -382,10 +390,6 @@ def write(interp, module, currypath=None, path=None, imports=None):
 
 
 def _write(interp, module, path, imports, builtins, registry, resolver):
-  if os.path.realpath(path) in _attached_paths:
-    selected = _destination.select(module.filename, force=True)
-    path = filename(selected)
-    _image_generations[_generation_key(interp, module.filename)] = path
   out = Encoder()
   out.text(module.fullname)
   out.word(len(module.imports))
@@ -447,25 +451,29 @@ def _write(interp, module, path, imports, builtins, registry, resolver):
   return path
 
 
-def _publication_path(interp, source, path, imports):
+def _publication_path(interp, source, path, imports, importing=False):
+  from ...toolchain import _findcurry
   source = _destination.canonical(source)
   from . import tiered
-  if _destination.needs_private(_filenames.icurryfilename(source),
+  if (importing and not _destination.staging() and
+      _findcurry._installed_library_file(source)) or \
+      _destination.needs_private(_filenames.icurryfilename(source),
       _destination.images(interp, imports)) or not writable(source) \
       or tiered._foreign_flags(interp):
     return _private_path(interp, source)
   return path
 
 
+@fork_work
 def ensure(interp, icyfile, currypath=None, importing=False):
   from ...toolchain import _findcurry
-  with _findcurry.resolving(interp):
+  with _findcurry.loader_inputs(), _findcurry.resolving(interp):
     while True:
       try:
         result = _ensure(interp, icyfile, currypath, importing)
         break
       except _InputChanged:
-        continue
+        pass
     generation = _findcurry.generation_for_source(icyfile, interp)
     if generation is not None and generation.image is None:
       generation.image = result[0]
@@ -485,25 +493,30 @@ def _ensure(interp, icyfile, currypath=None, importing=False):
       imports = {name: generation_digest(dep) if dep is not None else None
           for name, dep in generation.imports}
       return path, dict(_facts(interp, source, imports), name=generation.name)
-  if _findcurry._installed_library_file(icyfile) and os.path.isfile(source):
+  if generation is None:
     # Explicit ICurry inputs enter at this writer too. Resolve imports before
     # testing the translation receipt, just as the normal build plan does.
     interp._import_(_interfaces.imports(icyfile), currypath=currypath)
     search = _findcurry.import_path(interp, currypath)
     search = interp.path if search is None else search
     if _curry2icurry.icurry_is_stale(icyfile, search):
-      selected = _curry2icurry.curry2icurry(source, search)
+      if source == icyfile or not os.path.isfile(source):
+        raise ValueError('stale ICurry imports without source for rebuilding')
+      with _destination.publication(importing):
+        selected = _curry2icurry.curry2icurry(source, search)
       return ensure(interp, selected, currypath, importing=importing)
   path = _path(interp, source)
   if not importing:
     from . import tiered
-    if not tiered._foreign_flags(interp) and \
-        _generation_key(interp, source) not in _image_generations:
+    if not tiered._foreign_flags(interp):
       path = filename(source)
   try:
     header = _check(interp, source, path)
     imports = _import_images(interp, header['imports'], currypath)
-    path = _publication_path(interp, source, path, imports)
+    search = _findcurry.import_path(interp, currypath)
+    if not _interfaces.is_current(icyfile, interp.path if search is None else search):
+      raise ValueError('stale ICurry imports')
+    path = _publication_path(interp, source, path, imports, importing)
     return path, _check(interp, source, path, imports)
   except (OSError, ValueError, KeyError, exceptions.CurryError) as exc:
     log = logger.warning if os.path.isfile(path) and str(exc) != 'stale module image' else logger.info
@@ -521,7 +534,7 @@ def _ensure(interp, icyfile, currypath=None, importing=False):
   native = curryrt.Module.find_or_create(interp._its, raw.fullname)
   builtins = {f.name for f in raw.functions.values()
       if function_primitive(native, f, raw) is not None}
-  path = _publication_path(interp, source, path, imports)
+  path = _publication_path(interp, source, path, imports, importing)
   # Imports and native summary reads precede the file lock. Only this
   # module's passes, bytecode emission and publication need serialization.
   from .toolchain import registered_names
@@ -596,7 +609,6 @@ def attach(interp, source, path, header):
   # Material tables live in the runtime module, whose lifetime must cover
   # symbol construction and publication by the importer.
   module._image_owner = owner
-  _attached_paths.add(os.path.realpath(path))
   module._attached_image = path
   from .jit import backend
   jit = interp.flags.get('jit', 'off')

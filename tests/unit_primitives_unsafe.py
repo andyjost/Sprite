@@ -158,6 +158,62 @@ moduleFilter = null (readsAnyUnqualifiedTerm ["Prelude"] "Leaf 1")
 
 
 class TestUnsafePrimitives(cytest.TestCase):
+  def test_identical_user_copy_keeps_ordinary_wrappers(self):
+    '''A read-only user source has its own semantics even with library bytes.'''
+    code = '''
+import curry, os, shutil, tempfile
+from curry import config
+from curry.objects.handle import getHandle
+with tempfile.TemporaryDirectory() as directory:
+  parent = os.path.join(directory, 'System', 'IO')
+  os.makedirs(parent)
+  source = os.path.join(parent, 'Unsafe.curry')
+  shutil.copyfile(os.path.join(config.system_curry_path(), 'System', 'IO', 'Unsafe.curry'), source)
+  os.chmod(parent, 0o555)
+  try:
+    curry.reset(interpret='off', jit='off')
+    curry.path.insert(0, directory)
+    module = curry.import_('System.IO.Unsafe')
+    assert getHandle(module).sofilename is not None
+    assert os.path.realpath(module.__file__) != os.path.realpath(source)
+    assert os.listdir(parent) == ['Unsafe.curry']
+    probe = curry.compile(%r)
+    actual = sorted(curry.eval(probe.generatedBranches))
+    assert actual == [(0, False), (1, False), (2, False), (2, False)], actual
+  finally:
+    os.chmod(parent, 0o755)
+''' % PROGRAM
+    result = cytest.run_in_subprocess(code, timeout=180)
+    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+  def test_compiled_private_wrappers(self):
+    '''A verified private library copy keeps configuration-sensitive primitives.'''
+    code = '''
+import curry, os
+from curry.backends.cxx import tiered
+from curry.objects.handle import getHandle
+from curry.toolchain import _findcurry, _filenames
+curry.reset(interpret='all', jit='off')
+module = curry.import_('System.IO.Unsafe')
+with _findcurry.loader_inputs(interp=curry._interpreter_):
+  source, search = tiered._private_copy(getHandle(module).icurry)
+  curry.reset(interpret='all', jit='off')
+  curry.path[:0] = search[:1]
+  module = curry.import_(source)
+with _findcurry.loader_inputs(interp=curry._interpreter_):
+  source, search = tiered._private_copy(getHandle(module).icurry)
+  os.unlink(_filenames.replacesuffix(source, '.img'))
+  curry.reset(interpret='off', jit='off')
+  curry.path[:0] = search[:1]
+  module = curry.import_(source)
+  assert getHandle(module).sofilename is not None
+  probe = curry.compile(%r)
+  actual = sorted(curry.eval(probe.generatedBranches))
+  assert actual == [(0, False), (1, False), (2, True)], actual
+''' % PROGRAM
+    result = cytest.run_in_subprocess(code, timeout=180)
+    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
   def test_primitive_wrappers_are_opaque(self):
     module = loadicurry(os.path.join(config.system_curry_path(),
         'System', 'IO', 'Unsafe.curry'))
@@ -174,6 +230,29 @@ class TestUnsafePrimitives(cytest.TestCase):
           self.assertNotIn(key, function.metadata)
         # A shape may have been inspected before primitive selection.
         self.assertIsNone(analysis.inline_shape(function))
+
+  def test_private_wrapper_provenance(self):
+    from curry.backends.cxx import tiered
+    from curry.toolchain import _findcurry
+    raw = loadicurry(os.path.join(config.system_curry_path(),
+        'System', 'IO', 'Unsafe.curry'))
+    with _findcurry.loader_inputs():
+      source, _ = tiered._private_copy(raw)
+      copied = loadicurry(source)
+      externalize_primitive_wrappers(copied)
+      self.assertIsInstance(copied.functions['isVar'].body, icurry.IExternal)
+      with open(source, 'rb') as stream:
+        original = stream.read()
+      with open(source, 'a') as stream:
+        stream.write('-- changed copy\n')
+      changed = loadicurry(source)
+      externalize_primitive_wrappers(changed)
+      self.assertNotIsInstance(changed.functions['isVar'].body, icurry.IExternal)
+      with open(source, 'wb') as stream:
+        stream.write(original)
+    untrusted = loadicurry(source)
+    externalize_primitive_wrappers(untrusted)
+    self.assertNotIsInstance(untrusted.functions['isVar'].body, icurry.IExternal)
 
   def check_primitives(self):
     M = curry.compile(PROGRAM)

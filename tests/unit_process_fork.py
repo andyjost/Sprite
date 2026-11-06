@@ -5,7 +5,7 @@ from curry.backends.cxx import llvmjit
 
 
 PREAMBLE = r'''
-import cytest, curry, os, signal, sys, tempfile, threading, time, traceback
+import cytest, curry, contextlib, os, shutil, signal, sys, tempfile, threading, time, traceback
 from curry.backends.cxx import curryrtbindings as rt, tiered, llvmjit
 from curry.objects.handle import getHandle
 native = rt._curryrtbindings
@@ -58,6 +58,47 @@ def wait_child(pid, exitcode=0):
 
 def submit(argv, name='ForkJob'):
   rt.tiered_submit(curry._interpreter_._its, name, argv, [], '', '', '', [])
+
+@contextlib.contextmanager
+def fork_directory():
+  owner = os.getpid()
+  work = tempfile.mkdtemp()
+  try:
+    yield work
+  finally:
+    if os.getpid() == owner:
+      shutil.rmtree(work)
+
+def during(action, target, attribute, matches=lambda *a, **k: True):
+  from unittest import mock
+  original = getattr(target, attribute)
+  entered, resume = threading.Event(), threading.Event()
+  results, errors = [], []
+  def pause(*args, **kwds):
+    if matches(*args, **kwds) and not entered.is_set():
+      entered.set()
+      assert resume.wait(10), 'parent operation was not released'
+    return original(*args, **kwds)
+  def run():
+    try:
+      results.append(action())
+    except BaseException as error:
+      traceback.print_exc()
+      errors.append(error)
+  with mock.patch.object(target, attribute, pause):
+    thread = threading.Thread(target=run)
+    thread.start()
+    try:
+      assert entered.wait(10), ('operation did not reach', attribute, errors)
+      def child():
+        rejected(curry.reset)
+        rejected(curry._interpreter_.stats)
+      fork_check(child)
+    finally:
+      resume.set()
+      thread.join(30)
+  assert not thread.is_alive() and not errors, errors
+  return results[0]
 '''
 
 
@@ -301,6 +342,146 @@ finally:
 assert not thread.is_alive() and not errors, errors
 assert index.read_at(0, 5) == b'cache'
 index.close()
+assert curry.eval(curry.term(42)).one() == 42
+''')
+
+  def test_busy_loader_inputs_include_make_and_direct_import(self):
+    self.run_case(r'''
+from curry import toolchain
+from curry.toolchain import _findcurry, plans
+with fork_directory() as work:
+  source = os.path.join(work, 'ForkInputs.curry')
+  with open(source, 'w') as stream:
+    stream.write('module ForkInputs where\nanswer :: Int\nanswer = 42\n')
+  plan = plans.makeplan(flags=plans.MAKE_ICURRY)
+  during(lambda: toolchain.makecurry(plan, source, curry.path, is_sourcefile=True),
+      _findcurry, 'loader_inputs')
+  # Use the interpreter entry directly, with no package-level work scope.
+  module = during(lambda: curry._interpreter_.import_(source, is_sourcefile=True),
+      _findcurry, 'loader_inputs')
+  assert curry.eval(module.answer).one() == 42
+''')
+
+  def test_busy_image_rebuild_from_changed_interfaces(self):
+    self.run_case(r'''
+from curry.backends.cxx import image
+from curry.toolchain import _curry2icurry, _filenames
+with fork_directory() as work:
+  leaf = os.path.join(work, 'ForkLeaf.curry')
+  source = os.path.join(work, 'ForkImage.curry')
+  def write(path, text):
+    with open(path, 'w') as stream:
+      stream.write(text)
+  write(leaf, 'module ForkLeaf where\nanswer :: Int\nanswer = 1\n')
+  write(source, 'module ForkImage where\nimport ForkLeaf\nanswer = ForkLeaf.answer\n')
+  icy = _curry2icurry.curry2icurry(source, [work] + curry.path, use_cache=False)
+  write(leaf, 'module ForkLeaf where\nanswer :: Bool\nanswer = True\n')
+  _curry2icurry.curry2icurry(leaf, [work] + curry.path, use_cache=False)
+  path, header = during(
+      lambda: image.ensure(curry._interpreter_, icy, [work] + curry.path),
+      _curry2icurry, 'curry2icurry')
+  assert os.path.isfile(path) and header['name'] == 'ForkImage'
+  assert os.path.isfile(_filenames.icurryfilename(source))
+''')
+
+  def test_busy_direct_frontend_working_views(self):
+    self.run_case(r'''
+from curry.toolchain import _frontend, _system
+with fork_directory() as work:
+  for route in ('flat', 'icy'):
+    source = os.path.join(work, 'ForkView' + route + '.curry')
+    with open(source, 'w') as stream:
+      stream.write('module ForkView%s where\nanswer :: Int\nanswer = 42\n' % route)
+    output = os.path.join(work, 'output.icy')
+    def action():
+      if route == 'flat':
+        return _frontend.curry2flat(source, curry.path)
+      return _frontend.curry2icurry(source, output, curry.path)
+    during(action, _system, 'pexec')
+    assert os.path.isfile(_frontend.flatcurryfile(source))
+''')
+
+  def test_busy_direct_converter_private_icurry_view(self):
+    self.run_case(r'''
+import shutil
+from curry import config
+from curry.toolchain import _curry2icurry, _destination
+if config.icurry_tool() is not None:
+  with fork_directory() as work:
+    source = os.path.join(work, 'ForkConvert.curry')
+    with open(source, 'w') as stream:
+      stream.write('module ForkConvert where\nanswer :: Int\nanswer = 42\n')
+    converter = _curry2icurry.Curry2ICurryConverter(curry2icurry='icurry', use_cache=False)
+    product = during(lambda: converter.convert(source, curry.path), shutil, 'copy2',
+        matches=lambda src, dst, **kw: 'sprite-icurry-' in dst)
+    assert os.path.isfile(product)
+else:
+  # The direct converter must still count preparation on the default route.
+  with fork_directory() as work:
+    source = os.path.join(work, 'ForkConvert.curry')
+    with open(source, 'w') as stream:
+      stream.write('module ForkConvert where\nanswer :: Int\nanswer = 42\n')
+    converter = _curry2icurry.Curry2ICurryConverter(use_cache=False)
+    product = during(lambda: converter.convert(source, curry.path), _destination, 'select')
+    assert os.path.isfile(product)
+''')
+
+  def test_busy_source_free_private_cpp_copy(self):
+    self.run_case(r'''
+import shutil
+from unittest import mock
+from curry.backends.cxx import toolchain
+from curry.toolchain import _destination
+module = curry.compile('answer :: Int\nanswer = 42', name='ForkSourceFree')
+with fork_directory() as work:
+  cpp = os.path.join(work, 'ForkSourceFree.cpp')
+  curry._interpreter_.save(module, cpp, module_main=False, interfaces=True)
+  original = _destination.needs_private
+  def private(filename, products):
+    return filename == cpp or original(filename, products)
+  with mock.patch.object(_destination, 'needs_private', private):
+    product = during(lambda: toolchain.Cpp2So(curry._interpreter_)(cpp, curry.path),
+        shutil, 'copyfile', matches=lambda src, dst, **kw:
+            src == cpp and os.sep + '.curry' + os.sep in dst)
+  assert os.path.isfile(product) and not product.startswith(work + os.sep)
+''')
+
+  def test_busy_saved_receipt_publication_and_load_verification(self):
+    self.run_case(r'''
+from curry import cache
+from curry.backends.cxx import loader
+from curry.interpreter import loadsave
+module = curry.compile('answer :: Int\nanswer = 42', name='ForkSaved')
+with fork_directory() as work:
+  product = os.path.join(work, 'saved' + curry.config.module_object_suffix())
+  curry.save(module, product)
+  during(lambda: loadsave.record_saved_imports(curry._interpreter_, module, product),
+      cache, 'write_file', matches=lambda path, *args: path.endswith('.imports'))
+  curry.reset(interpret='new', jit='off')
+  loaded = during(lambda: loader.load_module(curry._interpreter_, product, fresh=True),
+      loadsave, 'verify_saved_imports')
+  assert curry.eval(loaded.answer).one() == 42
+''')
+
+  def test_idle_child_private_image_destinations_are_fresh(self):
+    self.run_case(r'''
+from curry.backends.cxx import image
+interp = curry._interpreter_
+source = os.path.join(curry.config.system_curry_path(), 'Prelude.curry')
+parent_image = image._private_path(interp, source)
+parent_directory = tiered._state.tmpdir
+assert parent_image.startswith(parent_directory + os.sep)
+bindings = tiered._state.bindings.copy()
+def child():
+  assert tiered._state.tmpdir is None
+  assert tiered._state.bindings == bindings
+  child_image = image._private_path(interp, source)
+  assert not child_image.startswith(parent_directory + os.sep)
+  assert child_image.startswith(tiered._state.tmpdir + os.sep)
+  assert os.path.isdir(parent_directory)
+fork_check(child)
+assert os.path.isdir(parent_directory)
+assert image._private_path(interp, source) == parent_image
 assert curry.eval(curry.term(42)).one() == 42
 ''')
 

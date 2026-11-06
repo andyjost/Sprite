@@ -11,8 +11,9 @@ interfaces of the imports under their hierarchy roots. Then
 ``icurry`` program runs the same front end, so its run leaves the same files
 (see :func:`interfacefile`).
 
-The command runs at the hierarchy root and names the source relative to
-that root, so a hierarchical source's own directory cannot shadow imports.
+The front end normally runs in an empty directory with an absolute source
+input, so its implicit current-directory search cannot shadow the effective
+path. Misplaced explicit files retain their physical output layout.
 Translations outside the installation search private generations newest first
 and replace installed source roots with a temporary interface-only view. The
 external translator's source-first reader also gets private source copies.
@@ -91,8 +92,10 @@ from .. import config
 from . import _preprocessor, _system, flat2icurry
 from ..exceptions import CompileError, CurryWarning
 from contextlib import contextmanager
+from contextvars import ContextVar
 import warnings
 from ..utility import curryname
+from ..utility.procfork import work as fork_work
 import logging, os, re, shlex, sys, time
 
 __all__ = [
@@ -170,13 +173,31 @@ def source_root(file_in):
     return directory
   return root
 
+_effective_imports = ContextVar('effective_imports', default=False)
+
+
+@contextmanager
+def effective_imports():
+  token = _effective_imports.set(True)
+  try:
+    yield
+  finally:
+    _effective_imports.reset(token)
+
+
 def searchdirs(file_in, currypath):
   '''
   The directories in which the front end and the translation look for
-  modules: the hierarchy root of ``file_in``, the Curry path, and the system
-  library, without repeats.
+  modules: the effective Curry path, then the system library, without
+  repeats. Plan callers establish explicit-file scope with program_path;
+  direct file APIs establish that scope here.
   '''
-  dirs = [source_root(file_in)] + curryname.makeCurryPath(currypath)
+  dirs = curryname.makeCurryPath(currypath)
+  from . import _findcurry
+  if not _effective_imports.get() and _findcurry._translation_interp.get() is None:
+    # A direct file API establishes source-file scope. Pipeline callers
+    # already supplied the resolved path, including any explicit-file root.
+    dirs.insert(0, source_root(file_in))
   dirs.append(config.system_curry_path())
   seen = set()
   unique = []
@@ -285,6 +306,7 @@ def frontend_environment():
     env['LC_ALL'] = 'UTF-8' if sys.platform == 'darwin' else 'C.UTF-8'
   return env
 
+@fork_work
 def curry2flat(file_in, currypath, quiet=False, rewrite=True):
   """Hide installed sources unless translating in place in the installation.
 
@@ -304,7 +326,7 @@ def protected_translation(file_in, currypath, quiet=False, rewrite=True, externa
   from ._interfaceview import interface_view, loaded_interface_view
   original = os.path.abspath(file_in)
   selected = _destination.select(original,
-      _destination.interfaces(original, currypath))
+      _destination.interfaces(original, currypath, source_imports=True))
   if selected == original and _findcurry._installed_library_file(selected) \
       and _findcurry._translation_interp.get() is None:
     yield selected, None, None
@@ -328,14 +350,22 @@ def protected_translation(file_in, currypath, quiet=False, rewrite=True, externa
     seen = {original, selected}
     def prepare(source):
       dependencies = []
-      _destination.interfaces(source, currypath, dependencies)
+      _destination.interfaces(source, currypath, dependencies, source_imports=True)
       for dependency in dependencies:
         if dependency in seen:
           continue
         seen.add(dependency)
         prepare(dependency)
-        products = _destination.interfaces(dependency, currypath)
+        products = _destination.interfaces(dependency, currypath, source_imports=True)
         if _destination.needs_private(dependency, products):
+          if _destination._importing.get() and _findcurry._installed_library_file(dependency):
+            from . import _curry2icurry, _filenames
+            icy = _filenames.icurryfilename(dependency)
+            in_place = all(path is None or _findcurry._installed_library_file(path)
+                           for path in products)
+            if in_place and _destination.writable(icy) and os.path.isfile(icy) \
+                and not _curry2icurry.icurry_is_stale(icy, currypath):
+              continue # current installed interfaces need no private elaboration
           copy = _destination.select(dependency, products)
           include(copy)
           _run_frontend(copy, currypath, quiet, rewrite, search(), library)
@@ -372,8 +402,20 @@ def _run_frontend(file_in, currypath, quiet=False, rewrite=True,
            for directory in roots])
   before = _flatcurry_stamps(dirs)
   started = time.monotonic()
-  stdout, stderr = _system.pexec(
-      cmd, cwd=moduledir, with_stderr=True, env=frontend_environment())
+  # The front end searches its working directory before explicit imports.
+  # A misplaced explicit file needs its physical spelling for output layout.
+  from ._filenames import module_name
+  declared = module_name(file_in).replace('.', os.sep)
+  relative = os.path.relpath(os.path.abspath(file_in), moduledir)[:-6]
+  if relative != declared:
+    stdout, stderr = _system.pexec(
+        cmd, cwd=moduledir, with_stderr=True, env=frontend_environment())
+  else:
+    from . import _destination
+    cmd[-1] = os.path.join(moduledir, cmd[-1])
+    with _destination.temporary_directory(prefix='sprite-frontend-') as work:
+      stdout, stderr = _system.pexec(
+          cmd, cwd=work, with_stderr=True, env=frontend_environment())
   if logger.isEnabledFor(logging.INFO):
     from ._filenames import logging_module_name
     _deferred_log(logger, logging.INFO, 'module %s: front end ran in %.2f s (%d warnings)',
@@ -471,6 +513,7 @@ def flat2icy(fcyfile, file_out, searchdirs):
   iprog = flat2icurry.translate_file(fcyfile, finder, icurry_compat=False)
   flat2icurry.write_icurry(iprog, file_out)
 
+@fork_work
 def curry2icurry(file_in, file_out, currypath, quiet=False):
   '''
   Converts the Curry file ``file_in`` to the ICurry file ``file_out``: the

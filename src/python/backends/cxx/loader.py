@@ -6,6 +6,7 @@ from ... import config, exceptions
 from . import curryrtbindings as curryrt
 from . import elf, macho, pe
 from ...utility.locking import native_metadata
+from ...utility.procfork import work as fork_work
 import hashlib, logging, os, sys
 
 logger = logging.getLogger(__name__)
@@ -172,6 +173,7 @@ def _program_path(interp, sofile):
     return None
   return _findcurry.program_path(curryfile, interp.path, is_sourcefile=True)
 
+@fork_work
 def load_module(interp, sofile, from_plan=False, fresh=False, _saved_payload=False):
   _findcurry.verify_loaded_product(sofile, interp)
   _findcurry.verify_loaded_product(sofile + ".abi", interp)
@@ -225,6 +227,22 @@ def _load_module_once(interp, sofile, from_plan, fresh, _saved_payload):
   currypath = _program_path(interp, sofile)
   for modulename in needed:
     module = interp._import_(modulename, currypath=currypath)
+  from ...interpreter.loadsave import verify_saved_imports
+  try:
+    verify_saved_imports(interp, sofile)
+  except exceptions.LoadError as error:
+    if getattr(error, 'saved_dependencies_changed', False) and name is not None \
+        and (name not in interp.modules or isinstance(interp.modules[name], CurryPackage)):
+      from ...toolchain import plans
+      plan = plans.makeplan(interp, plans.MAKE_ALL)
+      search = interp.path if currypath is None else currypath
+      candidate = next(_findcurry._modulefiles(plan, name, search), None)
+      if candidate is not None and not os.path.isdir(candidate) \
+          and os.path.isfile(_filenames.sourcefilename(candidate)):
+        return interp._import_(name, currypath=search)
+    raise
+  for modulename in needed:
+    module = interp.modules[modulename]
     if getHandle(module).sofilename is None:
       raise exceptions.LoadError(
           'cannot load %r: its import %s runs without a compiled object'
