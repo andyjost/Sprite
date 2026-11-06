@@ -150,6 +150,9 @@ reproducers pass.
   `SPRITE_CPM_PATH=0` disables discovery.
   Modules follow path order and keep loaded names; only runtime builtin names
   are reserved, and stale importers are rebuilt for replaced library modules.
+  Each interpreter owns its runtime modules; static builtin tables and loaded
+  compiled objects belong to the process and survive interpreter resets.
+  Interpreted reserved modules, including Prelude, belong to the interpreter.
 - Primitives register by qualified Curry name through
   `Module::register_primitive` before module loading. The image writer and C++
   emitter share this registry. Standard C++ implements portable operations;
@@ -189,7 +192,7 @@ reproducers pass.
   and wrapper rules are in `tests/data/curry/benchmarks/README.md`.
   On Windows, clang-cl of Visual Studio builds the runtime and the
   bindings (the workflow `windows.yml`, on windows-2025, in the developer
-  environment of vcvars64; cl is experimental); the services of the
+  environment of vcvars64; Microsoft cl is not supported); the services of the
   operating system are behind `curryrt/platform.hpp`, the data symbols
   that other objects read carry `CURRYRT_DATA` (`curryrt/export.hpp`),
   and generated code compiles to DLLs with clang-cl. Sprite finds Visual Studio

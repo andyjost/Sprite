@@ -501,7 +501,7 @@ def cxx_tool(cached=[]):
       # Traditional installs use tools/cxx to select the compiler. Windows
       # can also discover Visual Studio when no compiler was configured. Wheels carry no builder tool links and discover one
       # in the consumer's environment instead.
-      candidates = [os.environ.get('CXX')] + (['clang-cl', 'cl'] if sys.platform == 'win32' else ['g++'])
+      candidates = [os.environ.get('CXX')] + (['clang-cl'] if sys.platform == 'win32' else ['g++'])
       cxx = next((found for name in candidates if name
                   for found in [shutil.which(name)] if found), None) if _is_wheel_install() else None
     elif sys.platform == 'win32':

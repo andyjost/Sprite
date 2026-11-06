@@ -163,31 +163,34 @@ def evaluate():
   def test_dictionary_flag_image_and_compiled(self):
     for mode in ('all', 'off'):
       with self.subTest(mode=mode):
-        curry.reset(backend='cxx', interpret=mode, jit='off')
+        child = cytest.run_in_subprocess(r'''
+import curry
+from curry.backends.cxx import curryrtbindings as rt
+from curry.objects.handle import getHandle
+from unittest import mock
+mode = %r
+curry.reset(backend='cxx', interpret=mode, jit='off')
+module = curry.import_('Prelude')
+if mode == 'all':
+    curry.reset(backend='cxx', interpret=mode, jit='off')
+    with mock.patch('curry.toolchain._loadcurry.loadicurry',
+        side_effect=AssertionError('image load read ICurry text')):
         module = curry.import_('Prelude')
-        if mode == 'all':
-          curry.reset(backend='cxx', interpret=mode, jit='off')
-          with mock.patch('curry.toolchain._loadcurry.loadicurry',
-              side_effect=AssertionError('image load read ICurry text')):
-            module = curry.import_('Prelude')
-        types = getHandle(module).backend_handle
-        dictionary = types.get_type('_Dict#Ord')
-        self.assertIsNotNone(dictionary)
-        flags = dictionary.flags
-        self.assertTrue(flags & rt.F_DICTIONARY)
-        compare = curry.symbol('Prelude.compare').info
-        if mode == 'all':
-          self.assertFalse(flags & rt.F_STATIC_OBJECT)
-          self.assertIsNotNone(rt.icurry_bytecode(compare))
-        else:
-          # Adoption may retain a runtime type's identity. Its function
-          # tables must nevertheless be compiled, and keep all type bits.
-          self.assertIsNone(rt.icurry_bytecode(compare))
-        self.assertTrue(curry.eval(getattr(module, '<')(1, 2)).one())
-        self.assertFalse(curry.eval(getattr(module, '<')(2, 1)).one())
-        ordinary = types.get_type('Bool')
-        flags = ordinary.flags
-        self.assertFalse(flags & rt.F_DICTIONARY)
+types = getHandle(module).backend_handle
+dictionary = types.get_type('_Dict#Ord')
+assert dictionary is not None
+assert dictionary.flags & rt.F_DICTIONARY
+compare = curry.symbol('Prelude.compare').info
+if mode == 'all':
+    assert not dictionary.flags & rt.F_STATIC_OBJECT
+    assert rt.icurry_bytecode(compare) is not None
+else:
+    assert rt.icurry_bytecode(compare) is None
+assert curry.eval(getattr(module, '<')(1, 2)).one()
+assert not curry.eval(getattr(module, '<')(2, 1)).one()
+assert not types.get_type('Bool').flags & rt.F_DICTIONARY
+''' % mode, 60, address_space=2 << 30)
+        self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
 
   def test_branching_unions_keep_value_order(self):
     module = curry.compile('''

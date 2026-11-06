@@ -61,6 +61,7 @@ assert curry.eval(E.getArgs).one() == []
       self.assertEqual(len(result.stdout.splitlines()),
           sum(arg.startswith(('--compiler', '--numeric', '--base')) for arg in args))
 
+  @cytest.skipUnlessObjectsLoad('the saved program loads compiled objects')
   def test_saved_program_moves_with_dependencies_and_name(self):
     with tempfile.TemporaryDirectory() as directory:
       root = Path(directory)
@@ -120,6 +121,7 @@ assert curry.eval(E.getArgs).one() == []
     self.assertEqual(result.returncode, 0, result.stderr)
     self.assertEqual(result.stdout, '["one","-q",":quit","two words"]\n')
 
+  @cytest.skipUnlessObjectsLoad('the saved executable loads compiled objects')
   def test_save_executable(self):
     with tempfile.TemporaryDirectory() as directory:
       source = Path(directory) / 'SavedArguments.curry'

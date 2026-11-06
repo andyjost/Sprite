@@ -1077,6 +1077,7 @@ class TestAbiStamp(ToolchainTestCase):
     outside = sorted(set(every) - set(inside))
     layout = [
         'curryrt/graph/node.hpp', 'curryrt/graph/infotable.hpp', 'curryrt/state/rts.hpp'
+      , 'curryrt/module.hpp'
       ]
     for name in ['curryrt/curryrt.hpp'] + layout:
       self.assertIn(name, inside)
@@ -1084,7 +1085,7 @@ class TestAbiStamp(ToolchainTestCase):
     # header that joins the closure again widens every rebuild.
     for name in [
         'curryrt/graph/equality.hpp', 'curryrt/graph/walk.hpp', 'curryrt/icurry.hpp'
-      , 'curryrt/inspect.hpp', 'curryrt/module.hpp', 'curryrt/utf8.hpp'
+      , 'curryrt/inspect.hpp', 'curryrt/utf8.hpp'
       ]:
       self.assertIn(name, outside)
     digest = toolchain.runtime_digest(root)

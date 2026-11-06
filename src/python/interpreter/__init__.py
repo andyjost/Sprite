@@ -164,13 +164,15 @@ class Interpreter(object):
     Prelude.
     '''
     from ..backends.cxx import tiered
-    tiered.cancel()
-    tiered.wait(interp=self)
+    tiered.cancel(self)
     from ..utility.locking import native_metadata
     return native_metadata(self._reset_state)(flags)
     return self._reset_state(flags)
 
   def _reset_state(self, flags):
+    from ..backends.cxx import llvmjit
+    if getattr(self, '_its', None) is not None:
+      llvmjit.invalidate(self._its)
     self._session = object()
     self.stdin = sys.stdin
     self.stdout = sys.stdout
@@ -273,18 +275,7 @@ def reload(name, flags={}):
   '''Hard-resets the interpreter found in module ``{}``.'''
   flags = _flagmod.getflags(flags)
   this = sys.modules[name]
-  def replace():
-    this._reload_flags = flags
-    old = getattr(this, '_interpreter_', None)
-    if isinstance(old, Interpreter):
-      # The modules of the interpreter replaced leave it as a reset
-      # unlinks them, before the new interpreter imports: a module of the
-      # same name then takes its tables back and runs its own code while
-      # an object of the old module is alive (issue #114).
-      old._unlink_modules()
-    importlib.reload(this)
-  old = getattr(this, '_interpreter_', None)
-  if old is not None and old.flags['backend'] == 'cxx':
-    from ..utility.locking import native_metadata
-    return native_metadata(replace)()
-  return replace()
+  # Package reload invalidates and retires the previous interpreter under
+  # the metadata gate before constructing its replacement.
+  this._reload_flags = flags
+  importlib.reload(this)

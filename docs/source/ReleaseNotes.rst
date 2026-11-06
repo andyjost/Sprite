@@ -12,6 +12,18 @@ Unreleased
   startup settings, support ``:add`` imports, and implement
   the CPM clock and UTC conversion used for random seeds, binary files,
   and command pipes, including a bidirectional command handle.
+- Stop selecting Microsoft ``cl`` from PATH on Windows; it is not
+  supported. Use clang-cl (the Visual Studio component "C++ Clang tools
+  for Windows").
+- Give each interpreter its own runtime module registry; share static runtime
+  builtin tables and loaded compiled objects across resets (#184).
+  Interpreted reserved importers keep their interpreter's dependencies; compiled
+  slots, C++ hot jobs and first-use compilation preserve the selected registry.
+  Two constructor classes compare by identity. The work of the LLVM hot tier
+  belongs to the interpreter that made it: a reset or a reload drops that
+  interpreter's queued and posted work, a reload rearms the functions that
+  stay loaded, a step is installed only for the attachment it was compiled
+  for, and ``curry.reload`` refuses a module of another interpreter.
 - Validate reusable products by content and publish complete generations:
   protect cache and JIT mappings, ICurry receipts, image inputs, exported
   files, precompiled headers and tiered adoption; require publication locks.

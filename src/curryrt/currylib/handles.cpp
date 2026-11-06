@@ -276,7 +276,7 @@ namespace
     }
     catch(std::exception const & exc)
     {
-      C->set_error(Node::create(ioerror_info(IO_ERROR), build_curry_string(exc.what())),
+      C->set_error(Node::create(ioerror_info(rts, IO_ERROR), build_curry_string(exc.what())),
           std::string("i/o error: ") + exc.what(), ErrorKind::io);
       return E_ERROR;
     }
