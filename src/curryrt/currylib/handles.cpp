@@ -3,6 +3,8 @@
 #include "curryrt/currylib/prelude.hpp"
 #include "curryrt/module.hpp"
 #include "curryrt/utf8.hpp"
+#include "curryrt/platform.hpp"
+#include "curryrt/evaluation.hpp"
 #include "curryrt/bigint.hpp"
 #include <algorithm>
 #include <fstream>
@@ -24,6 +26,7 @@ namespace
   stream_hook & host() { static auto hook = new stream_hook; return *hook; }
   struct Handle
   {
+    long long owner = platform::process_id();
     int standard = -1;
     bool readable = false, writable = false, closed = false, binary = false;
     std::fstream file;
@@ -35,24 +38,38 @@ namespace
   // Never acquire the heap or call the host while holding this mutex.
   // It serializes both registry lifetime and every native file operation.
   // Recursive acquisition permits finalization during a node allocation.
-  auto & handle_mutex()
+  auto *& handle_mutex_ptr()
   {
     static auto mutex = new std::recursive_mutex;
-    return *mutex;
+    return mutex;
   }
-  std::vector<int> & retired_streams()
+  auto & handle_mutex() { return *handle_mutex_ptr(); }
+  auto *& retired_streams_ptr()
   {
     static auto streams = new std::vector<int>;
-    return *streams;
+    return streams;
   }
-  auto & open_handles()
+  auto & retired_streams() { return *retired_streams_ptr(); }
+  auto *& open_handles_ptr()
   {
     static auto handles = new std::unordered_set<Handle *>;
-    return *handles;
+    return handles;
+  }
+  auto & open_handles() { return *open_handles_ptr(); }
+  void child_handles()
+  {
+    // Inherited streams may be mid-operation. Neither destroy nor flush them.
+    handle_mutex_ptr() = new std::recursive_mutex;
+    open_handles_ptr() = new std::unordered_set<Handle *>;
+    retired_streams_ptr() = new std::vector<int>;
   }
   struct ShutdownRegistration
   {
-    ShutdownRegistration() { std::atexit(shutdown_handles); }
+    ShutdownRegistration()
+    {
+      std::atexit(shutdown_handles);
+      platform::at_fork(nullptr, nullptr, child_handles);
+    }
   };
   ShutdownRegistration const shutdown_registration;
   extern DataType const handle_type;
@@ -69,7 +86,10 @@ namespace
   Handle * handle(Node * node)
   {
     if(node->info != &handle_info) throw std::runtime_error("invalid handle");
-    return (Handle *) node->successors()[0].blob;
+    auto h = (Handle *) node->successors()[0].blob;
+    if((h->standard < 0 || h->standard >= 3) && h->owner != platform::process_id())
+      throw std::runtime_error("handle belongs to another process; open it again");
+    return h;
   }
   tag_type finish(Configuration * C, Node * value, bool monadic=true)
   {
@@ -78,6 +98,7 @@ namespace
   }
   tag_type step(RuntimeState * rts, Configuration * C)
   {
+    ForkWork work;
     Cursor root = C->cursor();
     std::string op = root->info->name;
     // Even direct calls through the API must force primitive arguments.
@@ -276,6 +297,7 @@ namespace
     }
     catch(std::exception const & exc)
     {
+      fork_check();
       C->set_error(Node::create(ioerror_info(rts, IO_ERROR), build_curry_string(exc.what())),
           std::string("i/o error: ") + exc.what(), ErrorKind::io);
       return E_ERROR;
@@ -283,6 +305,8 @@ namespace
   }
   void release(Handle * h)
   {
+    if(h->owner != platform::process_id() || fork_poisoned()) return;
+    ForkWork work;
     std::lock_guard<std::recursive_mutex> lock(handle_mutex());
     if(h->standard < 0 || h->standard >= 3)
     {
@@ -294,6 +318,8 @@ namespace
   }
   void shutdown(std::function<void()> const & visit = {})
   {
+    if(fork_poisoned()) return;
+    ForkWork work;
     std::lock_guard<std::recursive_mutex> lock(handle_mutex());
     for(auto h: open_handles())
     {
@@ -343,10 +369,16 @@ namespace
 }
 namespace curryrt
 {
+  bool test_handle_mutex_held()
+  {
+    if(!handle_mutex().try_lock()) return true;
+    handle_mutex().unlock();
+    return false;
+  }
   bool is_handle(InfoTable const * info) { return info == &handle_info; }
   void release_handle(Node * node)
   {
-    release(handle(node));
+    release((Handle *) node->successors()[0].blob);
   }
   void shutdown_handles() { shutdown(); }
   bool test_handle_shutdown_race()

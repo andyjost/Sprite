@@ -4,7 +4,6 @@
 #include "curryrt/module.hpp"
 #include "curryrt/platform.hpp"
 #include <chrono>
-#include <ctime>
 #include <cstdlib>
 #include <cstring>
 #include <algorithm>
@@ -49,7 +48,7 @@ namespace
     else if(name == "baseVersion")
       value = build_curry_string(SPRITE_BASE_VERSION);
     else if(name == "installDir")
-      value = build_curry_string(install_prefix.c_str());
+      value = build_curry_string((install_prefix + "/curry").c_str());
     else if(name.find("Major") != std::string::npos)
       value = int_(SPRITE_VERSION_MAJOR);
     else if(name.find("Minor") != std::string::npos)
@@ -61,15 +60,42 @@ namespace
 
   tag_type cpu_time(RuntimeState *, Configuration * C)
   {
-    auto ticks = std::clock();
-    return finish(C, int_(ticks < 0 ? 0 :
-        static_cast<unboxed_int_type>(1000.0 * ticks / CLOCKS_PER_SEC)));
+    return finish(C, int_(platform::process_cpu_milliseconds()));
+  }
+
+  unboxed_int_type elapsed_milliseconds()
+  {
+    return std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - start).count();
   }
 
   tag_type elapsed_time(RuntimeState *, Configuration * C)
   {
-    return finish(C, int_(std::chrono::duration_cast<std::chrono::milliseconds>(
-        std::chrono::steady_clock::now() - start).count()));
+    return finish(C, int_(elapsed_milliseconds()));
+  }
+
+  tag_type process_infos(RuntimeState * rts, Configuration * C)
+  {
+    auto entry = [rts](char const * name, unboxed_int_type value) {
+      auto info = Module::find_symbol(rts->istate.modules, "Debug.Profile", name);
+      return pair(Node::create(info), int_(value));
+    };
+    // The node heap is shared by the process, including its pooled blocks.
+    // The collection count likewise covers the process's node heap. MPS
+    // counts completed traces, both automatic and requested full collections.
+    Node * collections = entry("GarbageCollections", gc_num_collections());
+    Node * memory = entry("Memory", gc_heap_bytes());
+    Node * elapsed = entry("ElapsedTime", elapsed_milliseconds());
+    Node * cpu = entry("RunTime", platform::process_cpu_milliseconds());
+    return finish(C, cons(cpu, cons(elapsed, cons(memory, cons(collections, Nil)))));
+  }
+
+  tag_type profile_gc(RuntimeState *, Configuration * C)
+  {
+    if(std::strcmp(C->cursor()->info->name, "garbageCollect") == 0)
+      request_gc();
+    // Neither collector supports suspending collections.
+    return finish(C, unit());
   }
 
   tag_type windows(RuntimeState *, Configuration * C)
@@ -625,6 +651,9 @@ namespace
       primitive("Curry.Compiler.Distribution", name, 0, distribution, false);
     primitive("System.CPUTime", "getCPUTime", 0, cpu_time);
     primitive("System.CPUTime", "getElapsedTime", 0, elapsed_time);
+    primitive("Debug.Profile", "getProcessInfos", 0, process_infos);
+    for(auto name: {"garbageCollect", "garbageCollectorOff", "garbageCollectorOn"})
+      primitive("Debug.Profile", name, 0, profile_gc);
     primitive("System.Environment", "isWindows", 0, windows, false);
     primitive("System.Environment", "prim_getEnviron", 1, environment);
     primitive("System.Environment", "prim_setEnviron", 2, environment);

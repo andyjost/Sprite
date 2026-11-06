@@ -1,6 +1,8 @@
+from ..utility.locking import Lock as _SpriteLock
 from .. import config, exceptions
 from . import plans, _filenames, _findcurry, _productlock, _frontend, _productcache
 from ..utility import formatDocstring
+from ..utility.procfork import work as fork_work
 import contextlib, importlib.util, logging, os, shutil, sys, time, threading
 
 __all__ = ['compile_seconds', 'makecurry']
@@ -17,7 +19,7 @@ class CompileClock(object):
   def __init__(self):
     self.seconds = 0.0
     self._local = threading.local()
-    self._lock = threading.Lock()
+    self._lock = _SpriteLock()
 
   def __enter__(self):
     if getattr(self._local, 'depth', 0) == 0:
@@ -41,6 +43,7 @@ def compile_seconds():
   '''
   return compile_clock.seconds
 
+@fork_work
 @_findcurry.with_loader_inputs
 @formatDocstring(config.python_package_name())
 def makecurry(plan, name, currypath=None, **kwds):

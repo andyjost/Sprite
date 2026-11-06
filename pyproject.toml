@@ -65,5 +65,7 @@ sdist.include = [
   "curry/lib/**/.curry/sprite-pakcs-3.10.0/*.icurry",
   "curry/lib/**/.curry/sprite-pakcs-3.10.0/*.icy.imports",
   "curry/lib/**/.curry/sprite-pakcs-3.10.0/*.icy.source",
+  "curry/lib/**/.curry/sprite-pakcs-3.10.0/*.fcy",
+  "curry/lib/**/.curry/sprite-pakcs-3.10.0/*.acy",
 ]
 sdist.exclude = ["CODEX-REPORT.md", "assets/**"]

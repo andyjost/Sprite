@@ -5,13 +5,17 @@ import os
 import subprocess
 import sys
 
-prefix = Path(__file__).resolve().parent.parent
+prefix = Path(__file__).resolve().parents[2]
 python = prefix / 'tools/python'
 if python.is_file() and python.resolve() != Path(sys.executable).resolve():
   os.execv(str(python.resolve()), [str(python.resolve()), str(Path(__file__).resolve()), *sys.argv[1:]])
-sys.path.insert(0, str(prefix / 'python' if (prefix / 'python').is_dir()
-                       else prefix.parent.parent))
+if (prefix / 'sysconfig').is_dir():
+  sys.path.insert(0, str(prefix / 'python' if (prefix / 'python').is_dir()
+                         else prefix.parent.parent))
 from curry import config
+from curry.toolchain._analysisproducts import shipped_request
+if shipped_request(sys.argv[1:]):
+  sys.exit(0)
 frontend = config.curry_frontend()
 if not frontend:
   sys.exit('no Curry front end found; set SPRITE_FRONTEND or put pakcs-frontend on PATH')

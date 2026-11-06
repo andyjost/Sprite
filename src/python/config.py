@@ -1,10 +1,11 @@
 '''
 Code related to the configuration of Sprite.
 '''
+from .utility.locking import RLock as _SpriteRLock
 
 import threading
 from .utility.locking import synchronized
-_config_lock = threading.RLock()
+_config_lock = _SpriteRLock()
 
 
 ###############################
@@ -26,6 +27,7 @@ if _LOG_LEVEL_NAME_ not in _LOG_LEVEL_NAMES_:
 else:
   _LOG_LEVEL_ = getattr(logging, _LOG_LEVEL_NAME_)
 
+from .utility.locking import log as _deferred_log
 logger = logging.getLogger(__name__)
 _package_logger = logging.getLogger('curry')
 if not getattr(_package_logger, '_sprite_configured', False):
@@ -42,7 +44,7 @@ if not getattr(_package_logger, '_sprite_configured', False):
   _package_logger._sprite_configured = True
 
 if os.environ.get('_SPRITE_BACKGROUND_MODULE'):
-  _package_logger.info('module %s: background compile started (pid %d)',
+  _deferred_log(_package_logger, logging.INFO, 'module %s: background compile started (pid %d)',
       os.environ.pop('_SPRITE_BACKGROUND_MODULE'), os.getpid())
 
 # Logging query API.
@@ -74,7 +76,7 @@ def debugging():
   return 'SPRITE_DEBUG' in os.environ
 
 if debugging():
-  logger.info('Debugging is enabled because SPRITE_DEBUG is set.')
+  _deferred_log(logger, logging.INFO, 'Debugging is enabled because SPRITE_DEBUG is set.')
 
 def interactive_modname():
   return 'Interactive_'
@@ -114,7 +116,7 @@ class _Variable(object):
       assert os.path.exists(filename)
       with open(filename) as istream:
         self.value = self.convert(istream.read().strip('\n'))
-      logger.debug(
+      _deferred_log(logger, logging.DEBUG,
           'Config %r read from file %r (%s: %r)'
         , self.name, filename, self.type.__name__, self.value
         )
@@ -132,7 +134,7 @@ class _Variable(object):
         try:
           return bool(int(x))
         except:
-          logger.warning(
+          _deferred_log(logger, logging.WARNING,
               'Failed to interpret %r as an integer for configuration variable '
               '%s.  The feature will be disabled.  Please update the CMake configuration.'
             , x, self.name.upper()
@@ -167,6 +169,7 @@ frontend_subdir           = _Variable('frontend_subdir')
 frontend_flags            = _Variable('frontend_flags')
 # The default front end is 3.1.0; the legacy 2.0.0 remains supported.
 frontend_version          = _Variable('frontend_version')
+analysis_subdir           = _Variable('analysis_subdir')
 # The route from Curry to ICurry chosen at configuration time: 'frontend' or
 # 'icurry'.  Empty when CMake left the choice open.
 default_curry2icurry_tool = _Variable('curry2icurry_tool')
@@ -397,7 +400,7 @@ def product_cache_dir():
 # The path to system Curry files, such as the Prelude.  This is appended to
 # whatever the user might supply via the CURRYPATH environment variable.
 def system_curry_path():
-  return os.path.join(prefix(), 'curry')
+  return os.path.join(prefix(), 'curry', 'lib')
 
 def cpm_path(root):
   """Return project and installed-package source paths from a CPM project.
@@ -420,14 +423,14 @@ def cpm_path(root):
         raise ValueError('sourceDirs must be a list of strings')
       return [os.path.abspath(os.path.join(directory, source)) for source in dirs]
     except (OSError, ValueError, AttributeError) as err:
-      logger.warning('Cannot read CPM package %s: %s', directory, err)
+      _deferred_log(logger, logging.WARNING, 'Cannot read CPM package %s: %s', directory, err)
       return []
 
   paths = sources(root)
   try:
     names = sorted(os.listdir(packages)) if os.path.isdir(packages) else []
   except OSError as err:
-    logger.debug('Cannot list CPM packages: %s', err)
+    _deferred_log(logger, logging.DEBUG, 'Cannot list CPM packages: %s', err)
     return paths
   found = []
   for name in names:
@@ -435,7 +438,7 @@ def cpm_path(root):
     if os.path.isdir(directory) and os.path.isfile(os.path.join(directory, 'package.json')):
       paths.extend(sources(directory))
       found.append(name)
-  logger.info('CPM packages found: %s', ', '.join(found) or '(none)')
+  _deferred_log(logger, logging.INFO, 'CPM packages found: %s', ', '.join(found) or '(none)')
   return list(dict.fromkeys(paths))
 
 @synchronized(_config_lock)
@@ -462,7 +465,7 @@ def currypath(reset=False, cache=[]):
       try:
         cpmpath = cpm_path(os.getcwd())
       except OSError as err:
-        logger.debug('Cannot discover CPM packages: %s', err)
+        _deferred_log(logger, logging.DEBUG, 'Cannot discover CPM packages: %s', err)
     syspath = system_curry_path().split(os.pathsep)
     currypath = curryname.makeCurryPath(list(dict.fromkeys(envpath + cpmpath + syspath)))
     cache.append(currypath)

@@ -16,6 +16,7 @@ wrapped in handle.Handle.
 
 from ..common import T_FAIL, T_CONSTR, T_FREE, T_FWD, T_CHOICE, T_FUNC, T_CTOR
 from .. import icurry
+from ..utility import locking
 import abc, os, types, weakref
 
 __all__ = ['CurryModule', 'CurryPackage', 'CurryDataType', 'CurryNodeInfo']
@@ -71,12 +72,10 @@ class CurryModule(types.ModuleType):
   def __getattribute__(self, name):
     value = types.ModuleType.__getattribute__(self, name)
     if isinstance(value, CurryNodeInfo):
-      from .terms import Term, _RAW_ACCESS
-      if not _RAW_ACCESS.get():
-        from .terms import check_module
-        check_module(self)
-        from .classes import module_symbol
-        return module_symbol(value, self)
+      from .terms import check_module
+      check_module(self)
+      from .classes import module_symbol
+      return module_symbol(value, self)
     return value
 
   def __getattr__(self, name):
@@ -85,13 +84,11 @@ class CurryModule(types.ModuleType):
     from ..exceptions import SymbolLookupError
     symbols = getattr(self, '.symbols')
     if name in symbols:
-      from .terms import Term, _RAW_ACCESS
       value = symbols[name]
-      if not _RAW_ACCESS.get():
-        from .terms import check_module
-        check_module(self)
+      from .terms import check_module
+      check_module(self)
       from .classes import module_symbol
-      return value if _RAW_ACCESS.get() else module_symbol(value, self)
+      return module_symbol(value, self)
     if name in getattr(self, '.types'):
       raise SymbolLookupError(
           "%r is a type: curry.info(%s).types[%r]" % (name, self.__name__, name)
@@ -184,6 +181,10 @@ class CurryNodeInfo(object):
     <curry.typecheck.Scheme>` read from the FlatCurry interface of its
     module, or None when the symbol has none.  See :mod:`curry.typecheck`.
     '''
+    locking.check_entry()
+    return self._get_scheme()
+
+  def _get_scheme(self):
     interp = None if self._interp is None else self._interp()
     if interp is None:
       return None
@@ -195,7 +196,11 @@ class CurryNodeInfo(object):
     The type scheme of this symbol in Curry syntax, e.g.,
     ``'Num a => a -> a -> a'``, or None when the symbol has none.
     '''
-    scheme = self.scheme
+    locking.check_entry()
+    return self._get_signature()
+
+  def _get_signature(self):
+    scheme = self._get_scheme()
     return None if scheme is None else str(scheme)
 
   # TODO: add getsource to get the Curry source.  It will require an
@@ -229,6 +234,14 @@ class CurryNodeInfo(object):
     if self.info.tag == T_CONSTR:
       return '<curry constraint>'
     return '<invalid curry node>'
+
+
+def _raw_symbol(module, name):
+  '''Read internal symbol metadata explicitly, without public materialization.'''
+  try:
+    return types.ModuleType.__getattribute__(module, name)
+  except AttributeError:
+    return getattr(module, '.symbols')[name]
 
 
 def create_module_or_package(interp, icur):

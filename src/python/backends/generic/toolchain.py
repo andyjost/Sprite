@@ -20,7 +20,7 @@ class ICurry2TargetSource(object):
     # Dependencies are real imports. Only the bootstrap module stays in a
     # private registry; dropping its imports would lose source-relative scope.
     imports = _findcurry.imports_path(currypath, **ignored)
-    self.interp.import_(icurry.imports,
+    self.interp._import_(icurry.imports,
         currypath=_findcurry.import_path(self.interp, imports))
     selected = _destination.select(file_in,
         _destination.images(self.interp, icurry.imports))
@@ -41,7 +41,7 @@ class ICurry2TargetSource(object):
       # its immutable generation rather than bootstrapping the name again.
       file_out = _filenames.replacesuffix(file_in, self.SUFFIX)
       _system.makeOutputDir(file_out)
-      text = self.interp.save(existing, None, module_main=False)
+      text = self.interp._save(existing, None, module_main=False)
     else:
       if self.interp.backend.backend_name == 'cxx':
         from ... import toolchain
@@ -60,7 +60,7 @@ class ICurry2TargetSource(object):
         # The imports of a program given as a file are searched on the path
         # of the step, which names its directory first; those of a module
         # given by name on the path of the interpreter, as before.
-        module = self.interp.import_(
+        module = self.interp._import_(
             icurry, currypath=_findcurry.imports_path(currypath, **ignored)
           )
         if self.interp.backend.backend_name == 'cxx':
@@ -68,7 +68,7 @@ class ICurry2TargetSource(object):
           image.write(self.interp, getattr(module, '.icurry'), currypath)
         file_out = _filenames.replacesuffix(file_in, self.SUFFIX)
         _system.makeOutputDir(file_out)
-        text = self.interp.save(module, None, module_main=False)
+        text = self.interp._save(module, None, module_main=False)
     # Rendering/importing can enter the heap. Only publication holds the lock.
     with _productlock.locked(file_out):
       try:

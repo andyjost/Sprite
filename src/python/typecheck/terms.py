@@ -14,6 +14,7 @@ and writes a saturated ``(->)`` as a ``FuncType``.  :func:`zonk` resolves a
 term into a FlatCurry type with ``TVar`` leaves, for the printer and for the
 defaulting table.
 '''
+from ..utility.locking import Lock as _SpriteLock
 
 from ..toolchain.flat2icurry import flatcurry as fc
 from .sigtable import show_type
@@ -48,7 +49,7 @@ class Var:
   '''
   __slots__ = ('_parent', 'binding', 'uid', 'kind', 'holders', 'preds')
   _counter = itertools.count(1)
-  _counter_lock = threading.Lock()
+  _counter_lock = _SpriteLock()
 
   def __init__(self, kind=None):
     self._parent = None

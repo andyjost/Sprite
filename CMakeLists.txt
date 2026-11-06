@@ -346,6 +346,7 @@ endforeach()
 sprite_var(frontend_version "${frontend_version}")
 sprite_var(frontend_flags "--extended -D__PAKCS__=${frontend_pakcs_macro}")
 sprite_var(frontend_subdir "pakcs-${frontend_release}")
+sprite_var(analysis_subdir "sprite-${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_VERSION_PATCH}")
 sprite_var(intermediate_subdir "sprite-pakcs-${frontend_release}")
 # The suffix of a shared library on this platform (.so, or .dylib on macOS):
 # the name of the runtime library, libcurryrt<suffix>, is formed from it
@@ -433,11 +434,8 @@ if(SKBUILD)
   install(FILES extern/pybind11/LICENSE DESTINATION curry/_sprite/licenses RENAME pybind11-LICENSE)
   install(DIRECTORY "${image}/python/curry/" DESTINATION curry
     PATTERN __pycache__ EXCLUDE)
-  install(PROGRAMS "${image}/bin/curry" "${image}/bin/cleancurry"
-    "${image}/bin/sprite-frontend" "${image}/bin/cypm"
-    DESTINATION curry/_sprite/bin)
   foreach(dir lib include sysconfig curry)
-    install(DIRECTORY "${image}/${dir}" DESTINATION curry/_sprite
+    install(DIRECTORY "${image}/${dir}" DESTINATION curry/_sprite USE_SOURCE_PERMISSIONS
       PATTERN "*.gch" EXCLUDE PATTERN "*.tiered" EXCLUDE
       PATTERN "*.old-*" EXCLUDE PATTERN __pycache__ EXCLUDE)
   endforeach()

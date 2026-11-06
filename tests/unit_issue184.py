@@ -39,7 +39,7 @@ with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') 
         self.assertIn('second [2]', output)
 
   def test_path_copy_and_installed_module_in_either_order(self):
-    original = Path(config.installed_path('curry', 'Data/Char.curry')).read_text()
+    original = Path(config.installed_path('curry', 'lib', 'Data/Char.curry')).read_text()
     edited = original.replace("ord c - ord '0'", "ord c - ord '0' + 1")
     self.assertNotEqual(original, edited)
     for mode in ('new', 'all'):
@@ -681,15 +681,14 @@ with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') 
     if lazy:
         results = second.eval(a.f0(0))
         first.reset()
-    # The group lock holds all calls until every function is queued.
-    with llvmjit._group_lock:
-        if lazy:
-            assert results.one() == 11
-        for i in range(0 if lazy else 1 if posted else 33):
-            for _ in range(2):
-                assert (second if cross else first).eval(getattr(a, 'f%%d' %% i)(0)).one() == 11
+    # gated_take holds the hot thread until every function is queued.
+    if lazy:
+        assert results.one() == 11
+    for i in range(0 if lazy else 1 if posted else 33):
         for _ in range(2):
-            assert second.eval(b.f(0)).one() == 22
+            assert (second if cross else first).eval(getattr(a, 'f%%d' %% i)(0)).one() == 11
+    for _ in range(2):
+        assert second.eval(b.f(0)).one() == 22
     take.set()
     assert entered.wait(30), 'hot thread did not reach hold'
     # Leave another entry queued while the worker holds the taken group.
@@ -765,7 +764,7 @@ with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') 
 ''')
 
   def test_reserved_importer_keeps_private_imports(self):
-    original = Path(config.installed_path('curry', 'Data/List.curry')).read_text()
+    original = Path(config.installed_path('curry', 'lib', 'Data/List.curry')).read_text()
     edited = original.replace('minimum xs@(_:_) =  foldl1 min xs',
                               'minimum xs@(_:_) =  maximum xs')
     self.assertNotEqual(original, edited)

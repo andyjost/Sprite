@@ -1,10 +1,12 @@
+from ..utility.locking import Lock as _SpriteLock
 from .. import config
 from . import makecurry
 from ..objects import handle
 from ..toolchain import plans
 from ..utility import filesys
 from ..utility import filesys, formatDocstring
-import logging, os, shutil, tempfile, weakref, threading
+from ..utility.procfork import work as fork_work
+import logging, os, shutil, tempfile, weakref
 
 __all__ = ['is_temporary', 'str2module']
 logger = logging.getLogger(__name__)
@@ -15,7 +17,7 @@ logger = logging.getLogger(__name__)
 _TEMPORARY_DIRS = set()
 # Finalizers append only. Purge before traversing, and log after unlocking.
 _pending_removals = []
-_dirs_lock = threading.Lock()
+_dirs_lock = _SpriteLock()
 
 def _purge_dirs():
   removed = []
@@ -39,6 +41,7 @@ def is_temporary(filename):
   return any(filename.startswith(os.path.realpath(directory) + os.sep)
       for directory in directories)
 
+@fork_work
 @formatDocstring(config.python_package_name())
 def str2module(
     interp
@@ -79,6 +82,7 @@ def str2module(
     parentdir = filesys.getdir(keep_temp_files)
   else:
     parentdir = tempfile.gettempdir()
+  owner = os.getpid()
   moduledir = tempfile.mkdtemp(prefix='sprite-', dir=parentdir)
   logger.debug('Created directory %r for a dynamic Curry module', moduledir)
   with _dirs_lock:
@@ -90,14 +94,14 @@ def str2module(
     os.makedirs(os.path.dirname(curryfile), exist_ok=True)
     with open(curryfile, 'w', encoding='utf-8') as ostream:
       ostream.write(moduletext)
-    moduleobj = interp.import_(modulename, currypath=[moduledir] + currypath)
+    moduleobj = interp._import_(modulename, currypath=[moduledir] + currypath)
     moduleobj.__file__ = curryfile
     h = handle.Handle(moduleobj)
     icur = h.icurry
     icur.__file__ = curryfile
     icur.update_metadata({'all.tmpd': moduledir})
     if not keep_temp_files:
-      icur._finalizer_ = weakref.finalize(icur, _rmdir, moduledir)
+      icur._finalizer_ = weakref.finalize(icur, _rmdir, moduledir, owner)
     return moduleobj, icur
   except:
     if postmortem:
@@ -108,11 +112,20 @@ def str2module(
         logger.error('Failed to copy %r to %r: %r', moduledir, dst, e)
       else:
         logger.info('****** Copied %r to %r for postmortem', moduledir, dst)
-    _rmdir(moduledir)
+    _rmdir(moduledir, owner)
     raise
 
-def _rmdir(moduledir):
+def _rmdir(moduledir, owner=None):
+  if owner is not None and owner != os.getpid():
+    return
   # Even an enclosing registry section must never enter logging here:
   # a logging handler may call is_temporary while holding its own lock.
   _pending_removals.append(moduledir)
   shutil.rmtree(moduledir, ignore_errors=os.name == 'nt')
+
+def _after_fork():
+  global _dirs_lock
+  _dirs_lock = _SpriteLock()
+
+if hasattr(os, 'register_at_fork'):
+  os.register_at_fork(after_in_child=_after_fork)

@@ -171,6 +171,7 @@ print(json.dumps(dict(ok=True)))
     self.child('off')
     code = CHILD[:CHILD.index('M = curry.import_(source)')] + """
 M = curry.import_(source)
+fib_info = M.fib.info
 parse = llvmjit._jit.llvm.parse_assembly
 def stopping(text):
   module = parse(text)
@@ -179,12 +180,12 @@ def stopping(text):
 with llvmjit._lock:
   try:
     with mock.patch.object(llvmjit._jit.llvm, 'parse_assembly', side_effect=stopping), mock.patch.object(llvmjit._jit, 'link_object', side_effect=AssertionError('shutdown work linked')):
-      llvmjit._jit.compile_batch([(M.fib.info, 'Cached.fib')], post=True,
+      llvmjit._jit.compile_batch([(fib_info, 'Cached.fib')], post=True,
       work={rt.icurry_address(info): rt.icurry_work(info)
-            for info in (M.fib.info,)})
+            for info in (fib_info,)})
   finally:
     llvmjit._hot_enabled = True
-assert not rt.icurry_is_jit(M.fib.info)
+assert not rt.icurry_is_jit(fib_info)
 assert llvmjit.statistics()['functions'] == 0
 print(json.dumps(dict(ok=True)))
 """
@@ -276,7 +277,9 @@ print(json.dumps(dict(ok=True)))
     self.child('eager')
     code = CHILD[:CHILD.index('M = curry.import_(source)')] + """
 M = curry.import_(source)
-context = llvmjit._jit.modules[M.fib.info.address]
+fib_info = M.fib.info
+message_info = M.message.info
+context = llvmjit._jit.modules[fib_info.address]
 bad_obj = context.object_for('Cached.bad')[1]
 read = llvmjit._Object.read
 def checked(obj):
@@ -284,14 +287,14 @@ def checked(obj):
   return read(obj)
 with mock.patch.object(llvmjit._Object, 'read', checked), mock.patch.object(llvmjit._Batch, 'emit', side_effect=AssertionError('cache hit compiled')):
   with llvmjit._lock:
-    llvmjit._jit.compile_batch([(M.fib.info, 'Cached.fib'), (M.message.info, 'Cached.message')], post=True,
+    llvmjit._jit.compile_batch([(fib_info, 'Cached.fib'), (message_info, 'Cached.message')], post=True,
       work={rt.icurry_address(info): rt.icurry_work(info)
-            for info in (M.fib.info, M.message.info,)})
+            for info in (fib_info, message_info,)})
   before = llvmjit.statistics()['linked']
-  assert llvmjit._resolve_cached(M.fib.info.address)
+  assert llvmjit._resolve_cached(fib_info.address)
   assert llvmjit.statistics()['linked'] == before
   rt.icurry_apply_posted()
-assert rt.icurry_is_jit(M.fib.info)
+assert rt.icurry_is_jit(fib_info)
 assert [str(x) for x in curry.eval(M.fib(12))] == ['144']
 print(json.dumps(dict(ok=True)))
 """
@@ -308,6 +311,7 @@ print(json.dumps(dict(ok=True)))
   def test_unexpected_resolver_exception_warns_once(self):
     self.child('eager')
     self.run_code("""
+import logging
 M = curry.import_(source)
 context = llvmjit._jit.modules[M.fib.info.address]
 original = context.resolve
@@ -315,12 +319,13 @@ def unexpected(name, **kwargs):
   if name == 'Cached.fib':
     raise AttributeError('unexpected hook failure')
   return original(name, **kwargs)
-with mock.patch.object(context, 'resolve', side_effect=unexpected) as resolve, mock.patch.object(llvmjit.logger, 'warning') as warning:
+with mock.patch.object(context, 'resolve', side_effect=unexpected) as resolve, mock.patch.object(llvmjit.logger, 'handle') as records:
   for _ in range(2):
     assert [str(x) for x in curry.eval(M.fib(12))] == ['144']
   assert llvmjit._resolve_cached(M.fib.info.address) == 0
 assert [call.args[0] for call in resolve.call_args_list].count('Cached.fib') == 1
-assert warning.call_count == 1
+assert sum(call.args[0].levelno == logging.WARNING
+           for call in records.call_args_list) == 1
 assert 'Cached.fib' in context.failed
 assert not rt.icurry_is_jit(M.fib.info)
 print(json.dumps(dict(ok=True)))
@@ -346,17 +351,18 @@ print(json.dumps(dict(ok=True)))
     self.child('eager')
     self.run_code("""
 M = curry.import_(source)
-context = llvmjit._jit.modules[M.fib.info.address]
+fib_info = M.fib.info
+context = llvmjit._jit.modules[fib_info.address]
 obj = context.object_for('Cached.fib')[1]
 with mock.patch.object(obj, 'read', side_effect=ValueError('corrupt JIT object')):
   assert [str(x) for x in curry.eval(M.fib(12))] == ['144']
-  assert not rt.icurry_is_jit(M.fib.info)
+  assert not rt.icurry_is_jit(fib_info)
   with llvmjit._lock:
-    llvmjit._jit.compile_batch([(M.fib.info, 'Cached.fib')], post=True,
+    llvmjit._jit.compile_batch([(fib_info, 'Cached.fib')], post=True,
       work={rt.icurry_address(info): rt.icurry_work(info)
-            for info in (M.fib.info,)})
+            for info in (fib_info,)})
 rt.icurry_apply_posted()
-assert rt.icurry_is_jit(M.fib.info)
+assert rt.icurry_is_jit(fib_info)
 assert [str(x) for x in curry.eval(M.fib(12))] == ['144']
 objects = llvmjit._read_cache(context.local, context.key)
 names = [records[0][0] for records, obj in objects]
@@ -681,31 +687,38 @@ print(json.dumps(dict(ok=True)))
 import threading, time
 M = curry.import_(source)
 jit = llvmjit._jit
+bad_info, fib_info = M.bad.info, M.fib.info
+fib_address = fib_info.address
 started, resolved = threading.Event(), threading.Event()
 sizes = []
 def slow(items, **kwargs):
   sizes.append(len(items))
   if len(sizes) == 1:
     started.set()
-    time.sleep(.1)
   else:
-    assert resolved.wait(2), 'resolver blocked by the whole hot group'
+    assert resolved.is_set(), 'second batch started before resolution'
 def worker():
-  llvmjit._compile_groups(jit, [(M.bad.info, 'Cached.bad')] * 64, post=True,
+  llvmjit._compile_groups(jit, [(bad_info, 'Cached.bad')] * 64, post=True,
       work={rt.icurry_address(info): rt.icurry_work(info)
-            for info in (M.bad.info, M.fib.info)})
-with mock.patch.object(jit, 'compile_batch', side_effect=slow):
-  thread = threading.Thread(target=worker)
+            for info in (bad_info, fib_info)})
+thread = threading.Thread(target=worker)
+sleep = time.sleep
+def between_batches(seconds):
+  if seconds == 0 and threading.current_thread() is thread:
+    assert resolved.wait(2), 'resolver blocked by the whole hot group'
+  else:
+    sleep(seconds)
+with mock.patch.object(jit, 'compile_batch', side_effect=slow), \\
+     mock.patch.object(llvmjit.time, 'sleep', side_effect=between_batches):
   thread.start()
   assert started.wait(2)
   start = time.perf_counter()
-  assert llvmjit._resolve_cached(M.fib.info.address)
+  assert llvmjit._resolve_cached(fib_address)
   elapsed = time.perf_counter() - start
   resolved.set()
   thread.join(5)
   assert not thread.is_alive()
 assert sizes == [32, 32], sizes
-assert elapsed < 1, elapsed
 print(json.dumps(dict(ok=True, wait_ms=elapsed * 1000)))
 """)
 
@@ -730,15 +743,17 @@ print(json.dumps(dict(ok=True, wait_ms=elapsed * 1000)))
     self.run_code("""
 import threading, time
 M = curry.import_(source)
+fib_info = M.fib.info
+bad_info = M.bad.info
 jit = llvmjit._jit
-context = jit.modules[M.fib.info.address]
+context = jit.modules[fib_info.address]
 compile_batch = jit.compile_batch
 second, stopped = threading.Event(), threading.Event()
 calls = []
 def fake(items, **kwargs):
   calls.append(len(items))
   if len(calls) == 1:
-    return compile_batch([(M.fib.info, 'Cached.fib')], **kwargs)
+    return compile_batch([(fib_info, 'Cached.fib')], **kwargs)
   second.set()
   deadline = time.monotonic() + 5
   while llvmjit._hot_enabled:
@@ -752,9 +767,9 @@ def stop():
 thread = threading.Thread(target=stop)
 thread.start()
 with mock.patch.object(jit, 'compile_batch', side_effect=fake):
-  llvmjit._compile_groups(jit, [(M.bad.info, 'Cached.bad')] * 64, post=True,
+  llvmjit._compile_groups(jit, [(bad_info, 'Cached.bad')] * 64, post=True,
       work={rt.icurry_address(info): rt.icurry_work(info)
-            for info in (M.bad.info, M.fib.info)})
+            for info in (bad_info, fib_info)})
 thread.join(5)
 assert stopped.is_set()
 assert calls == [32, 32]
@@ -768,20 +783,43 @@ print(json.dumps(dict(ok=True)))
   def test_shutdown_drops_reset_sub_batch(self):
     self.child('off')
     self.run_code("""
+import threading
 M = curry.import_(source)
 jit = llvmjit._jit
 context = jit.modules[M.fib.info.address]
 items = [(M.fib.info, 'Cached.fib'), (M.bad.info, 'Cached.bad')]
 work = {rt.icurry_address(info): rt.icurry_work(info)
         for info, name in items}
-def reset_and_stop(seconds):
-  assert seconds == 0
-  curry.reset()
-  llvmjit._hot_enabled = False
-with mock.patch.object(llvmjit, 'BATCH_SIZE', 1), \
-     mock.patch.object(llvmjit.time, 'sleep', side_effect=reset_and_stop), \
-     mock.patch.object(context, 'store') as store:
-  llvmjit._compile_groups(jit, items, post=True, work=work)
+requested, done = threading.Event(), threading.Event()
+errors = []
+def reset_and_stop():
+  try:
+    assert requested.wait(5)
+    curry.reset()
+    llvmjit._hot_enabled = False
+  except BaseException as exc:
+    errors.append(exc)
+  finally:
+    done.set()
+sleep = llvmjit.time.sleep
+caller = threading.current_thread()
+def between_batches(seconds):
+  if seconds == 0 and threading.current_thread() is caller:
+    requested.set()
+    assert done.wait(5)
+  else:
+    sleep(seconds)
+thread = threading.Thread(target=reset_and_stop)
+thread.start()
+try:
+  with mock.patch.object(llvmjit, 'BATCH_SIZE', 1), \
+       mock.patch.object(llvmjit.time, 'sleep', side_effect=between_batches), \
+       mock.patch.object(context, 'store') as store:
+    llvmjit._compile_groups(jit, items, post=True, work=work)
+finally:
+  requested.set()
+  thread.join(10)
+assert not thread.is_alive() and not errors, errors
 store.assert_not_called()
 print(json.dumps(dict(ok=True)))
 """)
@@ -827,7 +865,8 @@ print(json.dumps(dict(ok=True)))
     self.child('eager')
     self.run_code("""
 M = curry.import_(source)
-context = llvmjit._jit.modules[M.fib.info.address]
+fib_info = M.fib.info
+context = llvmjit._jit.modules[fib_info.address]
 context.release('Cached.fib')
 # Prevent publication from recovering the explicitly dropped object on disk.
 with open(context.local, 'r+b') as stream:
@@ -835,11 +874,11 @@ with open(context.local, 'r+b') as stream:
 context.store()
 assert 'Cached.fib' not in context.cached
 with llvmjit._lock:
-  llvmjit._jit.compile_batch([(M.fib.info, 'Cached.fib')], post=True,
+  llvmjit._jit.compile_batch([(fib_info, 'Cached.fib')], post=True,
       work={rt.icurry_address(info): rt.icurry_work(info)
-            for info in (M.fib.info,)})
+            for info in (fib_info,)})
 rt.icurry_apply_posted()
-assert rt.icurry_is_jit(M.fib.info)
+assert rt.icurry_is_jit(fib_info)
 print(json.dumps(dict(ok=True)))
 """)
 
@@ -938,8 +977,10 @@ print(json.dumps(dict(ok=True)))
     self.child('eager')
     self.run_code("""
 M = curry.import_(source)
+fib_info = M.fib.info
+bad_info = M.bad.info
 jit = llvmjit._jit
-context = jit.modules[M.fib.info.address]
+context = jit.modules[fib_info.address]
 index = context.index
 view = context.object_for('Cached.bad')[1]
 assert view.index is index
@@ -952,11 +993,11 @@ assert index.stream.closed
 assert context.resolve('Cached.bad') == 0
 assert 'Cached.bad' in context.failed
 with llvmjit._lock:
-  jit.compile_batch([(M.bad.info, 'Cached.bad')], post=True,
+  jit.compile_batch([(bad_info, 'Cached.bad')], post=True,
       work={rt.icurry_address(info): rt.icurry_work(info)
-            for info in (M.bad.info,)})
+            for info in (bad_info,)})
 rt.icurry_apply_posted()
-assert rt.icurry_is_jit(M.bad.info)
+assert rt.icurry_is_jit(bad_info)
 print(json.dumps(dict(ok=True)))
 """)
 

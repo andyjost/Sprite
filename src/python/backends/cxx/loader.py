@@ -6,6 +6,7 @@ from ... import config, exceptions
 from . import curryrtbindings as curryrt
 from . import elf, macho, pe
 from ...utility.locking import native_metadata
+from ...utility.procfork import work as fork_work
 import hashlib, logging, os, sys
 
 logger = logging.getLogger(__name__)
@@ -172,6 +173,7 @@ def _program_path(interp, sofile):
     return None
   return _findcurry.program_path(curryfile, interp.path, is_sourcefile=True)
 
+@fork_work
 def load_module(interp, sofile, from_plan=False, fresh=False, _saved_payload=False):
   _findcurry.verify_loaded_product(sofile, interp)
   _findcurry.verify_loaded_product(sofile + ".abi", interp)
@@ -224,7 +226,7 @@ def _load_module_once(interp, sofile, from_plan, fresh, _saved_payload):
   # imports of a program given as a file are (_findcurry.program_path).
   currypath = _program_path(interp, sofile)
   for modulename in needed:
-    module = interp.import_(modulename, currypath=currypath)
+    module = interp._import_(modulename, currypath=currypath)
   from ...interpreter.loadsave import verify_saved_imports
   try:
     verify_saved_imports(interp, sofile)
@@ -237,7 +239,7 @@ def _load_module_once(interp, sofile, from_plan, fresh, _saved_payload):
       candidate = next(_findcurry._modulefiles(plan, name, search), None)
       if candidate is not None and not os.path.isdir(candidate) \
           and os.path.isfile(_filenames.sourcefilename(candidate)):
-        return interp.import_(name, currypath=search)
+        return interp._import_(name, currypath=search)
     raise
   for modulename in needed:
     module = interp.modules[modulename]
@@ -294,7 +296,7 @@ def _open_module(interp, sofile, name, from_plan, fresh, before, _saved_payload)
         tiered.warn_mapped_name(name, result['error'])
         imodule = image.load(interp, _filenames.icurryfilename(sofile),
                              _program_path(interp, sofile))
-        return interp.import_(imodule)
+        return interp._import_(imodule)
       raise exceptions.LoadError('cannot load %r: %s' % (sofile, result['error']))
     shlib = owner.shlib
     tiered._refresh(name, interp)
@@ -328,6 +330,6 @@ def _open_module(interp, sofile, name, from_plan, fresh, before, _saved_payload)
     , aliases   = bom.aliases
     , metadata  = metadata
     )
-  result = interp.import_(imodule, _saved_payload=_saved_payload)
+  result = interp._import_(imodule, _saved_payload=_saved_payload)
   logger.info('module %s: compiled object loaded (%s)', imodule.fullname, sofile)
   return result

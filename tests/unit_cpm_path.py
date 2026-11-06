@@ -84,14 +84,14 @@ class TestCpmPath(cytest.TestCase):
   def test_discovered_library_copy(self):
     source = Path(self.expected()[2]) / 'Data/Char.curry'
     source.parent.mkdir(parents=True)
-    shutil.copyfile(config.installed_path('curry', 'Data/Char.curry'), source)
+    shutil.copyfile(config.installed_path('curry', 'lib', 'Data/Char.curry'), source)
     output = self.child('import curry; M = curry.import_("Data.Char"); '
                         'print(M.__file__)', SPRITE_CPM_PATH='1')
     self.assertEqual(Path(output.strip()).resolve(), source.resolve())
 
   def test_discovered_reserved_copy(self):
     source = Path(self.expected()[2]) / 'Prelude.curry'
-    shutil.copyfile(config.installed_path('curry', 'Prelude.curry'), source)
+    shutil.copyfile(config.installed_path('curry', 'lib', 'Prelude.curry'), source)
     code = ('import curry, os; assert %r in [os.path.realpath(p) for p in curry.path]; '
             'curry.import_("Prelude")') % os.path.realpath(source.parent)
     with self.assertRaises(subprocess.CalledProcessError) as caught:

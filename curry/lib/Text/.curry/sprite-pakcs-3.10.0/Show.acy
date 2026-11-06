@@ -1,0 +1,12 @@
+{- AbstractCurry 3.0 -}
+CurryProg "Text.Show"
+[]
+Nothing
+ []
+ []
+ [CTypeSyn ("Text.Show","ShowS") Public [] (CFuncType (CTCons ("Prelude","String")) (CTCons ("Prelude","String")))]
+ [CFunc ("Text.Show","showString") 1 Public (CQualType (CContext []) (CFuncType (CTApply (CTCons ("Prelude","[]")) (CTCons ("Prelude","Char"))) (CFuncType (CTApply (CTCons ("Prelude","[]")) (CTCons ("Prelude","Char"))) (CTApply (CTCons ("Prelude","[]")) (CTCons ("Prelude","Char")))))) [CRule [CPVar (0,"s")] (CSimpleRhs (CApply (CSymbol ("Prelude","++")) (CVar (0,"s"))) [])],
+  CFunc ("Text.Show","showChar") 1 Public (CQualType (CContext []) (CFuncType (CTCons ("Prelude","Char")) (CFuncType (CTApply (CTCons ("Prelude","[]")) (CTCons ("Prelude","Char"))) (CTApply (CTCons ("Prelude","[]")) (CTCons ("Prelude","Char")))))) [CRule [CPVar (0,"c")] (CSimpleRhs (CApply (CSymbol ("Prelude",":")) (CVar (0,"c"))) [])],
+  CFunc ("Text.Show","showParen") 2 Public (CQualType (CContext []) (CFuncType (CTCons ("Prelude","Bool")) (CFuncType (CFuncType (CTApply (CTCons ("Prelude","[]")) (CTCons ("Prelude","Char"))) (CTApply (CTCons ("Prelude","[]")) (CTCons ("Prelude","Char")))) (CFuncType (CTApply (CTCons ("Prelude","[]")) (CTCons ("Prelude","Char"))) (CTApply (CTCons ("Prelude","[]")) (CTCons ("Prelude","Char"))))))) [CRule [CPComb ("Prelude","True") [],CPVar (0,"s")] (CSimpleRhs (CApply (CApply (CSymbol ("Prelude",".")) (CApply (CSymbol ("Text.Show","showChar")) (CLit (CCharc '(')))) (CApply (CApply (CSymbol ("Prelude",".")) (CVar (0,"s"))) (CApply (CSymbol ("Text.Show","showChar")) (CLit (CCharc ')'))))) []),CRule [CPComb ("Prelude","False") [],CPVar (1,"s")] (CSimpleRhs (CVar (1,"s")) [])],
+  CFunc ("Text.Show","shows") 0 Public (CQualType (CContext [(("Prelude","Show"),[CTVar (0,"a")])]) (CFuncType (CTVar (0,"a")) (CFuncType (CTApply (CTCons ("Prelude","[]")) (CTCons ("Prelude","Char"))) (CTApply (CTCons ("Prelude","[]")) (CTCons ("Prelude","Char")))))) [CRule [] (CSimpleRhs (CApply (CApply (CSymbol ("Prelude",".")) (CSymbol ("Text.Show","showString"))) (CSymbol ("Prelude","show"))) [])]]
+ []

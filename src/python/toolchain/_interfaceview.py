@@ -44,7 +44,7 @@ def _view(outdir, loaded_only, sources=False):
       # interfaces. A private source anchors its lookup at these interfaces
       # instead of the external translator's own installed library.
       sourcefile = (generation.source if generation is not None else
-                    loaded_source(name) or config.installed_path('curry',
+                    loaded_source(name) or config.installed_path('curry', 'lib',
                         os.path.join(*parts) + '.curry'))
       if sourcefile and Path(sourcefile).is_file():
         data = Path(sourcefile).read_bytes()
@@ -63,7 +63,7 @@ def _view(outdir, loaded_only, sources=False):
       from ._filenames import icurryfilename
       source = Path(icurryfilename(loaded)).with_suffix('')
     else:
-      source = Path(config.installed_path('curry')).joinpath(*parts[:-1],
+      source = Path(config.installed_path('curry', 'lib')).joinpath(*parts[:-1],
           '.curry', config.intermediate_subdir(), parts[-1])
     for suffix in ('.fint', '.icurry'):
       product = source.with_suffix(source.suffix + suffix)
@@ -71,7 +71,7 @@ def _view(outdir, loaded_only, sources=False):
         stat = product.stat()
         products.append((name, suffix, product, stat.st_mtime_ns,
                          hashlib.sha256(product.read_bytes()).digest()))
-  key = (tuple((name, suffix, digest) for name, suffix, _, _, digest in products), os.getpid(), config.installed_path('curry'),
+  key = (tuple((name, suffix, digest) for name, suffix, _, _, digest in products), os.getpid(), config.installed_path('curry', 'lib'),
          config.frontend_subdir(), config.intermediate_subdir(), str(outdir))
   stamp = [(name, suffix, time, digest)
            for name, suffix, _, time, digest in products]

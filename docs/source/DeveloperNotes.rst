@@ -39,6 +39,27 @@ serializes its process-wide heap: two evaluations still step one at a time
 per heap, while Python work outside native metadata/heap operations can run
 in parallel on a free-threaded interpreter. Curry evaluations are serialized.
 
+Process fork is supported only while no evaluation, compilation, JIT work
+or native handle operation is in flight in any thread; hot requests for the active
+backend count continuously from enqueue through completion or discard, including
+after dequeue, while unarmed C++ functions create no LLVM request.
+Python and native preparation hooks record activity before the fork;
+a busy child raises ``curry.exceptions.ForkError`` on subsequent Sprite
+calls, including the return from a callback into an interrupted evaluation;
+if only the large-stack worker survives, it attempts to report ``ForkError`` to
+standard error with a one-second child-local exit alarm and exits with status 1
+without entering inherited worker state or changing shared descriptor flags.
+An idle child abandons inherited workers, jobs, compiler PIDs, locks and
+ticker state and starts its own state as needed.
+Child exit and collection never wait on inherited work, signal the parent's
+compiler group or remove the parent's temporary module directories.
+Completed executable mappings remain retained without entering or destroying
+their inherited compiler owners.
+Inherited nonstandard file handles must be reopened in the child.
+Buffered command close, flush, seek and write run unmasked immediately after
+a native ownership check, so a signal handler that forks during a blocking
+operation and returns in the child can let that operation retry there.
+
 The bindings release the GIL while the runtime steps or waits, take it
 for Python callbacks and conversion and poll signals while they wait.  A
 deep goal starts on the caller's thread; when an unwind and a retry make
@@ -256,14 +277,35 @@ itself is never enclosed in a Python mutex or a metadata transaction. The
 large-stack worker therefore requires no Python lock ownership transfer.
 
 JIT compilation, cached-function resolution, cache indexing and publication
-collect log records under their existing locks. The product-lock helper's own
+enqueue log records in one ordered queue per thread under their existing
+locks. The product-lock helper's own
 diagnostics and the C++ object compiler, stamp and product-cache diagnostics
-join the enclosing message list. The outer holder emits after releasing its
+join that queue immediately, as do front-end conversion and ICurry-cache
+diagnostics. The outer holder emits after releasing its
 product and JIT locks, including on exceptional exits. The Python binding that
 applies posted LLVM steps takes the heap gate before changing a step pointer.
 
-Open items: front-end conversion and the ICurry cache still log under a product
-lock (#194). Property bindings do not apply the custom ``heap_access`` precall
+Native binding methods acquire and record Sprite mutex ownership, or release
+and clear it, without running Python between those steps; native context entry
+rolls back acquisition if dispatching a pending signal raises, and the
+caller records the large-stack worker handoff until ownership returns.
+One shared native entry check rejects a busy fork child with ``curry.ForkError``
+first, then raises ``curry.ReentrancyError`` for a host call into
+Sprite under that boundary through package functions, interpreter methods or
+public objects, and also prevents a native heap wait under it.
+Signal polling enters the same boundary, so signal handlers cannot wait for
+the evaluation they interrupted.
+Heap ownership alone permits reentry, preserving Python primitive callbacks
+that evaluate terms.
+Internal calls use explicit unchecked lookups and implementations, following
+the existing lock order without an ambient exemption for public entries.
+An outermost release enters Python only with queued records and emits that
+snapshot in FIFO order even on exceptional exit, then raises the first handler
+exception (including ``SystemExit``) with a body exception as its context;
+records generated during emission are suppressed and their count is written
+directly to standard error, bypassing logging handlers so the drain terminates.
+
+Open items: property bindings do not apply the custom ``heap_access`` precall
 guard because pybind11 constructs getters before processing their attributes
 (#195); the constructor-tag test substitutes an explicitly guarded descriptor
 hook. The ``icurry_is_jit`` race with native step/aux writers also remains open
@@ -1080,8 +1122,14 @@ Use standard C++ where a portable standard exists: filesystem, clocks,
 exists, including process arguments, hostname, and future sockets and command
 pipes. A future C++ implementation can register the same name without changing
 Curry code or the image format. ``System.Environment`` is the first Python
-registration user; the installation prefix is supplied from Python at runtime
-so relocated installations report their actual prefix.
+registration user; the installation prefix is supplied from Python at runtime.
+``Distribution.installDir`` appends ``curry`` to that prefix and reports the
+relocated Curry home, with private launchers in ``bin`` and sources in ``lib``.
+The stock analyses under ``lib/.curry/sprite-<version>`` have their own
+``.source`` receipts, written during staging. The private front-end adapter
+checks these receipts; recompiling runtime ICurry updates only its separate
+``.icy.source`` receipt. An edited installed source therefore reaches the
+configured front end until its stock analyses are staged again.
 
 An IORef is one cell shared by the alternatives of a pull-tab.
 Reads snapshot its current pointer. ``getElapsedTime`` counts from the library

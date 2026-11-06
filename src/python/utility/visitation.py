@@ -1,8 +1,9 @@
 '''Implementation of the visitor pattern.'''
+from ..utility.locking import Lock as _SpriteLock, RLock as _SpriteRLock
 # See https://chris-lamb.co.uk/posts/visitor-pattern-in-python
 import functools, inspect, threading
 from .locking import synchronized
-_checker_lock = threading.RLock()
+_checker_lock = _SpriteRLock()
 
 # From http://code.activestate.com/recipes/577413-topological-sort/
 def toposort(data):
@@ -27,7 +28,7 @@ class Visitable(object):
   def __new__(cls, selector, default):
     self = object.__new__(cls)
     self.handlers = {}
-    self._handler_lock = threading.Lock()
+    self._handler_lock = _SpriteLock()
     self._ordering = None
     self.default = default
     self.selector = selector

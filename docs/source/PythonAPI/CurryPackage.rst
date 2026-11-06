@@ -14,6 +14,20 @@ methods of a global interpreter created at import.
 session. Its initial flags follow the same order: defaults,
 ``SPRITE_ROTATION``, ``SPRITE_INTERPRETER_FLAGS``, then the argument.
 
+Fork the process only while Sprite has no evaluation, compilation, queued or
+running JIT work or native handle operation in any thread; an idle child starts fresh
+workers and synchronization state without cleaning up the parent's resources.
+A child forked while Sprite is busy raises ``curry.exceptions.ForkError`` before
+checking thread reentrancy on later Sprite calls and when a callback returns
+into the interrupted evaluation;
+if that callback runs on the large-stack worker, the child attempts a bounded
+report to standard error and exits with status 1.
+
+Python primitive callbacks may evaluate Curry terms, while a signal or logging
+handler that enters Sprite while its thread holds a Sprite lock or waits for
+the evaluation worker raises ``curry.ReentrancyError``.
+Sprite emits diagnostics collected under its locks after releasing those locks.
+
 .. _interpreter-flags:
 
 Interpreter flags

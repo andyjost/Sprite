@@ -1,0 +1,17 @@
+{- AbstractCurry 3.0 -}
+CurryProg "Curry.Compiler.Distribution"
+[]
+Nothing
+ []
+ []
+ []
+ [CFunc ("Curry.Compiler.Distribution","curryCompiler") 0 Public (CQualType (CContext []) (CTApply (CTCons ("Prelude","[]")) (CTCons ("Prelude","Char")))) [],
+  CFunc ("Curry.Compiler.Distribution","curryCompilerMajorVersion") 0 Public (CQualType (CContext []) (CTCons ("Prelude","Int"))) [],
+  CFunc ("Curry.Compiler.Distribution","curryCompilerMinorVersion") 0 Public (CQualType (CContext []) (CTCons ("Prelude","Int"))) [],
+  CFunc ("Curry.Compiler.Distribution","curryCompilerRevisionVersion") 0 Public (CQualType (CContext []) (CTCons ("Prelude","Int"))) [],
+  CFunc ("Curry.Compiler.Distribution","curryRuntime") 0 Public (CQualType (CContext []) (CTApply (CTCons ("Prelude","[]")) (CTCons ("Prelude","Char")))) [],
+  CFunc ("Curry.Compiler.Distribution","curryRuntimeMajorVersion") 0 Public (CQualType (CContext []) (CTCons ("Prelude","Int"))) [],
+  CFunc ("Curry.Compiler.Distribution","curryRuntimeMinorVersion") 0 Public (CQualType (CContext []) (CTCons ("Prelude","Int"))) [],
+  CFunc ("Curry.Compiler.Distribution","baseVersion") 0 Public (CQualType (CContext []) (CTApply (CTCons ("Prelude","[]")) (CTCons ("Prelude","Char")))) [],
+  CFunc ("Curry.Compiler.Distribution","installDir") 0 Public (CQualType (CContext []) (CTApply (CTCons ("Prelude","[]")) (CTCons ("Prelude","Char")))) []]
+ []

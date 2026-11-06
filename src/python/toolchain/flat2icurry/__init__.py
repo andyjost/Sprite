@@ -99,9 +99,10 @@ def rewrite_file(fcyfile, equivalence=True, searchdirs=()):
     interfaces = local_type_interfaces(fcyfile, prog, searchdirs)
   newprog, counts = rewrite_prog(prog, equivalence, interfaces)
   import logging
+  from ...utility.locking import log as _deferred_log
   logger = logging.getLogger(__name__)
   for name, count in zip(('bindingopt', 'setlift'), counts):
-    logger.info('module %s: rewrite pass %s %s', prog.name, name,
+    _deferred_log(logger, logging.INFO, 'module %s: rewrite pass %s %s', prog.name, name,
         'changed the program' if count else 'made no change')
   if any(counts):
     write_flatcurry(newprog, fcyfile)

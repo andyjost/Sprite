@@ -126,6 +126,7 @@ from ...objects import CurryPackage
 from ...toolchain import _filenames, _str2module
 from ...utility import curryname, formatting
 from ...utility.locking import native_metadata
+from ...utility.procfork import poisoned
 from ..generic import compiler as generic
 from . import curryrtbindings as curryrt
 from ... import common, config
@@ -186,8 +187,13 @@ def _module_key(moduleobj):
 
 
 def _after_fork_in_child():
-  # The parent's private products belong to the parent, including at exit.
-  _state.tmpdir = None
+  global _state
+  # No record may carry an actionable parent job or private product path.
+  # _State starts with tmpdir=None; only the parent may remove its products.
+  old = _state
+  _state = _State()
+  _state.bindings = old.bindings.copy()
+  _state.inherited = old.modules.copy()
 
 if hasattr(os, 'register_at_fork'):
   os.register_at_fork(after_in_child=_after_fork_in_child)
@@ -466,7 +472,8 @@ def module_loaded(interp, moduleobj, currypath):
   _record(moduleobj)
   _register_binding(moduleobj)
   from .materialize import jit_threshold
-  curryrt.icurry_set_hot_threshold(interp._its, jit_threshold() if interp.flags['jit'] == 'hot' else 0)
+  curryrt.icurry_set_hot_threshold(interp._its,
+      jit_threshold() if interp.flags['jit'] == 'hot' else 0, llvm=False)
   queued = submit(interp, moduleobj, currypath, hot=interp.flags['jit'] == 'hot')
   if queued and interp.flags['jit'] == 'eager':
     start = time.monotonic()
@@ -697,6 +704,14 @@ def poll(interp=None):
   results, and returns them (see curryrtbindings.tiered_results).  Call it from
   the thread that evaluates.
   '''
+  if interp is not None and enabled(interp):
+    inherited = getattr(_state, 'inherited', {})
+    for key, ref in list(inherited.items()):
+      if key[0] == interp._its.registry_id:
+        del inherited[key]
+        module = ref()
+        if module is not None:
+          module_loaded(interp, module, interp.path)
   curryrt.tiered_poll()
   results = curryrt.tiered_results()
   for result in results:
@@ -869,6 +884,8 @@ def finish():
   precedes the line and the line counts the compile.  A later compile
   starts afresh.
   '''
+  if poisoned():
+    return
   try:
     poll()
   except Exception:  # pragma: no cover

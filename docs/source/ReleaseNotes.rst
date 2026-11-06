@@ -8,6 +8,28 @@ Unreleased
 - Implement ``Data.Global`` temporary globals with interpreter-owned storage,
   ground initialization, copied reads, garbage collection roots and reset
   isolation (#215).
+- Support process fork at an idle Sprite boundary with fresh child workers
+  and locks, preserve parent-owned compiler processes and temporary directories,
+  and raise the public ``ForkError`` in children forked while Sprite is busy;
+  a callback fork on the large-stack worker attempts a bounded error report
+  and exits the child.
+- Answer compiler version probes using only the installed Curry library,
+  ignoring the caller's Curry path and CPM project sources.
+- Implement the CPM ``Debug.Profile`` process information and collection
+  primitives; collector on/off operations are supported as no-ops (#240).
+
+- Make ``Distribution.installDir`` a Curry home at ``<root>/curry`` (#214):
+  move library sources and products to ``curry/lib`` and the private tool
+  launchers to ``curry/bin``; ship FlatCurry and AbstractCurry library analyses
+  for stock CPM readers. Native libraries remain in ``<root>/lib``.
+
+- Cap image translation, attachment and ICurry conversion retries so an input
+  that keeps changing reports a compilation error instead of retrying forever (#226).
+- Raise ``curry.ReentrancyError`` for host reentry under Sprite locks or the
+  evaluation-worker handoff, preserving primitive callback evaluation; defer
+  front-end and ICurry-cache diagnostics until locks release, retain ownership
+  through thread creation, and refuse worker stack sizes the Windows thread
+  API cannot represent before trying smaller reservations.
 - Add a weekly CPM index workflow with pinned package expectations,
   regression checks, and downloadable package results and logs. Fix
   CurryCheck driver loading, transitive local imports and saved application
@@ -46,8 +68,7 @@ Unreleased
   abandoned results and streams without heap waits, save counts in the native
   value pull, and apply posted LLVM steps under the heap gate.
 
-  Still open: front-end conversion and the ICurry cache log under a product
-  lock (#194); property bindings do not apply their heap guards (#195); the
+  Still open: property bindings do not apply their heap guards (#195); the
   ``icurry_is_jit`` race with native step/aux writers (#196).
 
 - Serve loaded modules from memory until reload or reset, without product

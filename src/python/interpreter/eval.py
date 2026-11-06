@@ -219,9 +219,9 @@ def _yield_type(interp, printer):
 
 def _print_yield(interp, event):
   value, printer = event.successors
-  text = interp.expr(interp.symbol('Prelude.apply'), printer, value)
-  text = interp.expr(interp.symbol('Prelude.$##'),
-      interp.symbol('Prelude.returnIO'), text)
+  text = interp._expr(interp._symbol('Prelude.apply'), printer, value)
+  text = interp._expr(interp._symbol('Prelude.$##'),
+      interp._symbol('Prelude.returnIO'), text)
   typeexpr = expressions.result_type(interp, text)
   values = eval_nodes(interp, text)
   try:
@@ -248,9 +248,9 @@ def stream(interp, action):
   # Normalize the action on behalf of a monadic function. This applies the
   # ordinary I/O choice rule at the root too, and to the action's result.
   make = interp.backend.make_node
-  return_io = make(interp.symbol('Prelude.returnIO'),
+  return_io = make(interp._symbol('Prelude.returnIO'),
       partial_info=interp.backend.fundamental_symbols.PartApplic)
-  goal._expr = make(interp.symbol('Prelude.$!!'), return_io, goal.expr)
+  goal._expr = make(interp._symbol('Prelude.$!!'), return_io, goal.expr)
   convert = conversions.ToPython(variable=_Variables(interp, variables), interp=interp)
   def run():
     if interp._session is not session:

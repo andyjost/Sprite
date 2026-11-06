@@ -766,6 +766,8 @@ namespace curryrt
     (std::cerr << ss.str()).flush();
   }
 
+  void request_gc() { g_gc_collect = true; }
+
   void run_gc()
   {
     auto const start = gc_clock::now();

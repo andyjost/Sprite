@@ -5,7 +5,7 @@ import sys
 
 
 SUBDIR = 'sprite-pakcs-3.10.0'
-SUFFIXES = ('.icy', '.fint', '.icurry', '.icy.imports', '.icy.source')
+SUFFIXES = ('.icy', '.fint', '.icurry', '.icy.imports', '.icy.source', '.fcy', '.acy')
 
 
 def product(source):

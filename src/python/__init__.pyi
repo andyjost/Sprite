@@ -89,6 +89,7 @@ __all__ = [
   , 'CurryFileNotFoundError'
   , 'NondetError'
   , 'StackLimitError'
+  , 'ReentrancyError'
   , 'EvaluationTimeout'
   , 'InstantiationError'
   , 'NoValueError'
@@ -98,6 +99,7 @@ __all__ = [
   , 'SymbolLookupError'
   , 'TypeLookupError'
   , 'StaleError'
+  , 'ForkError'
   , 'LoadError'
   , 'PrerequisiteError'
   , 'FlagError'
@@ -713,6 +715,9 @@ class CurryFileNotFoundError(CurryIOError, FileNotFoundError):
 class NondetError(EvaluationError):
   """A choice inside an I/O action, as ``print (1 ? 2)`` (A20)."""
 
+class ReentrancyError(CurryError, RuntimeError):
+  """A host callback reentered Sprite while its thread held an internal lock or waited for the evaluation worker."""
+
 class StackLimitError(EvaluationError, RecursionError):
   """The stack limit of the backend (the flag ``stack_limit``) was reached (A20)."""
 
@@ -747,6 +752,9 @@ class StaleError(CurryError, RuntimeError):
   message names the module, the event and the spelling that follows
   (``build it again from Coin``).
   """
+
+class ForkError(CurryError, RuntimeError):
+  """Sprite was busy when this child process was forked."""
 
 class LoadError(CurryError, OSError):
   """``save``, ``load`` or ``reload`` could not write, read or replace the object; the message names the file, the backend and the way out."""

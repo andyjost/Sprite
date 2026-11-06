@@ -1,0 +1,14 @@
+{- AbstractCurry 3.0 -}
+CurryProg "Data.IORef"
+[]
+Nothing
+ []
+ []
+ [CType ("Data.IORef","IORef") Public [(0,"a")] [CCons ("Data.IORef","IORef") Private [CTVar (0,"a")]] []]
+ [CFunc ("Data.IORef","newIORef") 1 Public (CQualType (CContext []) (CFuncType (CTVar (0,"a")) (CTApply (CTCons ("Prelude","IO")) (CTApply (CTCons ("Data.IORef","IORef")) (CTVar (0,"a")))))) [],
+  CFunc ("Data.IORef","readIORef") 1 Public (CQualType (CContext []) (CFuncType (CTApply (CTCons ("Data.IORef","IORef")) (CTVar (0,"a"))) (CTApply (CTCons ("Prelude","IO")) (CTVar (0,"a"))))) [CRule [CPVar (0,"ref")] (CSimpleRhs (CApply (CApply (CSymbol ("Prelude","$#")) (CSymbol ("Data.IORef","prim_readIORef"))) (CVar (0,"ref"))) [])],
+  CFunc ("Data.IORef","prim_readIORef") 1 Private (CQualType (CContext []) (CFuncType (CTApply (CTCons ("Data.IORef","IORef")) (CTVar (0,"a"))) (CTApply (CTCons ("Prelude","IO")) (CTVar (0,"a"))))) [],
+  CFunc ("Data.IORef","writeIORef") 2 Public (CQualType (CContext []) (CFuncType (CTApply (CTCons ("Data.IORef","IORef")) (CTVar (0,"a"))) (CFuncType (CTVar (0,"a")) (CTApply (CTCons ("Prelude","IO")) (CTCons ("Prelude","()")))))) [CRule [CPVar (0,"ref"),CPVar (1,"val")] (CSimpleRhs (CApply (CApply (CApply (CSymbol ("Prelude","$#")) (CSymbol ("Data.IORef","prim_writeIORef"))) (CVar (0,"ref"))) (CVar (1,"val"))) [])],
+  CFunc ("Data.IORef","prim_writeIORef") 2 Private (CQualType (CContext []) (CFuncType (CTApply (CTCons ("Data.IORef","IORef")) (CTVar (0,"a"))) (CFuncType (CTVar (0,"a")) (CTApply (CTCons ("Prelude","IO")) (CTCons ("Prelude","()")))))) [],
+  CFunc ("Data.IORef","modifyIORef") 2 Public (CQualType (CContext []) (CFuncType (CTApply (CTCons ("Data.IORef","IORef")) (CTVar (0,"a"))) (CFuncType (CFuncType (CTVar (0,"a")) (CTVar (0,"a"))) (CTApply (CTCons ("Prelude","IO")) (CTCons ("Prelude","()")))))) [CRule [CPVar (0,"ref"),CPVar (1,"f")] (CSimpleRhs (CApply (CApply (CSymbol ("Prelude",">>=")) (CApply (CSymbol ("Data.IORef","readIORef")) (CVar (0,"ref")))) (CApply (CApply (CSymbol ("Prelude",".")) (CApply (CSymbol ("Data.IORef","writeIORef")) (CVar (0,"ref")))) (CVar (1,"f")))) [])]]
+ []

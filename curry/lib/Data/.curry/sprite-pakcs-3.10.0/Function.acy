@@ -1,0 +1,10 @@
+{- AbstractCurry 3.0 -}
+CurryProg "Data.Function"
+[]
+Nothing
+ []
+ []
+ []
+ [CFunc ("Data.Function","fix") 1 Public (CQualType (CContext []) (CFuncType (CFuncType (CTVar (0,"a")) (CTVar (0,"a"))) (CTVar (0,"a")))) [CRule [CPVar (0,"f")] (CSimpleRhs (CLetDecl [CLocalPat (CPVar (1,"x")) (CSimpleRhs (CApply (CVar (0,"f")) (CVar (1,"x"))) [])] (CVar (1,"x"))) [])],
+  CFunc ("Data.Function","on") 4 Public (CQualType (CContext []) (CFuncType (CFuncType (CTVar (0,"a")) (CFuncType (CTVar (0,"a")) (CTVar (1,"b")))) (CFuncType (CFuncType (CTVar (2,"c")) (CTVar (0,"a"))) (CFuncType (CTVar (2,"c")) (CFuncType (CTVar (2,"c")) (CTVar (1,"b"))))))) [CRule [CPVar (0,"op"),CPVar (1,"f"),CPVar (2,"x"),CPVar (3,"y")] (CSimpleRhs (CApply (CApply (CVar (0,"op")) (CApply (CVar (1,"f")) (CVar (2,"x")))) (CApply (CVar (1,"f")) (CVar (3,"y")))) [])]]
+ []

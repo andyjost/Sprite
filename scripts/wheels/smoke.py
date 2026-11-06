@@ -24,7 +24,7 @@ def main():
     # with interpret:off after it compiled the program.
     assert curry.flags['interpret'] == 'new', curry.flags
   assert curry.config.cxx_compiler(), 'Missing build compiler record'
-  prelude = Path(curry.config.prefix()) / 'curry/.curry' / curry.config.intermediate_subdir() / ('Prelude' + curry.config.module_object_suffix())
+  prelude = Path(curry.config.prefix()) / 'curry/lib/.curry' / curry.config.intermediate_subdir() / ('Prelude' + curry.config.module_object_suffix())
   assert prelude.is_file(), prelude
   assert Cpp2So(curry._interpreter_).stamp_is_current(str(prelude))
   from curry.objects.handle import getHandle

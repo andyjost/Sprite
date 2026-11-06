@@ -69,4 +69,7 @@ namespace curryrt { namespace platform {
 
   // The identity of this process, for the names of temporary files.
   long long process_id();
+
+  // CPU time of the process (user and kernel), in milliseconds.
+  long long process_cpu_milliseconds();
 }}

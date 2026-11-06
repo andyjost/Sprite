@@ -53,7 +53,7 @@ with tempfile.TemporaryDirectory(ignore_cleanup_errors=os.name == 'nt') as work:
   source = Path(work) / (name.replace('.', '/') + '.curry')
   source.parent.mkdir(parents=True, exist_ok=True)
   source.write_text('module %%s where\nuserValue :: Bool\nuserValue = True\n' %% name)
-  installed = Path(config.installed_path('curry', name.replace('.', '/') + '.curry'))
+  installed = Path(config.installed_path('curry', 'lib', name.replace('.', '/') + '.curry'))
   library = curry.import_(name) if %r else None
   curry.path.insert(0, work)
   for target in (name, source):

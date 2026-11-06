@@ -379,7 +379,7 @@ class Problem:
     if isinstance(symbol, Scheme):
       return symbol
     if isinstance(symbol, str):
-      symbol = app.symbol = self.interp.symbol(symbol)
+      symbol = app.symbol = self.interp._symbol(symbol)
     return self.interp.sigtable.lookup(symbol, required=True)
 
   def _enter_app(self, app, expected):

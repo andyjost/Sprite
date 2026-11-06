@@ -49,6 +49,7 @@ namespace curryrt
     // The collector traces them with the other interpreter roots.
     std::unordered_map<std::string, Node *> globals;
     uint32_t hot_threshold = 0;
+    bool llvm_hot = true;
     xid_type    xidfactory = 0;
     vtable_type vtable;
     // The free variables made outside an evaluation of this interpreter:

@@ -12,6 +12,8 @@ namespace curryrt { namespace python
     auto exceptions = py::module_::import("curry.exceptions");
     mod.attr("EvaluationError") = exceptions.attr("EvaluationError");
     mod.attr("SuspensionError") = exceptions.attr("SuspensionError");
+    // Retain the type so a poisoned child need not import during translation.
+    static PyObject * fork_error = py::object(exceptions.attr("ForkError")).release().ptr();
     py::register_exception_translator([](std::exception_ptr error)
     {
       try
@@ -22,6 +24,10 @@ namespace curryrt { namespace python
       {
         auto type = py::module_::import("curry.exceptions").attr("SuspensionError");
         PyErr_SetObject(type.ptr(), type().ptr());
+      }
+      catch(ForkError const & error)
+      {
+        PyErr_SetString(fork_error, error.what());
       }
       catch(EvaluationError const & error)
       {
@@ -43,6 +49,11 @@ namespace curryrt { namespace python
       catch(InstantiationError const & error)
       {
         auto type = py::module_::import("curry.exceptions").attr("InstantiationError");
+        PyErr_SetString(type.ptr(), error.what());
+      }
+      catch(ReentrancyError const & error)
+      {
+        auto type = py::module_::import("curry.exceptions").attr("ReentrancyError");
         PyErr_SetString(type.ptr(), error.what());
       }
       catch(DynloadError const & error)
