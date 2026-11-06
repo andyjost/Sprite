@@ -255,6 +255,34 @@ class TestCPMIndex(cytest.TestCase):
         self.assertFalse(getattr(method, '__unittest_expecting_failure__', False))
     self.assertEqual(suite.countTestCases(), 1)
 
+  @cytest.posix_only('CPM package scripts locate companions beside CURRYBIN')
+  def test_workflow_compiler_has_working_cleanup_companion(self):
+    import re
+    from curry import config
+    workflows = sorted(path for path in (ROOT / '.github/workflows').iterdir()
+                       if path.suffix in ('.yml', '.yaml'))
+    compilers = {compiler for workflow in workflows for compiler in re.findall(
+        r'(?:CURRYBIN=|--sprite\s+)"?\$GITHUB_WORKSPACE/([^"\s]+)',
+        workflow.read_text())}
+    self.assertTrue(compilers)
+    for relative in sorted(compilers):
+      with self.subTest(compiler=relative), tempfile.TemporaryDirectory() as work:
+        # runcurry's test.sh uses dirname(realpath(CURRYBIN))/cleancurry.
+        compiler = Path(config.installed_path(*Path(relative).parts[1:])).resolve()
+        cleaner = compiler.with_name('cleancurry')
+        self.assertTrue(cleaner.is_file(), 'missing companion for ' + relative)
+        root = Path(work)
+        source = root / 'Main.curry'
+        source.write_text('main = True\n')
+        products = root / '.curry' / config.intermediate_subdir()
+        products.mkdir(parents=True)
+        (products / 'Main.icy').write_text('stale product\n')
+        result = subprocess.run([str(cleaner)], cwd=root,
+            capture_output=True, text=True, timeout=30)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertFalse(products.exists())
+        self.assertEqual(source.read_text(), 'main = True\n')
+
   def test_network_retains_source_url(self):
     self.assertEqual(survey.classify('curl: (7) Failed to connect\nRecovered from cache', 0), 'pass')
     url = 'https://example.org/package.tar.gz'

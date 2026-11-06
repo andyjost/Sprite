@@ -977,6 +977,7 @@
       "failure_class": "test failure",
       "failure_set": [
         "test: class: test failure",
+        "test: diagnostic: i/o error: BrokenPipeError: [Errno 32] Broken pipe",
         "test: diagnostic: i/o error: unexpected token EOF",
         "test: diagnostic: testb1 (module Simple): EXECUTION FAILURE:",
         "test: diagnostic: testb2 (module Simple): EXECUTION FAILURE:"
