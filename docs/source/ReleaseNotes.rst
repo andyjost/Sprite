@@ -5,6 +5,9 @@ Release Notes
 Unreleased
 ==========
 
+- Implement ``Data.Global`` temporary globals with interpreter-owned storage,
+  ground initialization, copied reads, garbage collection roots and reset
+  isolation (#215).
 - Add a weekly CPM index workflow with pinned package expectations,
   regression checks, and downloadable package results and logs. Fix
   CurryCheck driver loading, transitive local imports and saved application

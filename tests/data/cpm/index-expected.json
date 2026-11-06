@@ -1090,23 +1090,9 @@
     },
     "global": {
       "version": "3.2.0",
-      "measured_seconds": 31.5,
-      "result": "open",
-      "issue": "#215",
-      "reason": "Implement interpreter-owned Data.Global initialization, reads and writes with GC and reset support.",
-      "issue_text": "Implement interpreter-owned Data.Global initialization, reads and writes with GC and reset support.",
-      "failure_class": "missing external",
-      "shard": 4,
-      "failure_set": [
-        "test: class: missing external",
-        "test: diagnostic: i/o error: Data.Global.prim_globalT: not implemented (no primitive in the runtime)",
-        "test: diagnostic: sh: 1: lockfile-create: not found",
-        "test: diagnostic: sh: 1: lockfile-remove: not found",
-        "test: diagnostic: testGlobalHandles (module TestGlobalHandles): EXECUTION FAILURE:",
-        "test: diagnostic: testReadWriteTwoTemporaryGlobals (module TestDataGlobal): EXECUTION FAILURE:",
-        "test: diagnostic: testSimpleIntReadGlobalWriteGlobal (module TestDataGlobal): EXECUTION FAILURE:",
-        "test: diagnostic: testSimpleIntlistReadGlobalWriteGlobal (module TestDataGlobal): EXECUTION FAILURE:"
-      ]
+      "measured_seconds": 34.2,
+      "result": "pass",
+      "shard": 4
     },
     "global-variables": {
       "version": "1.0.0",
@@ -1150,40 +1136,9 @@
     },
     "keydb": {
       "version": "3.1.0",
-      "measured_seconds": 33.9,
-      "result": "open",
-      "issue": "#215",
-      "reason": "Provide interpreter-owned Data.Global storage required by the SQLite key database.",
-      "issue_text": "Provide interpreter-owned Data.Global storage required by the SQLite key database.",
-      "failure_class": "missing external",
-      "shard": 7,
-      "failure_set": [
-        "test: class: missing external",
-        "test: diagnostic: i/o error: Data.Global.prim_globalT: not implemented (no primitive in the runtime)",
-        "test: diagnostic: testAllInfosEmpty (module TestKeyDatabaseSQLite): EXECUTION FAILURE:",
-        "test: diagnostic: testAllKeyInfosEmpty (module TestKeyDatabaseSQLite): EXECUTION FAILURE:",
-        "test: diagnostic: testAllKeysEmpty (module TestKeyDatabaseSQLite): EXECUTION FAILURE:",
-        "test: diagnostic: testCreatedExists (module TestKeyDatabaseSQLite): EXECUTION FAILURE:",
-        "test: diagnostic: testCreatedGoneAfterClean (module TestKeyDatabaseSQLite): EXECUTION FAILURE:",
-        "test: diagnostic: testDeleteAllCreated (module TestKeyDatabaseSQLite): EXECUTION FAILURE:",
-        "test: diagnostic: testDeleteKeyEmpty (module TestKeyDatabaseSQLite): EXECUTION FAILURE:",
-        "test: diagnostic: testDeleteKeysEmpty (module TestKeyDatabaseSQLite): EXECUTION FAILURE:",
-        "test: diagnostic: testDeleteOneCreated (module TestKeyDatabaseSQLite): EXECUTION FAILURE:",
-        "test: diagnostic: testEmptyAfterRollback (module TestKeyDatabaseSQLite): EXECUTION FAILURE:",
-        "test: diagnostic: testGetAllCreatedInfos (module TestKeyDatabaseSQLite): EXECUTION FAILURE:",
-        "test: diagnostic: testGetAllCreatedKeyInfos (module TestKeyDatabaseSQLite): EXECUTION FAILURE:",
-        "test: diagnostic: testGetAllCreatedKeys (module TestKeyDatabaseSQLite): EXECUTION FAILURE:",
-        "test: diagnostic: testGetCreatedInfo (module TestKeyDatabaseSQLite): EXECUTION FAILURE:",
-        "test: diagnostic: testGetCreatedInfos (module TestKeyDatabaseSQLite): EXECUTION FAILURE:",
-        "test: diagnostic: testInfoEmpty (module TestKeyDatabaseSQLite): EXECUTION FAILURE:",
-        "test: diagnostic: testInfosEmpty (module TestKeyDatabaseSQLite): EXECUTION FAILURE:",
-        "test: diagnostic: testNotExists (module TestKeyDatabaseSQLite): EXECUTION FAILURE:",
-        "test: diagnostic: testQueryDeleted (module TestKeyDatabaseSQLite): EXECUTION FAILURE:",
-        "test: diagnostic: testQueryListWithOneDeleted (module TestKeyDatabaseSQLite): EXECUTION FAILURE:",
-        "test: diagnostic: testRollbackOnError (module TestKeyDatabaseSQLite): EXECUTION FAILURE:",
-        "test: diagnostic: testUpdateCreated (module TestKeyDatabaseSQLite): EXECUTION FAILURE:",
-        "test: diagnostic: testUpdateEmpty (module TestKeyDatabaseSQLite): EXECUTION FAILURE:"
-      ]
+      "measured_seconds": 43.1,
+      "result": "pass",
+      "shard": 7
     },
     "plural-arguments": {
       "version": "3.1.0",
