@@ -1075,6 +1075,23 @@ print(json.dumps(dict(ok=True)))
     self.assertTrue(self.child(abi='changed')['jitted'])
     self.assertFalse(self.child()['jitted'])
 
+  def test_image_version_change_misses(self):
+    # Model the previous analysis generation's key without changing the
+    # image reader or native format used by the current runtime.
+    self.child('eager')
+    code = CHILD.replace('M = curry.import_(source)', '''
+from curry.backends.cxx import image
+cache_key = llvmjit._cache_key
+def previous_key(jit, header):
+  with mock.patch.object(image, 'VERSION', image.VERSION - 1):
+    return cache_key(jit, header)
+llvmjit._cache_key = previous_key
+M = curry.import_(source)
+''')
+    result = self.result(self.start([sys.executable, '-c', code,
+        'all', 'hot', str(self.source), ''], env=self.env))
+    self.assertFalse(result['jitted'])
+
   def test_read_only_products_use_private_cache(self):
     self.child('off')
     products = next(self.base.rglob('Cached.img')).parent

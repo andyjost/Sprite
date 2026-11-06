@@ -5,6 +5,9 @@ Release Notes
 Unreleased
 ==========
 
+- Keep pure functions that call ``trace`` out of monadic choice rejection
+  by stopping effect propagation at ``unsafePerformIO`` (#241).
+
 - Implement the CPM ``Debug.Profile`` process information and collection
   primitives; collector on/off operations are supported as no-ops (#240).
 

@@ -1,7 +1,6 @@
 from ...common import F_MONADIC
-from .. import types, visit
+from .. import types
 from .aliases import lookup_function
-import sys
 
 __all__ = ['set_monadic_metadata']
 
@@ -18,7 +17,9 @@ def set_monadic_metadata(ifun, modules):
   performed.
 
   To determine whether a function is monadic, its call graph is walked.  If the
-  function calls any monadic function, then it is determined to be monadic.
+  function calls any monadic function outside an unsafePerformIO argument,
+  then it is determined to be monadic.  The unsafe primitive runs that
+  argument as an I/O action itself; its caller produces a pure value.
   '''
   if isinstance(ifun, types.IFunction):
     if 'all.monadic' not in ifun.metadata:
@@ -29,7 +30,7 @@ def set_monadic_metadata(ifun, modules):
         ifun.update_metadata({'all.monadic': False})
         visitor = lambda iobj, **kwds: _checkmonadic(iobj, modules, **kwds)
         try:
-          visit.visit(visitor, ifun.body)
+          _visit_calls(visitor, ifun.body)
         except TRUE:
           ifun.update_metadata({
               'all.flags': flags | F_MONADIC
@@ -39,6 +40,29 @@ def set_monadic_metadata(ifun, modules):
     return ifun.metadata['all.monadic']
   else:
     return False
+
+def _visit_calls(visitor, body):
+  # Keep the walk iterative, as in visit.visit: literal strings may be deep.
+  pending = [(body, False)]
+  while pending:
+    iobj, expanded = pending.pop()
+    if expanded:
+      visitor(iobj)
+      continue
+    if isinstance(iobj, types.ICall) and \
+        iobj.symbolname == 'System.IO.Unsafe.unsafePerformIO':
+      # Only this primitive consumes an IO action to produce a pure value.
+      # Do not propagate effects from the action it owns.
+      pending.extend((arg, False) for arg in reversed(iobj.exprs[1:]))
+      continue
+    pending.append((iobj, True))
+    if isinstance(iobj, types.IBlock):
+      children = (*iobj.vardecls, *iobj.assigns, iobj.stmt)
+    elif isinstance(iobj, types.IObject):
+      children = iobj.children
+    else:
+      children = ()
+    pending.extend((child, False) for child in reversed(children))
 
 def _lookupfunction(symbolname, modules):
   # interp.symbol cannot be used because analysis must occur before the symbols

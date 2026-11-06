@@ -201,11 +201,14 @@ class TestPlainDataBOM(cytest.TestCase):
         ', nullptr, 0, nullptr, 0, nullptr, 0};'
       )
     # Native load failures use the public LoadError.
-    sofile = build('CxxBomOld', record % ('bom::VERSION + 1', '"CxxBomOld"'))
-    with self.assertRaisesRegex(
-        curry.LoadError, r'layout version \d+, and this runtime reads version \d+'
-      ):
-      curryrt.SharedCurryModule(sofile)
+    for offset in (-1, 1):
+      with self.subTest(version_offset=offset):
+        name = 'CxxBomOld' if offset == -1 else 'CxxBomFuture'
+        sofile = build(name, record % (
+            'bom::VERSION + (%d)' % offset, '"%s"' % name))
+        with self.assertRaisesRegex(curry.LoadError,
+            r'layout version \d+, and this runtime reads version \d+'):
+          curryrt.SharedCurryModule(sofile)
     sofile = build('CxxBomNone', 'int cxxbom_nothing = 1;')
     with self.assertRaisesRegex(curry.LoadError, '_bom_'):
       curryrt.SharedCurryModule(sofile)

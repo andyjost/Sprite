@@ -16,8 +16,8 @@ from . import bytecode, curryrtbindings as curryrt
 
 logger = logging.getLogger(__name__)
 MAGIC = b'SPRTIMG\0'
-# Version 15 records effective library wrapper authorization in freshness facts.
-VERSION = 15
+# Version 16 stops monadic-effect propagation at unsafePerformIO (#241).
+VERSION = 16
 PREFIX = struct.Struct('<8sII')
 _MAX_IMAGE_ATTEMPTS = 3
 
