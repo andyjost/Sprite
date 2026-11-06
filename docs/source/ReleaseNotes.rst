@@ -5,6 +5,9 @@ Release Notes
 Unreleased
 ==========
 
+- Answer compiler version probes using only the installed Curry library,
+  ignoring the caller's Curry path and CPM project sources.
+
 - Make ``Distribution.installDir`` a Curry home at ``<root>/curry`` (#214):
   move library sources and products to ``curry/lib`` and the private tool
   launchers to ``curry/bin``; ship FlatCurry and AbstractCurry library analyses
