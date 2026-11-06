@@ -43,9 +43,12 @@ class TestCPMPackagePrimitives(cytest.TestCase):
   def test_profile_process_infos(self):
     module = self.profiling_module('''infos :: IO [(String,Int)]
 infos = getProcessInfos >>= return . map (\\(key,value) -> (show key,value))
+collected :: IO [(String,Int)]
+collected = garbageCollect >> infos
 ''')
     infos = dict(curry.eval(module.infos).one())
-    self.assertEqual(set(infos), {'RunTime', 'ElapsedTime', 'Memory'})
+    self.assertEqual(set(infos),
+                     {'RunTime', 'ElapsedTime', 'Memory', 'GarbageCollections'})
     for value in infos.values():
       self.assertGreaterEqual(value, 0)
     from curry.backends.cxx import curryrtbindings as runtime
@@ -56,6 +59,9 @@ infos = getProcessInfos >>= return . map (\\(key,value) -> (show key,value))
     later = dict(curry.eval(module.infos).one())
     self.assertGreaterEqual(later['ElapsedTime'] - elapsed, 20)
     self.assertGreaterEqual(later['RunTime'], infos['RunTime'])
+    collected = dict(curry.eval(module.collected).one())
+    self.assertGreaterEqual(collected['GarbageCollections'],
+                            later['GarbageCollections'] + 1)
 
   def test_profile_garbage_collect(self):
     module = self.profiling_module('''import Data.IORef

@@ -81,11 +81,13 @@ namespace
       return pair(Node::create(info), int_(value));
     };
     // The node heap is shared by the process, including its pooled blocks.
-    // Its collection count cannot describe one interpreter, so omit it.
+    // The collection count likewise covers the process's node heap. MPS
+    // counts completed traces, both automatic and requested full collections.
+    Node * collections = entry("GarbageCollections", gc_num_collections());
     Node * memory = entry("Memory", gc_heap_bytes());
     Node * elapsed = entry("ElapsedTime", elapsed_milliseconds());
     Node * cpu = entry("RunTime", platform::process_cpu_milliseconds());
-    return finish(C, cons(cpu, cons(elapsed, cons(memory, Nil))));
+    return finish(C, cons(cpu, cons(elapsed, cons(memory, cons(collections, Nil)))));
   }
 
   tag_type profile_gc(RuntimeState *, Configuration * C)
