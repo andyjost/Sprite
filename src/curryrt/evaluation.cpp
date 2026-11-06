@@ -88,6 +88,13 @@ namespace curryrt
     }
     thread_local bool draining = false;
     std::atomic<host_poll_type> poll_hook{nullptr};
+    std::atomic<host_lock_held_type> lock_held_hook{nullptr};
+    thread_local size_t boundary_depth = 0;
+    struct BoundaryScope
+    {
+      BoundaryScope() { ++boundary_depth; }
+      ~BoundaryScope() { --boundary_depth; }
+    };
     thread_local bool is_worker = false;
     thread_local size_t reserved_room = 0;
     thread_local char const * worker_base = nullptr;
@@ -261,7 +268,19 @@ namespace curryrt
 
   void set_host_wait(host_wait_type hook) { wait_hook.store(hook); }
   void set_host_poll(host_poll_type hook) { poll_hook.store(hook); }
-  void host_poll() { if(auto hook = poll_hook.load()) hook(); }
+  void set_host_lock_held(host_lock_held_type hook) { lock_held_hook.store(hook); }
+  void check_reentrancy()
+  {
+    auto held = lock_held_hook.load();
+    if(boundary_depth || (held && held()))
+      throw ReentrancyError("cannot reenter Sprite while this thread holds a Sprite lock "
+                            "or waits for its evaluation worker");
+  }
+  void host_poll()
+  {
+    BoundaryScope boundary;
+    if(auto hook = poll_hook.load()) hook();
+  }
 
   bool heap_try_lock()
   {
@@ -303,6 +322,7 @@ namespace curryrt
   void heap_lock(bool poll)
   {
     if(heap_try_lock()) return;
+    check_reentrancy();
     if(auto wait = wait_hook.load()) wait(&wait_for_heap, &poll);
     else wait_for_heap(&poll);
   }
@@ -569,6 +589,7 @@ namespace curryrt
 
   Expr worker_evaluate(RuntimeState & rts)
   {
+    BoundaryScope boundary;
     Worker & w = get_worker(rts.worker_stack);
     auto const caller = std::this_thread::get_id();
     std::unique_lock<std::mutex> lock(w.mutex);

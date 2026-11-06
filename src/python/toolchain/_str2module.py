@@ -1,3 +1,4 @@
+from ..utility.locking import Lock as _SpriteLock
 from .. import config
 from . import makecurry
 from ..objects import handle
@@ -15,7 +16,7 @@ logger = logging.getLogger(__name__)
 _TEMPORARY_DIRS = set()
 # Finalizers append only. Purge before traversing, and log after unlocking.
 _pending_removals = []
-_dirs_lock = threading.Lock()
+_dirs_lock = _SpriteLock()
 
 def _purge_dirs():
   removed = []
@@ -90,7 +91,7 @@ def str2module(
     os.makedirs(os.path.dirname(curryfile), exist_ok=True)
     with open(curryfile, 'w', encoding='utf-8') as ostream:
       ostream.write(moduletext)
-    moduleobj = interp.import_(modulename, currypath=[moduledir] + currypath)
+    moduleobj = interp._import_(modulename, currypath=[moduledir] + currypath)
     moduleobj.__file__ = curryfile
     h = handle.Handle(moduleobj)
     icur = h.icurry

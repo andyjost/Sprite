@@ -90,7 +90,7 @@ def save(interp, cymodule, filename=None, goal=None, **kwds):
       )
   if goal is not None:
     goal = ensure_str(goal)
-    symbol = interp.symbol('%s.%s' % (icy.fullname, goal)) # Raises SymbolLookupError on failure
+    symbol = interp._symbol('%s.%s' % (icy.fullname, goal)) # Raises SymbolLookupError on failure
     goalscheme = goal_scheme_text(interp, symbol)
     if goalscheme is not None:
       kwds['goalscheme'] = goalscheme
@@ -100,7 +100,7 @@ def save(interp, cymodule, filename=None, goal=None, **kwds):
         'program evaluates, or module_main=False to save a module without a '
         'main program'
       )
-  h = handle.getHandle(interp.import_(icy))
+  h = handle.getHandle(interp._import_(icy))
   icy = compilable_icurry(interp, cymodule, h.icurry)
   if logger.isEnabledFor(logging.INFO):
     logger.info(
@@ -198,7 +198,7 @@ def compilable_icurry(interp, cymodule, icy):
   # on a cycle, and record a recursive function as an inline body.  The
   # complete ICurry stands in for the module while the passes run.
   with _standing_in(interp, cymodule, complete):
-    interp.optimize(complete)
+    interp._optimize(complete)
   return complete
 
 

@@ -256,14 +256,34 @@ itself is never enclosed in a Python mutex or a metadata transaction. The
 large-stack worker therefore requires no Python lock ownership transfer.
 
 JIT compilation, cached-function resolution, cache indexing and publication
-collect log records under their existing locks. The product-lock helper's own
+enqueue log records in one ordered queue per thread under their existing
+locks. The product-lock helper's own
 diagnostics and the C++ object compiler, stamp and product-cache diagnostics
-join the enclosing message list. The outer holder emits after releasing its
+join that queue immediately, as do front-end conversion and ICurry-cache
+diagnostics. The outer holder emits after releasing its
 product and JIT locks, including on exceptional exits. The Python binding that
 applies posted LLVM steps takes the heap gate before changing a step pointer.
 
-Open items: front-end conversion and the ICurry cache still log under a product
-lock (#194). Property bindings do not apply the custom ``heap_access`` precall
+Native binding methods acquire and record Sprite mutex ownership, or release
+and clear it, without running Python between those steps; native context entry
+rolls back acquisition if dispatching a pending signal raises, and the
+caller records the large-stack worker handoff until ownership returns.
+One shared native entry check raises ``curry.ReentrancyError`` for a host call into
+Sprite under that boundary through package functions, interpreter methods or
+public objects, and also prevents a native heap wait under it.
+Signal polling enters the same boundary, so signal handlers cannot wait for
+the evaluation they interrupted.
+Heap ownership alone permits reentry, preserving Python primitive callbacks
+that evaluate terms.
+Internal calls use explicit unchecked lookups and implementations, following
+the existing lock order without an ambient exemption for public entries.
+An outermost release enters Python only with queued records and emits that
+snapshot in FIFO order even on exceptional exit, then raises the first handler
+exception (including ``SystemExit``) with a body exception as its context;
+records generated during emission are suppressed and their count is written
+directly to standard error, bypassing logging handlers so the drain terminates.
+
+Open items: property bindings do not apply the custom ``heap_access`` precall
 guard because pybind11 constructs getters before processing their attributes
 (#195); the constructor-tag test substitutes an explicitly guarded descriptor
 hook. The ``icurry_is_jit`` race with native step/aux writers also remains open
@@ -1154,6 +1174,32 @@ pipe probes other than a closed pipe report an error. Python ``SystemExit``
 and ``KeyboardInterrupt`` pass through the binding boundary. Terminal checks and readiness have no
 portable C++ interface and use the Python host, including Windows console and
 pipe readiness. Regular file handles are immediately ready, including at EOF.
+
+Command streams retain their child process until the final handle closes.
+Each launch and handle close polls pending children without blocking; there
+is no reaper thread. A child that exits while the interpreter is idle is
+reaped at the next launch, handle close or shutdown. After a fork, the child
+clears inherited process ownership and replaces the registry lock. Shutdown
+terminates each command's POSIX process group or Windows Job Object, waits
+up to one second, then kills the group and waits up to one more second per
+child. Commands start in separate POSIX sessions; Windows commands start
+suspended until assigned to the shared Job Object implementation. Shutdown
+closes raw pipe ends before buffered wrappers, discarding unflushed command
+input so a full pipe cannot block cleanup even if termination fails.
+Waits run outside the registry lock and cleanup failures are isolated per
+child. Reaping also closes the Windows process handle. POSIX waits use
+``waitid`` with ``WNOWAIT`` where available, preserving the leader's id until
+all group signals have been sent; without it, no final group kill follows a
+reaping wait.
+
+Sprite ends the POSIX process group or Windows Job Object that it started
+for a command. A descendant that leaves that group or session itself (for
+example with ``setsid``, ``setpgid`` or daemonization) is outside this boundary,
+and Sprite does not chase it. A host program that reaps child processes
+itself (a ``SIGCHLD`` handler that calls ``waitpid(-1, ...)``) takes over
+Sprite's command children, and an asynchronous interruption inside the
+standard library's process launch is not cleaned up; both are outside the
+boundary too.
 
 ``ReadShowTerm`` from CPM ``read-legacy`` uses pure C++ primitives to print
 and read ground data in PAKCS prefix notation. Constructor names are

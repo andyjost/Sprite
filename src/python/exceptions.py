@@ -82,6 +82,9 @@ class ManyValuesError(CurryError, ValueError):
 class StaleError(CurryError, RuntimeError):
   '''An object belongs to an earlier session or module version.'''
 
+class ReentrancyError(CurryError, RuntimeError):
+  '''A host callback entered Sprite while its thread held an internal lock.'''
+
 
 class PrerequisiteError(CurryError, IOError):
   '''Raised when a build prerequisite is invalid.'''

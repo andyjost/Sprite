@@ -59,4 +59,4 @@ def loadcurry(plan, name, currypath=None, **kwds):
         if isinstance(filename, _filenames.ImageProduct)
         else _filenames.icurryfilename(filename))
     return image.load(plan.interp, translation, imagepath)
-  return plan.interp.load(filename, from_plan=True)
+  return plan.interp._load(filename, from_plan=True)

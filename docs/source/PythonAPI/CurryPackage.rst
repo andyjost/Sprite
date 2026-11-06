@@ -14,6 +14,11 @@ methods of a global interpreter created at import.
 session. Its initial flags follow the same order: defaults,
 ``SPRITE_ROTATION``, ``SPRITE_INTERPRETER_FLAGS``, then the argument.
 
+Python primitive callbacks may evaluate Curry terms, while a signal or logging
+handler that enters Sprite while its thread holds a Sprite lock or waits for
+the evaluation worker raises ``curry.ReentrancyError``.
+Sprite emits diagnostics collected under its locks after releasing those locks.
+
 .. _interpreter-flags:
 
 Interpreter flags

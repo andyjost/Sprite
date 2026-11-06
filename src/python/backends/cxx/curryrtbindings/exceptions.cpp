@@ -45,6 +45,11 @@ namespace curryrt { namespace python
         auto type = py::module_::import("curry.exceptions").attr("InstantiationError");
         PyErr_SetString(type.ptr(), error.what());
       }
+      catch(ReentrancyError const & error)
+      {
+        auto type = py::module_::import("curry.exceptions").attr("ReentrancyError");
+        PyErr_SetString(type.ptr(), error.what());
+      }
       catch(DynloadError const & error)
       {
         auto type = py::module_::import("curry.exceptions").attr("LoadError");

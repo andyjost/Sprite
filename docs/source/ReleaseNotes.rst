@@ -7,6 +7,18 @@ Unreleased
 
 - Cap image translation, attachment and ICurry conversion retries so an input
   that keeps changing reports a compilation error instead of retrying forever (#226).
+- Raise ``curry.ReentrancyError`` for host reentry under Sprite locks or the
+  evaluation-worker handoff, preserving primitive callback evaluation; defer
+  front-end and ICurry-cache diagnostics until locks release, retain ownership
+  through thread creation, and refuse worker stack sizes the Windows thread
+  API cannot represent before trying smaller reservations.
+- Add a weekly CPM index workflow with pinned package expectations,
+  regression checks, and downloadable package results and logs. Fix
+  CurryCheck driver loading, transitive local imports and saved application
+  options, accept an empty runtime argument list, read piped commands after
+  startup settings, support ``:add`` imports, and implement
+  the CPM clock and UTC conversion used for random seeds, binary files,
+  and command pipes, including a bidirectional command handle.
 - Preserve module path order, saved dependency provenance and ICurry import
   validation; rebuild stale installed and read-only user products privately,
   retain local CPM sources without packages, and validate private rebuild
@@ -38,8 +50,7 @@ Unreleased
   abandoned results and streams without heap waits, save counts in the native
   value pull, and apply posted LLVM steps under the heap gate.
 
-  Still open: front-end conversion and the ICurry cache log under a product
-  lock (#194); property bindings do not apply their heap guards (#195); the
+  Still open: property bindings do not apply their heap guards (#195); the
   ``icurry_is_jit`` race with native step/aux writers (#196).
 
 - Serve loaded modules from memory until reload or reset, without product

@@ -1,9 +1,10 @@
+from ..utility.locking import RLock as _SpriteRLock
 from . import _findcurry
 import threading
 from contextvars import ContextVar
 from functools import wraps
 from ..utility.locking import synchronized
-_rewrite_lock = threading.RLock()
+_rewrite_lock = _SpriteRLock()
 from .. import cache, config
 from ..exceptions import CompileError
 from . import _filenames, _frontend, _interfaces, _preprocessor, _system
@@ -17,6 +18,7 @@ __all__ = [
   , 'icurry_is_stale', 'in_system_library', 'pairs_refreshed', 'pairs_served'
   , 'reset_counts', 'rewrite_on_hit', 'translated_before_rewrite'
   ]
+from ..utility.locking import log as _deferred_log
 logger = logging.getLogger(__name__)
 _MAX_CONVERSION_ATTEMPTS = 3
 
@@ -118,7 +120,7 @@ def _warn_once(fcyfile, message, *args):
     warn = fcyfile not in _warned
     _warned.add(fcyfile)
   if warn:
-    logger.warning(message, *args)
+    _deferred_log(logger, logging.WARNING, message, *args)
 
 @synchronized(_rewrite_lock)
 def _rewrite_count(fcyfile, data, stamp):
@@ -138,7 +140,7 @@ def _rewrite_count(fcyfile, data, stamp):
       new = [fd.name[1] for fd in lifted.functions if fd.name not in names]
       result = (equalities, calls, new)
     except Exception as err:
-      logger.debug('cannot apply the rewrite step to %s: %s', fcyfile, err)
+      _deferred_log(logger, logging.DEBUG, 'cannot apply the rewrite step to %s: %s', fcyfile, err)
       result = None
     _counts[key] = result
   return _counts[key]
@@ -564,16 +566,16 @@ class Curry2ICurryConverter(object):
             file_in, file_out, currypath, self.OPTIONS, tool=self.tool
           )
       if slot:
-        logger.debug('Found %s in the cache', file_out)
+        _deferred_log(logger, logging.DEBUG, 'Found %s in the cache', file_out)
         rewrite_on_hit(file_in)
       elif (slot is not None and slot.error is not None
             and not _preprocessor.preprocessor(file_in)):
-        logger.debug('Found the error of %s in the cache', file_in)
+        _deferred_log(logger, logging.DEBUG, 'Found the error of %s in the cache', file_in)
         raise CompileError(slot.error, report=slot.error)
       else:
         # A cached preprocessor failure may be resolved by a change to
         # PATH. Retry it; successful cached products remain usable.
-        logger.debug('Using CURRYPATH %s', ':'.join(currypath))
+        _deferred_log(logger, logging.DEBUG, 'Using CURRYPATH %s', ':'.join(currypath))
         _system.makeOutputDir(file_out)
         invalidate_receipt(file_out)
         try:
@@ -586,7 +588,7 @@ class Curry2ICurryConverter(object):
                 protected = search or _frontend.searchdirs(selected, currypath)
                 with _system.bindCurryPath(protected):
                   if logger.isEnabledFor(logging.DEBUG):
-                    logger.debug('Command: %s', ' '.join(cmd))
+                    _deferred_log(logger, logging.DEBUG, 'Command: %s', ' '.join(cmd))
                   import tempfile
                   with tempfile.TemporaryDirectory(prefix='sprite-icurry-') as work:
                     # Give icurry a target-only working view. It otherwise
@@ -607,7 +609,7 @@ class Curry2ICurryConverter(object):
             else:
               _frontend.curry2icurry(file_in, file_out, currypath, self.quiet)
             if logger.isEnabledFor(logging.INFO):
-              logger.info('module %s: ICurry written (%s)',
+              _deferred_log(logger, logging.INFO, 'module %s: ICurry written (%s)',
                   _filenames.logging_module_name(file_in), file_out)
             self.place_interfaces(file_in, file_out)
             _interfaces.write(file_out, currypath, frontend=True)
@@ -642,7 +644,7 @@ class Curry2ICurryConverter(object):
         with open(source, 'rb') as stream:
           content = stream.read()
       except FileNotFoundError:
-        logger.warning(
+        _deferred_log(logger, logging.WARNING,
             'the %s route left no %s for %s; the module has no types'
           , self.tool, os.path.basename(source), file_in
           )
