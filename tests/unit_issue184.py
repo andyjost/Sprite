@@ -39,7 +39,7 @@ with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') 
         self.assertIn('second [2]', output)
 
   def test_path_copy_and_installed_module_in_either_order(self):
-    original = Path(config.installed_path('curry', 'Data/Char.curry')).read_text()
+    original = Path(config.installed_path('curry', 'lib', 'Data/Char.curry')).read_text()
     edited = original.replace("ord c - ord '0'", "ord c - ord '0' + 1")
     self.assertNotEqual(original, edited)
     for mode in ('new', 'all'):
@@ -764,7 +764,7 @@ with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') 
 ''')
 
   def test_reserved_importer_keeps_private_imports(self):
-    original = Path(config.installed_path('curry', 'Data/List.curry')).read_text()
+    original = Path(config.installed_path('curry', 'lib', 'Data/List.curry')).read_text()
     edited = original.replace('minimum xs@(_:_) =  foldl1 min xs',
                               'minimum xs@(_:_) =  maximum xs')
     self.assertNotEqual(original, edited)

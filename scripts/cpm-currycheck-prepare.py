@@ -16,7 +16,7 @@ BEFORE = 'if isPAKCS || useUserDefinedGen t || isFloatType t'
 AFTER = 'if isPAKCS || curryCompiler == "sprite" || useUserDefinedGen t || isFloatType t'
 
 TYPE_BEFORE = "fprog <- readFlatCurry mn"
-TYPE_AFTER = 'fprog <- if curryCompiler == "sprite" && mn == preludeName\n                         then readFlatCurryFile (installDir </> "curry" </> ".curry" </>\n                           "sprite-pakcs-3.10.0" </> "Prelude.fint")\n                         else readFlatCurry mn'
+TYPE_AFTER = 'fprog <- if curryCompiler == "sprite" && mn == preludeName\n                         then readFlatCurryFile (installDir </> "lib" </> ".curry" </>\n                           "sprite-pakcs-3.10.0" </> "Prelude.fint")\n                         else readFlatCurry mn'
 
 
 def prepare(project):

@@ -439,7 +439,8 @@ To run a source file instead, use::
 ``cypm test`` runs the package's declared test suites. It needs CurryCheck;
 without it CPM only compiles the modules. CurryCheck invokes the Curry system
 that compiled CurryCheck, so installing a PAKCS CurryCheck does not test Sprite.
-Sprite supplies private ``bin/curry``, ``bin/cleancurry`` and ``bin/cypm`` launchers in the
+Sprite supplies private ``curry/bin/curry``, ``curry/bin/cleancurry`` and
+``curry/bin/cypm`` launchers in the
 installation (also in the wheel's resources); these add no commands to PATH.
 The CPM launcher selects Sprite and forwards to CPM beside the configured
 PAKCS tool, falling back to CPM on PATH.

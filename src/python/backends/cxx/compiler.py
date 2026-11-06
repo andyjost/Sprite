@@ -852,7 +852,7 @@ def _source_file_name(filename):
   '''
   The name of the source file of a module for the record of the module.  A
   file under the installation is named relative to it (SPRITE_HOME;
-  toolchain._filenames.installed_relpath), as "curry/Prelude.curry".  Any
+  toolchain._filenames.installed_relpath), as "curry/lib/Prelude.curry".  Any
   other file is named relative to the directory where the toolchain places
   the object of that source, the product directory beside the source
   (".curry/<subdir>/"), so the name is "../../M.curry" and begins with a

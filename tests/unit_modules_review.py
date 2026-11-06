@@ -112,7 +112,9 @@ generatedBranches = (if x then (0,p) else (1,p)) ? (2,p)
         target.unlink()
         installed = config.installed_path
         def local(*parts):
-          return str(library.joinpath(*parts[1:])) if parts[0] == 'curry' else installed(*parts)
+          if parts[:2] == ('curry', 'lib'):
+            return str(library.joinpath(*parts[2:]))
+          return installed(*parts)
         with mock.patch.object(config, 'installed_path', local), \\
             mock.patch.object(config, 'system_curry_path', return_value=str(library)):
           curry._interpreter_.reset(flags=dict(curry.flags, interpret='all', jit='off'))
@@ -353,7 +355,7 @@ generatedBranches = (if x then (0,p) else (1,p)) ? (2,p)
     with tempfile.TemporaryDirectory(prefix='sprite-tiered-') as work:
       target = Path(work) / 'private0' / 'Control' / 'SetFunctions.curry'
       target.parent.mkdir(parents=True)
-      shutil.copyfile(config.installed_path('curry', 'Control/SetFunctions.curry'), target)
+      shutil.copyfile(config.installed_path('curry', 'lib', 'Control/SetFunctions.curry'), target)
       import hashlib, json
       Path(str(target) + '.sprite-input').write_text(json.dumps(dict(
           version=1, name='Control.SetFunctions',

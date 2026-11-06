@@ -1100,8 +1100,14 @@ Use standard C++ where a portable standard exists: filesystem, clocks,
 exists, including process arguments, hostname, and future sockets and command
 pipes. A future C++ implementation can register the same name without changing
 Curry code or the image format. ``System.Environment`` is the first Python
-registration user; the installation prefix is supplied from Python at runtime
-so relocated installations report their actual prefix.
+registration user; the installation prefix is supplied from Python at runtime.
+``Distribution.installDir`` appends ``curry`` to that prefix and reports the
+relocated Curry home, with private launchers in ``bin`` and sources in ``lib``.
+The stock analyses under ``lib/.curry/sprite-<version>`` have their own
+``.source`` receipts, written during staging. The private front-end adapter
+checks these receipts; recompiling runtime ICurry updates only its separate
+``.icy.source`` receipt. An edited installed source therefore reaches the
+configured front end until its stock analyses are staged again.
 
 An IORef is one cell shared by the alternatives of a pull-tab.
 Reads snapshot its current pointer. ``getElapsedTime`` counts from the library

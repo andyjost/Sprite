@@ -187,12 +187,12 @@ assert curry.eval(E.getArgs).one() == []
       alias = Path(directory) / 'alias'
       alias.symlink_to(root, target_is_directory=True)
       root = alias
-      for name in ('bin', 'tools', 'fallback', 'python/curry'):
+      for name in ('curry/bin', 'tools', 'fallback', 'python/curry'):
         (root / name).mkdir(parents=True, exist_ok=True)
-      launcher = root / 'bin/cypm'
-      shutil.copyfile(config.installed_path('bin', 'cypm'), launcher)
+      launcher = root / 'curry/bin/cypm'
+      shutil.copyfile(config.installed_path('curry', 'bin', 'cypm'), launcher)
       launcher.chmod(0o755)
-      (root / 'bin/curry').touch()
+      (root / 'curry/bin/curry').touch()
       (root / 'python/curry/__init__.py').write_text('')
       (root / 'python/curry/config.py').write_text(
           'from pathlib import Path\n'
@@ -215,7 +215,7 @@ assert curry.eval(E.getArgs).one() == []
         self.assertEqual((output[0], output[1], output[3]), (selected, '-d', 'test'))
         key, separator, compiler = output[2].partition('=')
         self.assertEqual((key, separator), ('CURRYBIN', '='))
-        self.assertTrue(os.path.samefile(compiler, root / 'bin/curry'))
+        self.assertTrue(os.path.samefile(compiler, root / 'curry/bin/curry'))
         if selected == 'tools':
           (root / 'tools/cypm').unlink()
 
@@ -225,10 +225,10 @@ assert curry.eval(E.getArgs).one() == []
       if os.name != 'nt':
         (root / 'alias').symlink_to('.', target_is_directory=True)
         root = root / 'alias'
-      for name in ('bin', 'tools', 'fallback'):
-        (root / name).mkdir()
-      launcher = root / 'bin/cypm'
-      shutil.copyfile(config.installed_path('bin', 'cypm'), launcher)
+      for name in ('curry/bin', 'tools', 'fallback'):
+        (root / name).mkdir(parents=True)
+      launcher = root / 'curry/bin/cypm'
+      shutil.copyfile(config.installed_path('curry', 'bin', 'cypm'), launcher)
       (root / 'tools/pakcs').touch()
       for name in ('tools', 'fallback'):
         (root / name / 'cypm').touch()
@@ -241,7 +241,7 @@ assert curry.eval(E.getArgs).one() == []
                            ['-dCURRYBIN=chosen-compiler']):
           with self.subTest(selected=selected, definition=definition), \
                mock.patch.object(config, 'installed_path', side_effect=lambda *p: str(root.joinpath(*p))), \
-               mock.patch.object(os, 'get_exec_path', return_value=[str(root / 'bin'), str(root / 'fallback')]), \
+               mock.patch.object(os, 'get_exec_path', return_value=[str(root / 'curry/bin'), str(root / 'fallback')]), \
                mock.patch.object(os, 'access', return_value=True), \
                mock.patch.object(os, 'execv', side_effect=RuntimeError('selected')) as execute, \
                mock.patch.dict(os.environ), mock.patch.object(sys, 'path', sys.path[:]), \
@@ -257,7 +257,7 @@ assert curry.eval(E.getArgs).one() == []
               self.assertEqual(arguments[1], '-d')
               key, value = arguments[2].split('=', 1)
               self.assertEqual(key, 'CURRYBIN')
-              self.assertEqual(Path(value).resolve(), (root / 'bin/curry').resolve())
+              self.assertEqual(Path(value).resolve(), (root / 'curry/bin/curry').resolve())
               self.assertEqual(arguments[3:], ['test'])
             self.assertEqual(os.environ['SPRITE_CPM_FORWARDED'], '1')
         if selected == 'tools':
@@ -270,13 +270,13 @@ assert curry.eval(E.getArgs).one() == []
       launchers = []
       for name in ('first', 'second'):
         prefix = root / name
-        (prefix / 'bin').mkdir(parents=True)
+        (prefix / 'curry/bin').mkdir(parents=True)
         (prefix / 'python/curry').mkdir(parents=True)
         (prefix / 'python/curry/__init__.py').write_text('')
         (prefix / 'python/curry/config.py').write_text(
             'def installed_path(*parts): return "missing-pakcs"\n')
-        launcher = prefix / 'bin/cypm'
-        shutil.copyfile(config.installed_path('bin', 'cypm'), launcher)
+        launcher = prefix / 'curry/bin/cypm'
+        shutil.copyfile(config.installed_path('curry', 'bin', 'cypm'), launcher)
         launcher.chmod(0o755)
         launchers.append(launcher)
       environment = dict(os.environ, PATH=os.pathsep.join(

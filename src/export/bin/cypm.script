@@ -5,7 +5,7 @@ import os
 import sys
 
 launcher = Path(__file__).resolve()
-prefix = launcher.parent.parent
+prefix = launcher.parents[2]
 python = prefix / 'tools/python'
 if python.is_file() and python.resolve() != Path(sys.executable).resolve():
   os.execv(str(python.resolve()), [str(python.resolve()), str(launcher), *sys.argv[1:]])
@@ -24,7 +24,7 @@ for index, argument in enumerate(arguments):
     definitions.append(argument[2:])
 # CPM keeps the first definition of a key. Preserve the caller's compiler.
 defaults = ([] if any(value.startswith('CURRYBIN=') for value in definitions)
-            else ['-d', 'CURRYBIN=' + str(prefix / 'bin/curry')])
+            else ['-d', 'CURRYBIN=' + str(prefix / 'curry/bin/curry')])
 
 if os.environ.get('SPRITE_CPM_FORWARDED'):
   sys.exit('Stock CPM is missing; install stock CPM beside configured PAKCS or on PATH')

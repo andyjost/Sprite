@@ -254,7 +254,7 @@ class TestPerformanceRecord(unittest.TestCase):
     self.assertIsNotNone(result)
     self.assertIn('Prelude', result)
     from curry.toolchain import _filenames
-    source = config.installed_path('curry', 'Prelude.curry')
+    source = config.installed_path('curry', 'lib', 'Prelude.curry')
     path = _filenames.icurryfilename(source)
     object_path = os.path.splitext(path)[0] + config.module_object_suffix()
     self.assertEqual(result['Prelude']['budget'], aot.object_budget(object_path))

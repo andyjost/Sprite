@@ -5,6 +5,11 @@ Release Notes
 Unreleased
 ==========
 
+- Make ``Distribution.installDir`` a Curry home at ``<root>/curry`` (#214):
+  move library sources and products to ``curry/lib`` and the private tool
+  launchers to ``curry/bin``; ship FlatCurry and AbstractCurry library analyses
+  for stock CPM readers. Native libraries remain in ``<root>/lib``.
+
 - Cap image translation, attachment and ICurry conversion retries so an input
   that keeps changing reports a compilation error instead of retrying forever (#226).
 - Raise ``curry.ReentrancyError`` for host reentry under Sprite locks or the

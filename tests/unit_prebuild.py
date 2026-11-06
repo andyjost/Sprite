@@ -243,16 +243,16 @@ class TestStagedLibrary(cytest.TestCase):
       for name in ('Prelude', 'A', 'B'):
         for suffix in ('.img', '.cpp', config.module_object_suffix(),
                        config.module_object_suffix() + '.abi'):
-          self.assertTrue((prefix / 'curry' / SUBDIR / (name + suffix)).is_file(),
+          self.assertTrue((prefix / 'curry/lib' / SUBDIR / (name + suffix)).is_file(),
               name + suffix)
       # Run a captured job after the parent leaves its stage context. Its
       # child must stage the missing imported image rather than isolate it.
-      (prefix / 'curry' / SUBDIR / 'A.img').unlink()
+      (prefix / 'curry/lib' / SUBDIR / 'A.img').unlink()
       child_code = '''
 import argparse, os, sys
 from curry.tools import make
 from curry.toolchain import _destination
-source = os.path.join(os.environ['SPRITE_HOME'], 'curry', 'B.curry')
+source = os.path.join(os.environ['SPRITE_HOME'], 'curry', 'lib', 'B.curry')
 args = argparse.Namespace(cxx=False, so=False, icy=True, image=True,
     keep_going=False, quiet=True, tidy=False, curry2icurry=None, goal=None)
 with _destination.stage_library(sys.argv[1] == 'stage'):
@@ -263,16 +263,16 @@ make.run_jobs('stage-child', [job], 2, args, errors)
 assert errors.nerrors == 0
 '''
       env = dict(os.environ, SPRITE_HOME=str(prefix),
-          PYTHONPATH=str(prefix / 'python'), CURRYPATH=str(prefix / 'curry'),
+          PYTHONPATH=str(prefix / 'python'), CURRYPATH=str(prefix / 'curry/lib'),
           SPRITE_INTERPRETER_FLAGS='backend:cxx,interpret:all,jit:off',
           SPRITE_STAGE_LIBRARY='1')
       for operation in ('ordinary', 'stage'):
         result = subprocess.run([sys.executable, '-c', child_code, operation], env=env,
             text=True, capture_output=True, timeout=180)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertEqual((prefix / 'curry' / SUBDIR / 'A.img').is_file(),
+        self.assertEqual((prefix / 'curry/lib' / SUBDIR / 'A.img').is_file(),
             operation == 'stage')
-      products = [prefix / 'curry' / SUBDIR / ('B' + suffix)
+      products = [prefix / 'curry/lib' / SUBDIR / ('B' + suffix)
           for suffix in ('.icy', '.cpp', '.so', '.so.abi')]
       self.assertTrue(all(p.is_file() for p in products))
       # Establish an unchanged pinned B, as in an incremental library stage.
@@ -280,6 +280,9 @@ assert errors.nerrors == 0
       pinned.parent.mkdir(parents=True, exist_ok=True)
       for suffix in ('.icy', '.fint', '.icurry', '.icy.source', '.icy.imports'):
         shutil.copy2(products[0].with_suffix(suffix), pinned.with_suffix(suffix))
+      for suffix in ('.fcy', '.acy'):
+        shutil.copy2(prefix / 'curry/lib/.curry' / config.analysis_subdir() /
+                     ('B' + suffix), pinned.with_suffix(suffix))
       stage()
       before = [p.stat().st_mtime_ns for p in products]
       text = (lib / 'B.curry').read_bytes()

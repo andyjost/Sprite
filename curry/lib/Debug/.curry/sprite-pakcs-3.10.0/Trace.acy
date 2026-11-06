@@ -1,0 +1,15 @@
+{- AbstractCurry 3.0 -}
+CurryProg "Debug.Trace"
+["Control.Monad","System.IO","System.IO.Unsafe"]
+Nothing
+ []
+ []
+ []
+ [CFunc ("Debug.Trace","trace") 2 Public (CQualType (CContext []) (CFuncType (CTApply (CTCons ("Prelude","[]")) (CTCons ("Prelude","Char"))) (CFuncType (CTVar (0,"a")) (CTVar (0,"a"))))) [CRule [CPVar (0,"s"),CPVar (1,"x")] (CSimpleRhs (CApply (CSymbol ("System.IO.Unsafe","unsafePerformIO")) (CApply (CApply (CSymbol ("Prelude",">>")) (CApply (CSymbol ("Debug.Trace","traceIO")) (CVar (0,"s")))) (CApply (CSymbol ("Prelude","return")) (CVar (1,"x"))))) [])],
+  CFunc ("Debug.Trace","traceId") 1 Public (CQualType (CContext []) (CFuncType (CTApply (CTCons ("Prelude","[]")) (CTCons ("Prelude","Char"))) (CTApply (CTCons ("Prelude","[]")) (CTCons ("Prelude","Char"))))) [CRule [CPVar (0,"a")] (CSimpleRhs (CApply (CApply (CSymbol ("Debug.Trace","trace")) (CVar (0,"a"))) (CVar (0,"a"))) [])],
+  CFunc ("Debug.Trace","traceShow") 2 Public (CQualType (CContext [(("Prelude","Show"),[CTVar (0,"a")])]) (CFuncType (CTVar (0,"a")) (CFuncType (CTVar (1,"b")) (CTVar (1,"b"))))) [CRule [CPVar (0,"a"),CPVar (1,"b")] (CSimpleRhs (CApply (CApply (CSymbol ("Debug.Trace","trace")) (CApply (CSymbol ("Prelude","show")) (CVar (0,"a")))) (CVar (1,"b"))) [])],
+  CFunc ("Debug.Trace","traceShowId") 1 Public (CQualType (CContext [(("Prelude","Show"),[CTVar (0,"a")])]) (CFuncType (CTVar (0,"a")) (CTVar (0,"a")))) [CRule [CPVar (0,"a")] (CSimpleRhs (CApply (CApply (CSymbol ("Debug.Trace","trace")) (CApply (CSymbol ("Prelude","show")) (CVar (0,"a")))) (CVar (0,"a"))) [])],
+  CFunc ("Debug.Trace","traceIO") 1 Public (CQualType (CContext []) (CFuncType (CTApply (CTCons ("Prelude","[]")) (CTCons ("Prelude","Char"))) (CTApply (CTCons ("Prelude","IO")) (CTCons ("Prelude","()"))))) [CRule [CPVar (0,"m")] (CSimpleRhs (CApply (CApply (CSymbol ("System.IO","hPutStrLn")) (CSymbol ("System.IO","stderr"))) (CVar (0,"m"))) [])],
+  CFunc ("Debug.Trace","assert") 3 Public (CQualType (CContext []) (CFuncType (CTCons ("Prelude","Bool")) (CFuncType (CTApply (CTCons ("Prelude","[]")) (CTCons ("Prelude","Char"))) (CFuncType (CTVar (0,"a")) (CTVar (0,"a")))))) [CRule [CPVar (0,"cond"),CPVar (1,"s"),CPVar (2,"x")] (CSimpleRhs (CApply (CApply (CApply (CSymbol ("Prelude","ifThenElse")) (CVar (0,"cond"))) (CVar (2,"x"))) (CApply (CSymbol ("Prelude","error")) (CVar (1,"s")))) [])],
+  CFunc ("Debug.Trace","assertIO") 2 Public (CQualType (CContext []) (CFuncType (CTCons ("Prelude","Bool")) (CFuncType (CTApply (CTCons ("Prelude","[]")) (CTCons ("Prelude","Char"))) (CTApply (CTCons ("Prelude","IO")) (CTCons ("Prelude","()")))))) [CRule [CPVar (0,"cond"),CPVar (1,"s")] (CSimpleRhs (CApply (CApply (CSymbol ("Prelude","$")) (CApply (CSymbol ("Control.Monad","unless")) (CVar (0,"cond")))) (CApply (CSymbol ("Prelude","error")) (CVar (1,"s")))) [])]]
+ []

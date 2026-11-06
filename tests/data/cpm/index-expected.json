@@ -941,17 +941,16 @@
     },
     "currypp": {
       "version": "3.2.0",
-      "measured_seconds": 403.2,
+      "measured_seconds": 393.4,
       "result": "open",
-      "issue": "#214",
-      "reason": "Expose library sources to legacy analysis readers without changing reserved-module policy.",
-      "issue_text": "Expose library sources to legacy analysis readers without changing reserved-module policy.",
-      "failure_class": "Sprite error",
+      "issue": "#240",
+      "reason": "IntegratedCode passes all 31 checks. Contract preprocessing fails in five modules because the Sprite-built preprocessor calls Debug.Profile.garbageCollect, which has no runtime primitive. Earlier runs also observed a DefaultRules evaluation timeout and a DeterministicOperations suspension after successful analysis and compilation. These observations remain unresolved; their causes are unproven. The round-2 harness stopped before those suites.",
+      "issue_text": "IntegratedCode passes all 31 checks. Contract preprocessing fails in five modules because the Sprite-built preprocessor calls Debug.Profile.garbageCollect, which has no runtime primitive. Earlier runs also observed a DefaultRules evaluation timeout and a DeterministicOperations suspension after successful analysis and compilation. These observations remain unresolved; their causes are unproven. The round-2 harness stopped before those suites.",
+      "failure_class": "missing external",
       "shard": 2,
       "failure_set": [
-        "test: class: Sprite error",
-        "test: diagnostic: ERROR: i/o error: Source file for module 'Control.Search.SetFunctions' not found!",
-        "test: diagnostic: ERROR: i/o error: Source file for module 'Prelude' not found!",
+        "test: class: missing external",
+        "test: diagnostic: ERROR: i/o error: Debug.Profile.garbageCollect: not implemented (no primitive in the runtime)",
         "test: diagnostic: STATIC ERRORS IN PROGRAMS:",
         "test: diagnostic: module BubbleSort: Module 'BubbleSort': incorrect source program: ERROR: user error: Illegal source program",
         "test: diagnostic: module BubbleSortFormat: Module 'BubbleSortFormat': incorrect source program: ERROR: user error: Illegal source program",
@@ -1377,16 +1376,16 @@
     },
     "verify": {
       "version": "3.1.0",
-      "measured_seconds": 338.9,
+      "measured_seconds": 294.5,
       "result": "open",
-      "issue": "#214",
-      "reason": "Let the legacy analysis reader locate Prelude source when generating verifier programs.",
-      "issue_text": "Let the legacy analysis reader locate Prelude source when generating verifier programs.",
-      "failure_class": "test failure",
+      "issue": "#240",
+      "reason": "Two checks pass and five verifier-compilation checks fail because the Sprite-built preprocessor calls Debug.Profile.garbageCollect, which has no runtime primitive.",
+      "issue_text": "Two checks pass and five verifier-compilation checks fail because the Sprite-built preprocessor calls Debug.Profile.garbageCollect, which has no runtime primitive.",
+      "failure_class": "missing external",
       "shard": 6,
       "failure_set": [
-        "test: class: test failure",
-        "test: diagnostic: ERROR: Source file for module 'Prelude' not found!",
+        "test: class: missing external",
+        "test: diagnostic: ERROR: Debug.Profile.garbageCollect: not implemented (no primitive in the runtime)",
         "test: diagnostic: testCompileDouble (module TestVerify): FAILED!",
         "test: diagnostic: testCompileEvenOdd (module TestVerify): FAILED!",
         "test: diagnostic: testCompileGame (module TestVerify): FAILED!",
@@ -1426,20 +1425,9 @@
     },
     "xmldata": {
       "version": "3.0.0",
-      "measured_seconds": 95.4,
-      "result": "open",
-      "issue": "#214",
-      "reason": "Let AbstractCurry.Files.readCurry locate or generate the Prelude AbstractCurry representation.",
-      "issue_text": "Let AbstractCurry.Files.readCurry locate or generate the Prelude AbstractCurry representation.",
-      "failure_class": "test failure",
-      "shard": 2,
-      "failure_set": [
-        "test: class: test failure",
-        "test: diagnostic: ERROR: File .Prelude.acy not found in path <search-path>",
-        "test: diagnostic: ERROR: FlatCurry_TypesDataToXml.curry:<location> Error: Interface for module PreludeDataToXml not found",
-        "test: diagnostic: testGenerateXMLConversions (module testData2Xml): FAILED!",
-        "test: diagnostic: testXMLDataConversion (module testData2Xml): FAILED!"
-      ]
+      "measured_seconds": 108.6,
+      "result": "pass",
+      "shard": 2
     }
   },
   "shards": {
@@ -1449,11 +1437,11 @@
     "measured_seconds": [
       675.1,
       682.6,
-      682.7,
+      686.1,
       665.8,
       680.1,
       680.1,
-      665.7,
+      621.3,
       665.3
     ]
   }

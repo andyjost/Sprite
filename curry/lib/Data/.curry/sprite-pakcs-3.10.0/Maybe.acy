@@ -1,0 +1,16 @@
+{- AbstractCurry 3.0 -}
+CurryProg "Data.Maybe"
+[]
+Nothing
+ []
+ []
+ []
+ [CFunc ("Data.Maybe","isJust") 1 Public (CQualType (CContext []) (CFuncType (CTApply (CTCons ("Prelude","Maybe")) (CTVar (0,"a"))) (CTCons ("Prelude","Bool")))) [CRule [CPComb ("Prelude","Just") [CPVar (0,"_")]] (CSimpleRhs (CSymbol ("Prelude","True")) []),CRule [CPComb ("Prelude","Nothing") []] (CSimpleRhs (CSymbol ("Prelude","False")) [])],
+  CFunc ("Data.Maybe","isNothing") 1 Public (CQualType (CContext []) (CFuncType (CTApply (CTCons ("Prelude","Maybe")) (CTVar (0,"a"))) (CTCons ("Prelude","Bool")))) [CRule [CPComb ("Prelude","Nothing") []] (CSimpleRhs (CSymbol ("Prelude","True")) []),CRule [CPComb ("Prelude","Just") [CPVar (0,"_")]] (CSimpleRhs (CSymbol ("Prelude","False")) [])],
+  CFunc ("Data.Maybe","fromJust") 1 Public (CQualType (CContext []) (CFuncType (CTApply (CTCons ("Prelude","Maybe")) (CTVar (0,"a"))) (CTVar (0,"a")))) [CRule [CPComb ("Prelude","Just") [CPVar (0,"a")]] (CSimpleRhs (CVar (0,"a")) []),CRule [CPComb ("Prelude","Nothing") []] (CSimpleRhs (CApply (CSymbol ("Prelude","error")) (CLit (CStringc "Maybe.fromJust: Nothing"))) [])],
+  CFunc ("Data.Maybe","fromMaybe") 2 Public (CQualType (CContext []) (CFuncType (CTVar (0,"a")) (CFuncType (CTApply (CTCons ("Prelude","Maybe")) (CTVar (0,"a"))) (CTVar (0,"a"))))) [CRule [CPVar (0,"d"),CPComb ("Prelude","Nothing") []] (CSimpleRhs (CVar (0,"d")) []),CRule [CPVar (1,"_"),CPComb ("Prelude","Just") [CPVar (2,"a")]] (CSimpleRhs (CVar (2,"a")) [])],
+  CFunc ("Data.Maybe","listToMaybe") 1 Public (CQualType (CContext []) (CFuncType (CTApply (CTCons ("Prelude","[]")) (CTVar (0,"a"))) (CTApply (CTCons ("Prelude","Maybe")) (CTVar (0,"a"))))) [CRule [CPComb ("Prelude","[]") []] (CSimpleRhs (CSymbol ("Prelude","Nothing")) []),CRule [CPComb ("Prelude",":") [CPVar (0,"a"),CPVar (1,"_")]] (CSimpleRhs (CApply (CSymbol ("Prelude","Just")) (CVar (0,"a"))) [])],
+  CFunc ("Data.Maybe","maybeToList") 1 Public (CQualType (CContext []) (CFuncType (CTApply (CTCons ("Prelude","Maybe")) (CTVar (0,"a"))) (CTApply (CTCons ("Prelude","[]")) (CTVar (0,"a"))))) [CRule [CPComb ("Prelude","Nothing") []] (CSimpleRhs (CSymbol ("Prelude","[]")) []),CRule [CPComb ("Prelude","Just") [CPVar (0,"a")]] (CSimpleRhs (CApply (CApply (CSymbol ("Prelude",":")) (CVar (0,"a"))) (CSymbol ("Prelude","[]"))) [])],
+  CFunc ("Data.Maybe","catMaybes") 1 Public (CQualType (CContext []) (CFuncType (CTApply (CTCons ("Prelude","[]")) (CTApply (CTCons ("Prelude","Maybe")) (CTVar (0,"a")))) (CTApply (CTCons ("Prelude","[]")) (CTVar (0,"a"))))) [CRule [CPVar (0,"ms")] (CSimpleRhs (CListComp (CVar (1,"m")) [CSPat (CPComb ("Prelude","Just") [CPVar (1,"m")]) (CVar (0,"ms"))]) [])],
+  CFunc ("Data.Maybe","mapMaybe") 1 Public (CQualType (CContext []) (CFuncType (CFuncType (CTVar (0,"a")) (CTApply (CTCons ("Prelude","Maybe")) (CTVar (1,"b")))) (CFuncType (CTApply (CTCons ("Prelude","[]")) (CTVar (0,"a"))) (CTApply (CTCons ("Prelude","[]")) (CTVar (1,"b")))))) [CRule [CPVar (0,"f")] (CSimpleRhs (CApply (CApply (CSymbol ("Prelude",".")) (CSymbol ("Data.Maybe","catMaybes"))) (CApply (CSymbol ("Prelude","map")) (CVar (0,"f")))) [])]]
+ []

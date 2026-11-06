@@ -95,7 +95,8 @@ class TestPrimitives(cytest.TestCase):
         self.assertEqual(curry.eval(D[name + suffix]).one(), expected)
     self.assertEqual(curry.eval(D.curryCompilerRevisionVersion).one(), version[2])
     self.assertEqual(curry.eval(D.baseVersion).one(), config.currylib_version())
-    self.assertEqual(curry.eval(D.installDir).one(), config.prefix())
+    self.assertEqual(os.path.normpath(curry.eval(D.installDir).one()),
+                     os.path.join(config.prefix(), 'curry'))
     self.assertIn('registered C++ primitive', inspect.getimpl(D.curryCompiler))
 
     T = curry.import_('System.CPUTime')
