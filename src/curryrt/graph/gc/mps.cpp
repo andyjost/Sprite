@@ -734,12 +734,20 @@ namespace curryrt
   // The safepoint.
   // ==============
 
+  static bool g_full_requested = false;
+
+  void request_gc()
+  {
+    g_full_requested = true;
+    g_gc_collect = true;
+  }
+
   void run_gc()
   {
     auto const start = std::chrono::steady_clock::now();
     if(g_arena)
     {
-      bool const full = g_stress
+      bool const full = g_full_requested || g_stress
           || g_eval_depth == 0
           || g_allocations - g_allocations_at_full >= g_threshold
           || g_num_configurations >= g_configuration_threshold;
@@ -750,6 +758,7 @@ namespace curryrt
         if(res != MPS_RES_OK)
           fail("a full collection", res);
         ++g_full_collections;
+        g_full_requested = false;
         g_allocations_at_full = g_allocations;
         pump_messages();
         g_configuration_threshold = std::max(
@@ -760,6 +769,9 @@ namespace curryrt
         pump_messages();
     }
     g_seconds_collect += seconds_since(start);
+    // A clamp (for example the invariant checker) may span an evaluation.
+    // Keep the full request for the next safepoint, but do not repeatedly
+    // interrupt a step that cannot release that clamp until it completes.
     g_gc_collect = g_stress;
     release_pending();
   }
@@ -815,8 +827,13 @@ namespace curryrt
   GcClamp::~GcClamp()
   {
     assert(g_clamp_depth > 0);
-    if(--g_clamp_depth == 0 && g_arena)
-      mps_arena_release(g_arena);
+    if(--g_clamp_depth == 0)
+    {
+      if(g_arena)
+        mps_arena_release(g_arena);
+      if(g_full_requested)
+        g_gc_collect = true;
+    }
   }
 
   size_t gc_enter_evaluation()

@@ -941,23 +941,16 @@
     },
     "currypp": {
       "version": "3.2.0",
-      "measured_seconds": 393.4,
+      "measured_seconds": 442.7,
       "result": "open",
-      "issue": "#240",
-      "reason": "IntegratedCode passes all 31 checks. Contract preprocessing fails in five modules because the Sprite-built preprocessor calls Debug.Profile.garbageCollect, which has no runtime primitive. Earlier runs also observed a DefaultRules evaluation timeout and a DeterministicOperations suspension after successful analysis and compilation. These observations remain unresolved; their causes are unproven. The round-2 harness stopped before those suites.",
-      "issue_text": "IntegratedCode passes all 31 checks. Contract preprocessing fails in five modules because the Sprite-built preprocessor calls Debug.Profile.garbageCollect, which has no runtime primitive. Earlier runs also observed a DefaultRules evaluation timeout and a DeterministicOperations suspension after successful analysis and compilation. These observations remain unresolved; their causes are unproven. The round-2 harness stopped before those suites.",
-      "failure_class": "missing external",
+      "issue": "#241",
+      "reason": "IntegratedCode passes all 31 checks. All five Contracts modules now preprocess and compile, but execution fails with non-determinism in monadic actions occurred. Reproducer: in examples/Contracts, run curry-check --nospec --nosource --nodet --deftype=Int BubbleSort; the first generated sort7 check alone also fails. This is a new contract-execution failure, not a missing Debug.Profile primitive. The separate DeterministicOperations suite passes all nine tests; its earlier suspension does not recur. The separate DefaultRules suite analyzes all 14 modules and compiles its test main, passes both BreakWhere checks, and times out at 1800 seconds while evaluating the next check, BubbleSort.bsort7; the earlier evaluation timeout recurs (#242).",
+      "issue_text": "IntegratedCode passes all 31 checks. All five Contracts modules now preprocess and compile, but execution fails with non-determinism in monadic actions occurred. Reproducer: in examples/Contracts, run curry-check --nospec --nosource --nodet --deftype=Int BubbleSort; the first generated sort7 check alone also fails. This is a new contract-execution failure, not a missing Debug.Profile primitive. The separate DeterministicOperations suite passes all nine tests; its earlier suspension does not recur. The separate DefaultRules suite analyzes all 14 modules and compiles its test main, passes both BreakWhere checks, and times out at 1800 seconds while evaluating the next check, BubbleSort.bsort7; the earlier evaluation timeout recurs (#242).",
+      "failure_class": "Sprite error",
       "shard": 2,
       "failure_set": [
-        "test: class: missing external",
-        "test: diagnostic: ERROR: i/o error: Debug.Profile.garbageCollect: not implemented (no primitive in the runtime)",
-        "test: diagnostic: STATIC ERRORS IN PROGRAMS:",
-        "test: diagnostic: module BubbleSort: Module 'BubbleSort': incorrect source program: ERROR: user error: Illegal source program",
-        "test: diagnostic: module BubbleSortFormat: Module 'BubbleSortFormat': incorrect source program: ERROR: user error: Illegal source program",
-        "test: diagnostic: module Coin: Module 'Coin': incorrect source program: ERROR: user error: Illegal source program",
-        "test: diagnostic: module FibInfinite: Module 'FibInfinite': incorrect source program: ERROR: user error: Illegal source program",
-        "test: diagnostic: module Quicksort: Error: Preprocessor exited with exit code 1",
-        "test: diagnostic: module Quicksort: Module 'Quicksort': incorrect source program: ERROR: user error: Illegal source program"
+        "test: class: Sprite error",
+        "test: diagnostic: ERROR: non-determinism in monadic actions occurred!"
       ]
     },
     "db-pakcs": {
@@ -1376,22 +1369,9 @@
     },
     "verify": {
       "version": "3.1.0",
-      "measured_seconds": 294.5,
-      "result": "open",
-      "issue": "#240",
-      "reason": "Two checks pass and five verifier-compilation checks fail because the Sprite-built preprocessor calls Debug.Profile.garbageCollect, which has no runtime primitive.",
-      "issue_text": "Two checks pass and five verifier-compilation checks fail because the Sprite-built preprocessor calls Debug.Profile.garbageCollect, which has no runtime primitive.",
-      "failure_class": "missing external",
-      "shard": 6,
-      "failure_set": [
-        "test: class: missing external",
-        "test: diagnostic: ERROR: Debug.Profile.garbageCollect: not implemented (no primitive in the runtime)",
-        "test: diagnostic: testCompileDouble (module TestVerify): FAILED!",
-        "test: diagnostic: testCompileEvenOdd (module TestVerify): FAILED!",
-        "test: diagnostic: testCompileGame (module TestVerify): FAILED!",
-        "test: diagnostic: testCompileMyList (module TestVerify): FAILED!",
-        "test: diagnostic: testCompilePerm (module TestVerify): FAILED!"
-      ]
+      "measured_seconds": 260.9,
+      "result": "pass",
+      "shard": 6
     },
     "wui": {
       "version": "1.1.0",

@@ -31,6 +31,111 @@ value = oneValue (coin + coin)
 
 
 class TestCPMPackagePrimitives(cytest.TestCase):
+  def profiling_module(self, source):
+    build = Path(__file__).resolve().parent.parent / 'object-root'
+    home = Path(os.environ.get('CPM_TEST_HOME', str(build.resolve().parent / 'cpmhome')))
+    package = home / '.cpm/packages/profiling-3.0.0/src'
+    if not (package / 'Debug/Profile.curry').is_file():
+      self.skipTest('profiling package is absent from the private test home')
+    curry.path.insert(0, str(package))
+    return curry.compile('import Debug.Profile\n' + source)
+
+  def test_profile_process_infos(self):
+    module = self.profiling_module('''infos :: IO [(String,Int)]
+infos = getProcessInfos >>= return . map (\\(key,value) -> (show key,value))
+collected :: IO [(String,Int)]
+collected = garbageCollect >> infos
+''')
+    infos = dict(curry.eval(module.infos).one())
+    self.assertEqual(set(infos),
+                     {'RunTime', 'ElapsedTime', 'Memory', 'GarbageCollections'})
+    for value in infos.values():
+      self.assertGreaterEqual(value, 0)
+    from curry.backends.cxx import curryrtbindings as runtime
+    self.assertLessEqual(infos['Memory'], runtime.gc_heap_bytes())
+    cpu, elapsed = curry.import_('System.CPUTime'), infos['ElapsedTime']
+    self.assertLessEqual(infos['RunTime'], curry.eval(cpu.getCPUTime).one())
+    time.sleep(0.025)
+    later = dict(curry.eval(module.infos).one())
+    self.assertGreaterEqual(later['ElapsedTime'] - elapsed, 20)
+    self.assertGreaterEqual(later['RunTime'], infos['RunTime'])
+    collected = dict(curry.eval(module.collected).one())
+    self.assertGreaterEqual(collected['GarbageCollections'],
+                            later['GarbageCollections'] + 1)
+
+  def test_profile_garbage_collect(self):
+    module = self.profiling_module('''import Data.IORef
+import Control.SetFunctions
+import System.IO.Unsafe
+collect :: IO ()
+collect = garbageCollect
+goal :: IO [Int]
+goal = do
+  ref <- newIORef (map (+1) [1..300])
+  garbageCollect
+  xs <- readIORef ref
+  garbageCollect
+  return xs
+nested :: [[Int]]
+nested = sortValues (set0 (unsafePerformIO goal))
+''')
+    from curry.backends.cxx import curryrtbindings as runtime
+    before = runtime.gc_collections()
+    self.assertEqual(curry.show(curry.eval(module.collect).one()), '()')
+    self.assertGreater(runtime.gc_collections(), before)
+    self.assertEqual(curry.eval(module.goal).one(), list(range(2, 302)))
+    before = runtime.gc_collections()
+    self.assertEqual(curry.eval(module.nested).one(), [list(range(2, 302))])
+    self.assertGreaterEqual(runtime.gc_collections(), before + 2)
+    if runtime.gc_backend() == 'mps':
+      # The last checker clamp must re-arm a deferred request without
+      # collecting until ordinary evaluation reaches a safepoint.
+      code = '''import cytest, curry, sys
+from curry.backends.cxx import curryrtbindings as runtime
+curry.reset(checker=True)
+curry.path.insert(0, sys.argv[1])
+p = curry.import_('Debug.Profile')
+prelude = curry.import_('Prelude')
+def full_collections():
+  return runtime.gc_backend_stats()['full_collections']
+keeper = runtime.RuntimeState(cytest.raw.interp(), cytest.raw.expr(prelude.id, 0))
+request = runtime.RuntimeState(cytest.raw.interp(), cytest.raw.expr(p.garbageCollect))
+before = full_collections()
+assert [curry.show(value) for value in request.generate_values()] == ['()']
+assert full_collections() == before, 'collected while clamped'
+request.close()
+cytest.raw.interp().flags['checker'] = False
+assert curry.eval(prelude.id(1)).one() == 1
+assert full_collections() == before, 'collected before the last clamp ended'
+keeper.close()
+assert full_collections() == before, 'collected in the clamp destructor'
+allocations = runtime.gc_allocation_count()
+assert curry.eval(prelude.id(2)).one() == 2
+assert full_collections() == before + 1, 'deferred full collection did not run once'
+# A fresh clamp release must not re-arm the request after it was served.
+cytest.raw.interp().flags['checker'] = True
+keeper = runtime.RuntimeState(cytest.raw.interp(), cytest.raw.expr(prelude.id, 3))
+keeper.close()
+cytest.raw.interp().flags['checker'] = False
+assert curry.eval(prelude.id(4)).one() == 4
+assert full_collections() == before + 1, 'served request remained pending'
+assert allocations // (1 << 14) == runtime.gc_allocation_count() // (1 << 14), 'automatic poll reached'
+'''
+      environment = dict(os.environ, SPRITE_GC_STRESS='0',
+                         SPRITE_GC_THRESHOLD=str(1 << 60))
+      result = subprocess.run([sys.executable, '-c', code, curry.path[0]],
+                              capture_output=True, text=True, timeout=30,
+                              env=environment)
+      self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+  def test_profile_garbage_collector_off(self):
+    module = self.profiling_module('off :: IO ()\noff = garbageCollectorOff\n')
+    self.assertEqual(curry.show(curry.eval(module.off).one()), '()')
+
+  def test_profile_garbage_collector_on(self):
+    module = self.profiling_module('on :: IO ()\non = garbageCollectorOn\n')
+    self.assertEqual(curry.show(curry.eval(module.on).one()), '()')
+
   @cytest.posix_only('uses shell quoting for the child command')
   def test_command_streams(self):
     import shlex

@@ -6,6 +6,7 @@
 #include <cstring>
 #include <limits>
 #include <memory>
+#include <ctime>
 
 #if defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN
@@ -25,6 +26,24 @@
 #endif
 
 namespace curryrt { namespace platform {
+
+  long long process_cpu_milliseconds()
+  {
+#if defined(_WIN32)
+    FILETIME created, exited, kernel, user;
+    if(!GetProcessTimes(GetCurrentProcess(), &created, &exited, &kernel, &user))
+      return 0;
+    ULARGE_INTEGER k, u;
+    k.LowPart = kernel.dwLowDateTime;
+    k.HighPart = kernel.dwHighDateTime;
+    u.LowPart = user.dwLowDateTime;
+    u.HighPart = user.dwHighDateTime;
+    return static_cast<long long>((k.QuadPart + u.QuadPart) / 10000);
+#else
+    auto const ticks = std::clock();
+    return ticks < 0 ? 0 : static_cast<long long>(1000.0 * ticks / CLOCKS_PER_SEC);
+#endif
+  }
 
   int set_environment(std::string const & name, std::string const & value)
   {
