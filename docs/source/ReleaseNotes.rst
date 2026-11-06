@@ -6,8 +6,11 @@ Unreleased
 ==========
 
 - Implement ``Data.Global`` temporary globals with interpreter-owned storage,
-  ground initialization, copied reads, garbage collection roots and reset
-  isolation (#215).
+  copied reads and initialization in the caller's encapsulated search (one
+  ground value is stored, no value fails, multiple values raise an error naming
+  the key), and record ``global-variables`` as a known exception because it was
+  written for PAKCS 2.x and PAKCS 3.10.0 has no implementation or reference
+  semantics (#215).
 - Support process fork at an idle Sprite boundary with fresh child workers
   and locks, preserve parent-owned compiler processes and temporary directories,
   and raise the public ``ForkError`` in children forked while Sprite is busy;

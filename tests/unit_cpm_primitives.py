@@ -948,10 +948,10 @@ goal = do
           '^Internal error in Data.Global: global value CPM.missing not initialized!$'):
         curry.eval(action).one()
 
-  def test_named_global_initializer_takes_first_ground_normal_form(self):
+  def test_named_global_initializer_requires_one_ground_normal_form(self):
     module = curry.compile(NAMED_GLOBALS + '''
 chosen :: GlobalT [Int]
-chosen = globalT "CPM.chosen" ([20+1,6*7] ? [99])
+chosen = globalT "CPM.chosen" [20+1,6*7]
 successful :: GlobalT Int
 successful = globalT "CPM.successful" (failed ? 7)
 goal :: IO ([Int],Int)
@@ -988,8 +988,7 @@ writeFree = writeGlobalT counter x where x free
       curry.eval(module.writeFree).one()
     self.assertEqual(curry.eval(module.readCounter).one(), 42)
 
-  @unittest.expectedFailure
-  def test_global_variable_storage(self):
+  def test_global_variable_is_a_known_exception(self):
     module = curry.compile('''module GlobalVariable where
   data GVar a = GVarDef a | GVarValue () a
   prim_readGVar :: GVar a -> IO a
@@ -1003,7 +1002,11 @@ writeFree = writeGlobalT counter x where x free
     prim_writeGVar counter 42
     prim_readGVar counter
 ''')
-    self.assertEqual(curry.eval(module.goal).one(), 42)
+    for action, name in ((module.goal, 'prim_writeGVar'),
+                         (module.prim_readGVar(module.counter), 'prim_readGVar')):
+      with self.subTest(primitive=name), self.assertRaisesRegex(
+          curry.EvaluationError, 'GlobalVariable.' + name + ': not implemented'):
+        curry.eval(action).one()
 
   def test_random_seed_clock(self):
     curry.path.insert(0, str(SOURCE))

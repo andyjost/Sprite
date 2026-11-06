@@ -1058,6 +1058,11 @@ Loaders reject missing primitives by name.
 The emitter records local shape descriptors, which the loader binds by name;
 it does not require a primitive to export a mangled C++ data symbol.
 Unregistered externals continue to raise ``not implemented`` when called.
+``Data.Global`` initializes in the caller's encapsulated search (one ground
+value is stored, no value fails, multiple values raise an error naming the
+key), while ``GlobalVariable`` remains unimplemented and ``global-variables``
+is a known exception: written for PAKCS 2.x, with no implementation in PAKCS
+3.10.0 and no reference semantics.
 ``curry.inspect.getimpl`` identifies registered C++ and Python primitives.
 
 A C++ primitive registers an ``InfoTable`` with

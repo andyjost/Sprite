@@ -1,5 +1,6 @@
 #include "curryrt/curryrt.hpp"
 #include "curryrt/currylib/prelude.hpp"
+#include "curryrt/currylib/setfunctions.hpp"
 #include "curryrt/module.hpp"
 #include "curryrt/exceptions.hpp"
 #include "curryrt/graph/copy.hpp"
@@ -39,6 +40,10 @@ namespace
   InfoTable const global_value(T_FUNC, 1, sizeof(Node1), F_STATIC_OBJECT,
       "globalValue", "p", global_value_step, nullptr);
 
+  tag_type global_step(RuntimeState *, Configuration *);
+  InfoTable const global_init(T_FUNC, 2, sizeof(Node2), F_STATIC_OBJECT,
+      "initializeGlobal", "pp", global_step, nullptr);
+
   tag_type global_step(RuntimeState * rts, Configuration * C)
   {
     Cursor root = C->cursor();
@@ -49,30 +54,47 @@ namespace
       auto ctor = package_constructor(rts, "Data.Global", "GlobalT");
       if(!ctor)
         throw std::runtime_error("Illegal global entity occurred (maybe overloaded?)");
-      if(op == "prim_globalT")
+      if(op == "prim_globalT" || op == "initializeGlobal")
       {
         auto key = extract_string(root[0].target);
-        if(!store.count(key))
+        if(op == "initializeGlobal" || !store.count(key))
         {
-          // PAKCS initializes under a fresh evaluation token and commits to
-          // the first ground normal form. A separate evaluation keeps those
-          // choices out of the enclosing I/O action. Its remaining queue is
-          // destroyed after the first answer. No worker or ticker is needed.
-          Node * goal = Node::create(&applygnf_Info,
-              Node::create_partial(&global_value), root[1]);
-          RuntimeState initial(rts->istate, goal, false, rts->stack_limit,
-              DEFAULT_ROTATION_STEPS, DEFAULT_QUANTUM_NS, false, 0);
-          Expr value;
-          try { value = initial.procD(); }
-          catch(EvaluationSuspended const &)
+          if(op == "prim_globalT")
           {
-            for(auto config: *initial.root_queue)
-              for(auto vid: config->residuals)
-                C->add_residual(vid);
-            return E_RESIDUAL;
+            // The native capsule runs on the caller's runtime and reads its
+            // bindings and decisions. Keep its stream in the graph so that
+            // rotations and collections can suspend and resume initialization.
+            GcClamp clamp;
+            Node * goal = Node::create(&applygnf_Info,
+                Node::create_partial(&global_value), root[1]);
+            root->forward_to(Node::create(&global_init, root[0],
+                Node::create(&set0_Info, goal)));
+            return T_FWD;
           }
-          if(!value) return root->make_failure();
-          store.emplace(key, value.arg.node);
+          Variable values = root[1];
+          auto tag = rts->hnf(C, &values);
+          if(tag < T_CTOR) return tag;
+          Variable stream = values[0];
+          tag = rts->hnf(C, &stream);
+          if(tag < T_CTOR) return tag;
+          if(stream.target->info == &Nil_Info) return root->make_failure();
+          Variable tail = stream[1];
+          tag = rts->hnf(C, &tail);
+          if(tag < T_CTOR) return tag;
+          if(tail.target->info != &Nil_Info)
+            throw std::runtime_error("Data.Global: global " + key
+                + " has more than one initial value");
+          // Only publish after exhaustion proves uniqueness. The stream
+          // owns the first value until then; failed searches leave no entry.
+          // An initialization already in progress must check its own stream
+          // even if another configuration has published this key. Preserve
+          // that entry when this stream has exactly one value.
+          GcClamp clamp;
+          if(!store.count(key))
+          {
+            Node * value = stream[0].rvalue();
+            store.emplace(key, copy_graph(value, SKIPFWD).arg.node);
+          }
         }
         root->forward_to(Node::create(ctor, root[0]));
       }
@@ -101,6 +123,10 @@ namespace
       }
       return T_FWD;
     }
+    catch(EvaluationError const &) { throw; }
+    catch(ForkError const &) { throw; }
+    catch(ReentrancyError const &) { throw; }
+    catch(StepLimitReached const &) { throw; }
     catch(std::exception const & error)
     {
       C->set_error(nullptr, error.what(), ErrorKind::evaluation);

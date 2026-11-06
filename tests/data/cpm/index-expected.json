@@ -1089,10 +1089,8 @@
     "global-variables": {
       "version": "1.0.0",
       "measured_seconds": 22.0,
-      "result": "open",
-      "issue": "#215",
-      "reason": "Implement interpreter-owned GlobalVariable reads and writes with GC and reset support.",
-      "issue_text": "Implement interpreter-owned GlobalVariable reads and writes with GC and reset support.",
+      "result": "exception",
+      "reason": "Written for PAKCS 2.x; PAKCS 3.10.0 has no implementation; no reference semantics.",
       "failure_class": "missing external",
       "shard": 3,
       "failure_set": [

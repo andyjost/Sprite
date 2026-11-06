@@ -1,6 +1,7 @@
 #include "curryrt/builtins.hpp"
 #include "curryrt/checker.hpp"
 #include "curryrt/currylib/setfunctions.hpp"
+#include "curryrt/exceptions.hpp"
 #include "curryrt/graph/memory.hpp"
 #include "curryrt/inspect.hpp"
 #include "curryrt/module.hpp"
@@ -50,7 +51,20 @@ namespace curryrt { inline namespace
       // The checker keeps one dispatch record per scheduler
       // (curryrt/checker.hpp).
       SchedulerScope checker_scope(rts->checker);
-      value = rts->procD();
+      try
+      {
+        value = rts->procD();
+      }
+      catch(EvaluationSuspended const &)
+      {
+        // All capsule alternatives are waiting. Suspend this caller on
+        // their variables, so its other alternatives can still run and a
+        // later binding can wake this configuration and its capsule.
+        for(Configuration * suspended: *seteval->queue)
+          for(auto vid: suspended->residuals)
+            C->add_residual(vid);
+        return E_RESIDUAL;
+      }
     }
     if(rts->pending_control == E_DIVERGE && rts->diverge_queue == seteval->queue)
     {
