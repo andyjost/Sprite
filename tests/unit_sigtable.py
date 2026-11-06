@@ -719,8 +719,11 @@ with tempfile.TemporaryDirectory(ignore_cleanup_errors=os.name == 'nt') as work:
   cpp = Path(curry.inspect.geticurryfile(module)).with_suffix('.cpp')
   curry._interpreter_.save(module, str(cpp), module_main=False, interfaces=False)
   obj = toolchain.Cpp2So(curry._interpreter_)(str(cpp), curry.path)
+  from curry.interpreter.loadsave import record_saved_imports
+  record_saved_imports(curry._interpreter_, module, obj)
   product = saved / Path(obj).name
   shutil.copyfile(obj, product)
+  shutil.copyfile(obj + '.imports', str(product) + '.imports')
   shutil.copyfile(cpp, saved / cpp.name)
   curry.reset()
   module = curry.load(product)

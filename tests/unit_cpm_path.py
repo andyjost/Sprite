@@ -33,7 +33,13 @@ class TestCpmPath(cytest.TestCase):
 
   def test_no_packages(self):
     shutil.rmtree(self.root / '.cpm')
-    self.assertEqual(curry.cpm_path(self.root), [])
+    self.assertEqual(curry.cpm_path(self.root),
+                     [str(self.root / p) for p in ('app', 'extra')])
+    (self.root / 'app' / 'ProjectOnly.curry').write_text(
+        'module ProjectOnly where\nanswer :: Int\nanswer = 42\n', encoding='ascii')
+    output = self.child('import curry; module = curry.import_("ProjectOnly"); '
+                        'print(curry.eval(module.answer).one())', SPRITE_CPM_PATH='1')
+    self.assertEqual(output.strip(), '42')
 
   def child(self, code, **extra):
     env = dict(os.environ, CURRYPATH=str(self.root / 'override'), **extra)
@@ -96,7 +102,8 @@ class TestCpmPath(cytest.TestCase):
   def test_unreadable_packages(self):
     with mock.patch.object(config.os, 'listdir', side_effect=PermissionError('denied')):
       with self.assertLogs('curry.config', level='DEBUG'):
-        self.assertEqual(curry.cpm_path(self.root), [])
+        self.assertEqual(curry.cpm_path(self.root),
+                         [str(self.root / p) for p in ('app', 'extra')])
 
   @cytest.posix_only('a removed working directory')
   def test_removed_cwd(self):

@@ -22,14 +22,17 @@ def jit_cache_fill(modules):
   return (
       "import curry\n"
       "from curry.backends.cxx import llvmjit\n"
+      "from curry.toolchain._destination import stage_library\n"
       "if not llvmjit.available():\n"
       "  print('library JIT cache not filled: ' + str(llvmjit._reason), flush=True)\n"
       "else:\n"
       "  print('filling library JIT cache', flush=True)\n"
-      "  try: curry.reset(interpret='all', jit='eager', jit_backend='llvm')\n"
+      "  try:\n"
+      "    with stage_library(): curry.reset(interpret='all', jit='eager', jit_backend='llvm')\n"
       "  except Exception as exc: print('library JIT cache setup: %s' % exc, flush=True)\n"
       "  for name in " + repr(modules) + ":\n"
-      "    try: curry.import_(name)\n"
+      "    try:\n"
+      "      with stage_library(): curry.import_(name)\n"
       "    except Exception as exc:\n"
       "      print('library JIT cache: %s: %s' % (name, exc), flush=True)\n"
     )
@@ -225,9 +228,9 @@ def main():
       # digest. Remove derived products rather than trusting their stamps.
       for suffix in ('.icy', '.img', '.cpp', object_suffix + '.abi'):
         dest.with_suffix(suffix).unlink(missing_ok=True)
-      run(sys.executable, '-m', 'curry.tools.make', '--rewrite-flat', lib / rel,
+      run(sys.executable, '-m', 'curry.tools.make', '--stage-library', '--rewrite-flat', lib / rel,
           '-o', dest.with_suffix('.icy'))
-  make = [sys.executable, '-m', 'curry.tools.make']
+  make = [sys.executable, '-m', 'curry.tools.make', '--stage-library']
   supported = [m for m in modules if m not in unsupported]
   run(*make, '--image', *supported)
   # An unsupported module gets no image, but its ICurry and interfaces are
@@ -275,16 +278,14 @@ def main():
   library_seconds = time.perf_counter() - library_start
   (prefix / 'sysconfig/cxx_library_build_seconds').write_text('%.3f\n' % library_seconds)
   print('Curry library build: %.3f seconds' % library_seconds, flush=True)
-  expected = ['.img', object_suffix, object_suffix + '.abi'] if args.cxx else ['.img']
+  expected = ['.img', '.cpp', object_suffix, object_suffix + '.abi'] if args.cxx else ['.img']
   for path in sources:
     rel = path.relative_to(source / 'curry/lib')
     if '.'.join(rel.with_suffix('').parts) not in unsupported:
-      product = lib / rel.parent / '.curry' / intermediate_subdir / (rel.stem + '.img')
-      if not product.is_file():
-        raise RuntimeError('prebuild did not write image for ' + str(rel))
-  for suffix in expected:
-    if not (lib / '.curry' / intermediate_subdir / ('Prelude' + suffix)).is_file():
-      raise RuntimeError('prebuild did not write Prelude' + suffix)
+      for suffix in expected:
+        product = lib / rel.parent / '.curry' / intermediate_subdir / (rel.stem + suffix)
+        if not product.is_file():
+          raise RuntimeError('prebuild did not write %s for %s' % (suffix, rel))
 
 
 if __name__ == '__main__':

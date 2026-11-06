@@ -410,7 +410,7 @@ def cpm_path(root):
   import json
   root = os.path.abspath(root)
   packages = os.path.join(root, '.cpm', 'packages')
-  if not os.path.isfile(os.path.join(root, 'package.json')) or not os.path.isdir(packages):
+  if not os.path.isfile(os.path.join(root, 'package.json')):
     return []
 
   def sources(directory):
@@ -425,12 +425,12 @@ def cpm_path(root):
       _deferred_log(logger, logging.WARNING, 'Cannot read CPM package %s: %s', directory, err)
       return []
 
+  paths = sources(root)
   try:
-    names = sorted(os.listdir(packages))
+    names = sorted(os.listdir(packages)) if os.path.isdir(packages) else []
   except OSError as err:
     _deferred_log(logger, logging.DEBUG, 'Cannot list CPM packages: %s', err)
-    return []
-  paths = sources(root)
+    return paths
   found = []
   for name in names:
     directory = os.path.join(packages, name)
@@ -503,7 +503,7 @@ def cxx_tool(cached=[]):
       # Traditional installs use tools/cxx to select the compiler. Windows
       # can also discover Visual Studio when no compiler was configured. Wheels carry no builder tool links and discover one
       # in the consumer's environment instead.
-      candidates = [os.environ.get('CXX')] + (['clang-cl', 'cl'] if sys.platform == 'win32' else ['g++'])
+      candidates = [os.environ.get('CXX')] + (['clang-cl'] if sys.platform == 'win32' else ['g++'])
       cxx = next((found for name in candidates if name
                   for found in [shutil.which(name)] if found), None) if _is_wheel_install() else None
     elif sys.platform == 'win32':
