@@ -13,6 +13,8 @@ Unreleased
   launchers to ``curry/bin``; ship FlatCurry and AbstractCurry library analyses
   for stock CPM readers. Native libraries remain in ``<root>/lib``.
 
+- Cap image translation, attachment and ICurry conversion retries so an input
+  that keeps changing reports a compilation error instead of retrying forever (#226).
 - Raise ``curry.ReentrancyError`` for host reentry under Sprite locks or the
   evaluation-worker handoff, preserving primitive callback evaluation; defer
   front-end and ICurry-cache diagnostics until locks release, retain ownership
