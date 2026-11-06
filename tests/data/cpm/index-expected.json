@@ -1,0 +1,1448 @@
+{
+  "complete": true,
+  "index": {
+    "date": "2026-11-04",
+    "sha256": "4380eee34d12d0f5be6b80ec07007c2fe09fdf90472ba59e7448a503287e8684",
+    "digest_algorithm": "SHA256 of sorted relative manifest names, NUL, manifest bytes, NUL",
+    "versions": {
+      "abstract-curry": [
+        "1.0.0",
+        "2.0.0",
+        "3.0.0",
+        "4.0.0"
+      ],
+      "abstract-haskell": [
+        "2.0.0",
+        "3.0.0"
+      ],
+      "addtypes": [
+        "0.0.1",
+        "2.0.0",
+        "3.0.0",
+        "3.2.0",
+        "4.0.0"
+      ],
+      "allvalues": [
+        "3.0.0",
+        "4.0.0"
+      ],
+      "ansi-terminal": [
+        "0.0.1",
+        "3.0.0"
+      ],
+      "array": [
+        "0.0.1",
+        "3.0.0"
+      ],
+      "assoc-legacy": [
+        "1.0.0"
+      ],
+      "base": [
+        "1.0.0",
+        "1.1.0",
+        "3.0.0",
+        "3.1.0",
+        "3.2.0",
+        "3.3.0",
+        "3.4.0"
+      ],
+      "benchmark-papers": [
+        "0.0.1",
+        "2.0.0",
+        "3.0.0"
+      ],
+      "bindata": [
+        "1.0.0",
+        "1.1.0",
+        "1.2.0",
+        "3.0.0"
+      ],
+      "binint": [
+        "0.0.1",
+        "2.0.0",
+        "3.0.0",
+        "3.1.0"
+      ],
+      "boxes": [
+        "0.0.1",
+        "0.0.2",
+        "2.0.0",
+        "3.0.0"
+      ],
+      "bpmn2bpel": [
+        "0.0.1",
+        "0.1.0",
+        "3.0.0",
+        "3.1.0"
+      ],
+      "call-analysis": [
+        "0.0.1",
+        "2.0.0",
+        "3.0.0",
+        "3.2.0",
+        "3.3.0"
+      ],
+      "casc": [
+        "0.0.1",
+        "2.0.0"
+      ],
+      "cass": [
+        "0.0.1",
+        "2.0.0",
+        "3.0.0",
+        "3.0.1",
+        "3.1.0",
+        "4.0.0",
+        "4.1.0",
+        "5.0.0"
+      ],
+      "cass-analysis": [
+        "0.0.1",
+        "0.0.2",
+        "0.0.3",
+        "0.0.4",
+        "2.0.0",
+        "3.0.0",
+        "3.0.1",
+        "3.1.0",
+        "4.0.0",
+        "5.0.0"
+      ],
+      "ccti": [
+        "0.0.1"
+      ],
+      "cdbi": [
+        "1.0.0",
+        "1.1.0",
+        "2.0.0",
+        "3.0.0",
+        "3.1.0",
+        "3.2.0"
+      ],
+      "chr-curry": [
+        "0.0.1",
+        "1.0.0",
+        "2.0.0",
+        "2.1.0",
+        "3.0.0",
+        "3.2.0"
+      ],
+      "clp-pakcs": [
+        "1.0.0",
+        "1.1.0",
+        "3.0.0",
+        "3.2.0"
+      ],
+      "clpbool": [
+        "0.0.1",
+        "2.0.0",
+        "2.1.0"
+      ],
+      "clpfd-smt": [
+        "0.0.1",
+        "0.0.2"
+      ],
+      "combinatorial": [
+        "1.0.0",
+        "3.0.0",
+        "3.2.0"
+      ],
+      "containers": [
+        "3.0.0"
+      ],
+      "contract-prover": [
+        "0.0.1",
+        "1.0.0",
+        "3.0.0",
+        "4.0.0"
+      ],
+      "contracts": [
+        "0.0.1",
+        "3.0.0",
+        "3.1.0"
+      ],
+      "coosy": [
+        "1.0.0",
+        "2.0.0",
+        "3.0.0",
+        "3.1.0"
+      ],
+      "cpc": [
+        "0.0.1"
+      ],
+      "cpm": [
+        "0.0.1",
+        "0.0.2",
+        "0.0.3",
+        "0.0.4",
+        "0.1.0",
+        "0.1.1",
+        "0.2.0",
+        "0.2.1",
+        "0.2.2",
+        "0.2.3",
+        "1.0.0",
+        "2.0.0",
+        "2.1.0",
+        "2.1.1",
+        "2.2.0",
+        "3.0.0",
+        "3.1.0",
+        "3.2.0",
+        "3.3.0"
+      ],
+      "cpm-manage": [
+        "0.0.1",
+        "0.0.2",
+        "0.0.3",
+        "2.0.0",
+        "2.1.0",
+        "2.2.0",
+        "3.0.0"
+      ],
+      "cpm-query": [
+        "0.1.0",
+        "1.0.0"
+      ],
+      "cpns": [
+        "0.0.1",
+        "3.0.0"
+      ],
+      "cryptohash": [
+        "0.0.1",
+        "3.0.0"
+      ],
+      "csv": [
+        "1.0.0",
+        "3.0.0"
+      ],
+      "curry-ast": [
+        "2.0.0",
+        "2.1.0",
+        "2.2.0",
+        "3.0.0",
+        "3.1.0"
+      ],
+      "curry-interface": [
+        "1.0.0",
+        "2.0.0",
+        "2.0.1"
+      ],
+      "curry-repl": [
+        "0.0.1",
+        "1.0.0",
+        "1.1.0",
+        "1.1.1",
+        "1.2.0"
+      ],
+      "curry-resources": [
+        "1.0.0"
+      ],
+      "curry-source": [
+        "1.0.0",
+        "1.1.0",
+        "1.2.0",
+        "1.3.0"
+      ],
+      "curry2js": [
+        "0.2.0",
+        "2.0.0"
+      ],
+      "currybrowse": [
+        "0.5.0",
+        "2.0.0",
+        "3.0.0",
+        "4.0.0"
+      ],
+      "currycheck": [
+        "1.0.0",
+        "1.0.1",
+        "1.1.0",
+        "2.0.0",
+        "3.0.0",
+        "3.2.0",
+        "4.0.0"
+      ],
+      "currydoc": [
+        "0.8.2",
+        "0.8.3",
+        "2.0.0",
+        "3.0.0",
+        "3.1.0",
+        "3.2.0",
+        "4.0.0",
+        "4.1.0",
+        "5.0.0"
+      ],
+      "currypath": [
+        "0.0.1",
+        "3.0.0"
+      ],
+      "currypp": [
+        "0.3.0",
+        "0.3.1",
+        "0.3.2",
+        "2.0.0",
+        "2.1.0",
+        "3.0.0",
+        "3.1.0",
+        "3.2.0"
+      ],
+      "db-pakcs": [
+        "1.0.0"
+      ],
+      "det-parse": [
+        "0.0.1",
+        "3.0.0"
+      ],
+      "dimacs": [
+        "0.0.1",
+        "3.0.0"
+      ],
+      "directory": [
+        "3.0.0"
+      ],
+      "distribution": [
+        "3.0.0"
+      ],
+      "dsdcurry": [
+        "1.0.0"
+      ],
+      "easycheck": [
+        "0.0.1",
+        "3.0.0",
+        "3.2.0"
+      ],
+      "ertools": [
+        "1.0.0",
+        "2.0.0",
+        "3.0.0"
+      ],
+      "exact-print": [
+        "1.0.0",
+        "2.0.0"
+      ],
+      "execpath": [
+        "0.0.1",
+        "3.0.0"
+      ],
+      "extra": [
+        "3.0.0"
+      ],
+      "failfree": [
+        "0.0.1",
+        "1.0.0",
+        "3.0.0",
+        "4.0.0"
+      ],
+      "filepath": [
+        "3.0.0"
+      ],
+      "finite-map": [
+        "0.0.1",
+        "3.0.0"
+      ],
+      "fl-parser": [
+        "1.0.0",
+        "3.0.0"
+      ],
+      "flatcurry": [
+        "1.0.0",
+        "2.0.0",
+        "3.0.0",
+        "3.1.0",
+        "4.0.0",
+        "5.0.0"
+      ],
+      "flatcurry-addtypes": [
+        "1.0.0"
+      ],
+      "flatcurry-annotated": [
+        "1.0.0",
+        "2.0.0",
+        "3.0.0",
+        "3.3.0",
+        "4.0.0"
+      ],
+      "flatcurry-compact": [
+        "0.0.1",
+        "3.0.0",
+        "4.0.0"
+      ],
+      "flatcurry-elim-newtype": [
+        "1.0.0"
+      ],
+      "flatcurry-smt": [
+        "1.0.0",
+        "2.0.0"
+      ],
+      "flatcurry-transform": [
+        "0.0.1",
+        "0.0.2"
+      ],
+      "flatcurry-type-annotated": [
+        "3.3.0",
+        "3.4.0",
+        "4.0.0"
+      ],
+      "flatcurry-typed": [
+        "3.0.0"
+      ],
+      "flatcurry-xml": [
+        "1.0.0"
+      ],
+      "frontend-exec": [
+        "0.0.1",
+        "3.0.0",
+        "3.3.0"
+      ],
+      "global": [
+        "3.0.0",
+        "3.1.0",
+        "3.2.0"
+      ],
+      "global-variables": [
+        "1.0.0",
+        "1.1.0"
+      ],
+      "golang": [
+        "1.0.0"
+      ],
+      "graph-inductive": [
+        "1.0.0",
+        "2.0.0",
+        "3.0.0"
+      ],
+      "graphviz": [
+        "1.0.0",
+        "2.0.0",
+        "3.0.0"
+      ],
+      "gui": [
+        "1.0.0",
+        "2.0.0",
+        "3.0.0"
+      ],
+      "html": [
+        "1.0.0",
+        "1.1.0",
+        "2.0.0",
+        "2.1.0"
+      ],
+      "html-cgi": [
+        "0.0.1"
+      ],
+      "html2": [
+        "0.0.1",
+        "0.1.0",
+        "1.0.0",
+        "3.0.0",
+        "3.3.0",
+        "3.4.0",
+        "3.5.0",
+        "3.5.1",
+        "3.5.2",
+        "3.6.0"
+      ],
+      "icurry": [
+        "2.0.0",
+        "3.0.0",
+        "3.0.1",
+        "3.1.0",
+        "3.2.0",
+        "3.3.0"
+      ],
+      "importusage": [
+        "0.0.1",
+        "1.0.0",
+        "3.0.0",
+        "4.0.0"
+      ],
+      "inversion": [
+        "3.0.0"
+      ],
+      "io-extra": [
+        "3.0.0"
+      ],
+      "javascript": [
+        "1.0.0",
+        "2.0.0",
+        "3.0.0"
+      ],
+      "json": [
+        "0.0.2",
+        "0.0.3",
+        "2.0.0",
+        "3.0.0",
+        "4.0.0"
+      ],
+      "julia": [
+        "0.0.1",
+        "3.0.0"
+      ],
+      "keydb": [
+        "1.0.0",
+        "2.0.0",
+        "3.0.0",
+        "3.1.0"
+      ],
+      "mail-utils": [
+        "1.0.0",
+        "2.0.0",
+        "3.0.0"
+      ],
+      "makefile": [
+        "0.0.1",
+        "0.0.2",
+        "0.0.3",
+        "2.0.0",
+        "3.0.0"
+      ],
+      "markdown": [
+        "1.0.0",
+        "1.1.0",
+        "2.0.0",
+        "3.0.0",
+        "3.1.0",
+        "3.2.0",
+        "3.3.0"
+      ],
+      "ninja": [
+        "1.0.0",
+        "3.0.0"
+      ],
+      "nonstrictunif-optimize": [
+        "0.0.1",
+        "2.0.0",
+        "3.0.0",
+        "3.1.0"
+      ],
+      "opt-parse": [
+        "0.0.3",
+        "3.0.0"
+      ],
+      "peano": [
+        "1.0.0",
+        "1.1.0"
+      ],
+      "peval": [
+        "1.0.0",
+        "2.0.0"
+      ],
+      "peval-noshare": [
+        "0.0.1",
+        "0.1.0"
+      ],
+      "pflp": [
+        "1.0.0",
+        "1.0.1",
+        "2.0.0",
+        "2.1.0"
+      ],
+      "plural-arguments": [
+        "0.0.1",
+        "2.0.0",
+        "3.0.0",
+        "3.1.0"
+      ],
+      "ports": [
+        "1.0.0",
+        "1.1.0",
+        "3.0.0"
+      ],
+      "printf": [
+        "0.0.1",
+        "3.0.0"
+      ],
+      "process": [
+        "3.0.0"
+      ],
+      "profiling": [
+        "1.0.0",
+        "1.1.0",
+        "3.0.0"
+      ],
+      "profiling-pakcs": [
+        "1.0.0",
+        "1.1.0"
+      ],
+      "prolog": [
+        "1.0.0",
+        "2.0.0",
+        "3.0.0"
+      ],
+      "prolog2curry": [
+        "1.0.0",
+        "1.1.0",
+        "1.2.0",
+        "1.3.0"
+      ],
+      "property-prover": [
+        "1.0.0",
+        "1.1.0",
+        "2.0.0"
+      ],
+      "propertyfile": [
+        "0.0.1",
+        "3.0.0"
+      ],
+      "queue": [
+        "0.0.1",
+        "3.0.0"
+      ],
+      "random": [
+        "0.0.1",
+        "3.0.0"
+      ],
+      "read-legacy": [
+        "3.0.0"
+      ],
+      "redblacktree": [
+        "0.0.1",
+        "3.0.0"
+      ],
+      "regexp": [
+        "1.0.0",
+        "1.1.0",
+        "3.0.0",
+        "4.0.0",
+        "4.1.0"
+      ],
+      "residuation-analysis": [
+        "0.0.1",
+        "3.0.0"
+      ],
+      "rewriting": [
+        "0.0.1",
+        "2.0.0",
+        "2.1.0",
+        "3.0.0"
+      ],
+      "roman": [
+        "0.0.1",
+        "2.0.0"
+      ],
+      "runcurry": [
+        "0.0.1",
+        "1.0.0",
+        "3.0.0"
+      ],
+      "rw-data": [
+        "1.0.0",
+        "1.1.0"
+      ],
+      "rw-data-generator": [
+        "1.0.0",
+        "2.0.0"
+      ],
+      "scc": [
+        "0.0.1",
+        "3.0.0"
+      ],
+      "searchtree": [
+        "1.0.0",
+        "1.1.0",
+        "3.0.0"
+      ],
+      "searchtree-extra": [
+        "1.0.0"
+      ],
+      "searchtree-unsafe": [
+        "1.0.0",
+        "3.0.0"
+      ],
+      "setfunction-synthesis": [
+        "0.0.1"
+      ],
+      "setfunctions": [
+        "0.0.1",
+        "3.0.0"
+      ],
+      "showflatcurry": [
+        "0.0.1",
+        "1.0.0",
+        "3.0.0",
+        "4.0.0"
+      ],
+      "smtlib": [
+        "0.0.1",
+        "3.0.0"
+      ],
+      "smtlib-solver": [
+        "0.0.1",
+        "3.0.0"
+      ],
+      "socket": [
+        "0.0.1",
+        "0.1.0",
+        "3.0.0"
+      ],
+      "sourceproggui": [
+        "0.0.1",
+        "1.0.0",
+        "3.0.0"
+      ],
+      "spicey": [
+        "1.0.0",
+        "1.1.0",
+        "2.0.0",
+        "2.1.0",
+        "3.0.0",
+        "3.1.0",
+        "3.2.0",
+        "3.3.0",
+        "3.4.0",
+        "4.0.0",
+        "4.1.0",
+        "4.2.0"
+      ],
+      "string-trie": [
+        "0.0.1",
+        "0.0.2"
+      ],
+      "stylechecker": [
+        "1.0.0",
+        "1.1.0",
+        "2.0.0"
+      ],
+      "time": [
+        "3.0.0"
+      ],
+      "transbooleq": [
+        "0.2.0",
+        "2.0.0",
+        "3.0.0",
+        "3.1.0",
+        "3.2.0",
+        "3.3.0"
+      ],
+      "transformers": [
+        "2.0.0",
+        "3.0.0"
+      ],
+      "traversal": [
+        "1.0.0",
+        "3.0.0"
+      ],
+      "ui": [
+        "1.0.0",
+        "2.0.0"
+      ],
+      "url": [
+        "1.0.0",
+        "3.0.0"
+      ],
+      "url-base": [
+        "0.1.0"
+      ],
+      "verify": [
+        "0.0.1",
+        "0.0.2",
+        "2.0.0",
+        "3.0.0",
+        "3.1.0"
+      ],
+      "verify-non-fail": [
+        "1.0.0",
+        "1.1.0",
+        "1.2.0",
+        "2.0.0",
+        "3.0.0"
+      ],
+      "wl-pprint": [
+        "0.0.1",
+        "3.0.0"
+      ],
+      "wui": [
+        "1.0.0",
+        "1.1.0",
+        "2.0.0"
+      ],
+      "wui2": [
+        "0.0.1",
+        "1.0.0",
+        "3.0.0",
+        "3.1.0"
+      ],
+      "xml": [
+        "0.0.1",
+        "2.0.0",
+        "3.0.0"
+      ],
+      "xmldata": [
+        "0.0.1",
+        "2.0.0",
+        "3.0.0"
+      ]
+    }
+  },
+  "shard_count": 8,
+  "shard_assignment": "Provisional: greedy measured package time; unrun packages use a 60-second placeholder. Remeasure before marking complete.",
+  "packages": {
+    "abstract-curry": {
+      "version": "4.0.0",
+      "measured_seconds": 36.9,
+      "result": "pass",
+      "shard": 6
+    },
+    "allvalues": {
+      "version": "4.0.0",
+      "measured_seconds": 26.9,
+      "result": "exception",
+      "reason": "Requires the PAKCS foreign strong-encapsulation primitives Control.AllValues.allValues and oneValue.",
+      "shard": 6,
+      "failure_class": "missing external",
+      "failure_set": [
+        "test: class: missing external",
+        "test: diagnostic: i/o error: Control.AllValues.allValues: not implemented (no primitive in the runtime)",
+        "test: diagnostic: i/o error: Control.AllValues.oneValue: not implemented (no primitive in the runtime)",
+        "test: diagnostic: testGetAllValues (module TestAllValues): EXECUTION FAILURE:",
+        "test: diagnostic: testGetOneValue (module TestAllValues): EXECUTION FAILURE:",
+        "test: diagnostic: testQueens1 (module TestAllValues): EXECUTION FAILURE:",
+        "test: diagnostic: testQueens2 (module TestAllValues): EXECUTION FAILURE:"
+      ]
+    },
+    "array": {
+      "version": "3.0.0",
+      "measured_seconds": 19.8,
+      "result": "pass",
+      "shard": 4
+    },
+    "base": {
+      "version": "3.4.0",
+      "measured_seconds": 17.4,
+      "result": "exception",
+      "reason": "The package puts the Prelude and the other runtime-reserved modules on its source path; Sprite refuses a path copy of a reserved module (module rule 2).",
+      "shard": 2,
+      "failure_class": "Sprite error",
+      "failure_set": [
+        "test: class: Sprite error",
+        "test: diagnostic: curry.exceptions.ModuleLookupError: Curry module 'Prelude' from 'Prelude.curry' has the name of a module the runtime implements; the installed module 'Prelude.curry' cannot be replaced."
+      ]
+    },
+    "bindata": {
+      "version": "3.0.0",
+      "measured_seconds": 20.4,
+      "result": "pass",
+      "shard": 0
+    },
+    "binint": {
+      "version": "3.1.0",
+      "measured_seconds": 22.6,
+      "result": "pass",
+      "shard": 2
+    },
+    "chr-curry": {
+      "version": "3.2.0",
+      "measured_seconds": 37.1,
+      "result": "pass",
+      "shard": 2
+    },
+    "clp-pakcs": {
+      "version": "3.2.0",
+      "measured_seconds": 17.9,
+      "result": "exception",
+      "reason": "Requires the PAKCS Prolog CLP(R) solver.",
+      "shard": 5,
+      "failure_class": "missing external",
+      "failure_set": [
+        "test: class: missing external",
+        "test: diagnostic: ERROR: CLP.R.prim_CLPR_i2f: not implemented (no primitive in the runtime)"
+      ]
+    },
+    "clpbool": {
+      "version": "2.0.0",
+      "measured_seconds": 22.1,
+      "result": "exception",
+      "reason": "Requires the PAKCS Prolog CLP(B) solver.",
+      "shard": 6,
+      "failure_class": "missing external",
+      "failure_set": [
+        "test: class: missing external",
+        "test: diagnostic: ERROR: CLPB.prim_neg: not implemented (no primitive in the runtime)"
+      ]
+    },
+    "combinatorial": {
+      "version": "3.2.0",
+      "measured_seconds": 23.9,
+      "result": "pass",
+      "shard": 0
+    },
+    "containers": {
+      "version": "3.0.0",
+      "measured_seconds": 24.8,
+      "result": "pass",
+      "shard": 7
+    },
+    "contract-prover": {
+      "version": "4.0.0",
+      "measured_seconds": 232.8,
+      "result": "exception",
+      "reason": "Requires the absent system solver z3; verification fails with PAKCS 3.10.0 too.",
+      "shard": 7,
+      "failure_class": "test failure",
+      "failure_set": [
+        "test: class: test failure",
+        "test: diagnostic: Ackermann.curry: FULL CONTRACT VERIFICATION FAILED!",
+        "test: diagnostic: AllNats.curry: FULL CONTRACT VERIFICATION FAILED!",
+        "test: diagnostic: Coin.curry: FULL CONTRACT VERIFICATION FAILED!",
+        "test: diagnostic: ConcLength.curry: FULL CONTRACT VERIFICATION FAILED!",
+        "test: diagnostic: DoublePeano.curry: FULL CONTRACT VERIFICATION FAILED!",
+        "test: diagnostic: Fac.curry: FULL CONTRACT VERIFICATION FAILED!",
+        "test: diagnostic: Fib.curry: FULL CONTRACT VERIFICATION FAILED!",
+        "test: diagnostic: Init.curry: FULL CONTRACT VERIFICATION FAILED!",
+        "test: diagnostic: InsND.curry: FULL CONTRACT VERIFICATION FAILED!",
+        "test: diagnostic: Last.curry: FULL CONTRACT VERIFICATION FAILED!",
+        "test: diagnostic: Loop.curry: FULL CONTRACT VERIFICATION FAILED!",
+        "test: diagnostic: McCarthy91.curry: FULL CONTRACT VERIFICATION FAILED!",
+        "test: diagnostic: MinList.curry: FULL CONTRACT VERIFICATION FAILED!",
+        "test: diagnostic: NegPos.curry: FULL CONTRACT VERIFICATION FAILED!",
+        "test: diagnostic: NondetContract.curry: FULL CONTRACT VERIFICATION FAILED!",
+        "test: diagnostic: Nth.curry: FULL CONTRACT VERIFICATION FAILED!",
+        "test: diagnostic: NthLength.curry: FULL CONTRACT VERIFICATION FAILED!",
+        "test: diagnostic: Perm.curry: FULL CONTRACT VERIFICATION FAILED!",
+        "test: diagnostic: PermByNDInsSort.curry: FULL CONTRACT VERIFICATION FAILED!",
+        "test: diagnostic: Rev.curry: FULL CONTRACT VERIFICATION FAILED!",
+        "test: diagnostic: Split.curry: FULL CONTRACT VERIFICATION FAILED!",
+        "test: diagnostic: Sum.curry: FULL CONTRACT VERIFICATION FAILED!",
+        "test: diagnostic: Take.curry: FULL CONTRACT VERIFICATION FAILED!",
+        "test: diagnostic: but the program 'z3' is not found in the PATH!"
+      ]
+    },
+    "coosy": {
+      "version": "3.1.0",
+      "measured_seconds": 112.4,
+      "result": "pass",
+      "shard": 4
+    },
+    "cpm": {
+      "version": "3.3.0",
+      "measured_seconds": 451.8,
+      "result": "pass",
+      "shard": 0
+    },
+    "curry-interface": {
+      "version": "2.0.1",
+      "measured_seconds": 73.2,
+      "result": "pass",
+      "shard": 0
+    },
+    "curry-source": {
+      "version": "1.3.0",
+      "measured_seconds": 65.7,
+      "result": "pass",
+      "shard": 5
+    },
+    "currycheck": {
+      "version": "4.0.0",
+      "measured_seconds": 385.7,
+      "result": "pass",
+      "shard": 3
+    },
+    "currypp": {
+      "version": "3.2.0",
+      "measured_seconds": 393.4,
+      "result": "open",
+      "issue": "#240",
+      "reason": "IntegratedCode passes all 31 checks. Contract preprocessing fails in five modules because the Sprite-built preprocessor calls Debug.Profile.garbageCollect, which has no runtime primitive. Earlier runs also observed a DefaultRules evaluation timeout and a DeterministicOperations suspension after successful analysis and compilation. These observations remain unresolved; their causes are unproven. The round-2 harness stopped before those suites.",
+      "issue_text": "IntegratedCode passes all 31 checks. Contract preprocessing fails in five modules because the Sprite-built preprocessor calls Debug.Profile.garbageCollect, which has no runtime primitive. Earlier runs also observed a DefaultRules evaluation timeout and a DeterministicOperations suspension after successful analysis and compilation. These observations remain unresolved; their causes are unproven. The round-2 harness stopped before those suites.",
+      "failure_class": "missing external",
+      "shard": 2,
+      "failure_set": [
+        "test: class: missing external",
+        "test: diagnostic: ERROR: i/o error: Debug.Profile.garbageCollect: not implemented (no primitive in the runtime)",
+        "test: diagnostic: STATIC ERRORS IN PROGRAMS:",
+        "test: diagnostic: module BubbleSort: Module 'BubbleSort': incorrect source program: ERROR: user error: Illegal source program",
+        "test: diagnostic: module BubbleSortFormat: Module 'BubbleSortFormat': incorrect source program: ERROR: user error: Illegal source program",
+        "test: diagnostic: module Coin: Module 'Coin': incorrect source program: ERROR: user error: Illegal source program",
+        "test: diagnostic: module FibInfinite: Module 'FibInfinite': incorrect source program: ERROR: user error: Illegal source program",
+        "test: diagnostic: module Quicksort: Error: Preprocessor exited with exit code 1",
+        "test: diagnostic: module Quicksort: Module 'Quicksort': incorrect source program: ERROR: user error: Illegal source program"
+      ]
+    },
+    "db-pakcs": {
+      "version": "1.0.0",
+      "measured_seconds": 17.7,
+      "result": "exception",
+      "reason": "Requires PAKCS-only Prolog database primitives; its metadata also rejects PAKCS 3.10.0.",
+      "shard": 1,
+      "failure_class": "front-end error",
+      "failure_set": [
+        "test: class: front-end error",
+        "test: diagnostic: Dynamic.curry:<location> Error: Interface for module AllSolutions not found | <location> | import AllSolutions | <location>",
+        "test: diagnostic: STATIC ERRORS IN PROGRAMS:",
+        "test: diagnostic: module TestDatabase: Module 'TestDatabase': incorrect source program: ERROR: user error: Illegal source program"
+      ]
+    },
+    "dimacs": {
+      "version": "3.0.0",
+      "measured_seconds": 42.3,
+      "result": "exception",
+      "reason": "Its tests require the absent system solver z3; the solver actions fail with PAKCS 3.10.0 too.",
+      "shard": 5,
+      "failure_class": "test failure",
+      "failure_set": [
+        "test: class: test failure",
+        "test: diagnostic: i/o error: unexpected token EOF",
+        "test: diagnostic: testb1 (module Simple): EXECUTION FAILURE:",
+        "test: diagnostic: testb2 (module Simple): EXECUTION FAILURE:"
+      ]
+    },
+    "directory": {
+      "version": "3.0.0",
+      "measured_seconds": 21.1,
+      "result": "pass",
+      "shard": 1
+    },
+    "dsdcurry": {
+      "version": "1.0.0",
+      "measured_seconds": 30.1,
+      "result": "exception",
+      "reason": "Imports retired Char and List modules absent from base 3.4.0; PAKCS 3.10.0 fails too after bypassing package compiler metadata.",
+      "shard": 6,
+      "failure_class": "front-end error",
+      "failure_set": [
+        "install: class: front-end error",
+        "install: diagnostic: ERROR: AbstractCurryComments.curry:<location> Error: Interface for module Char not found",
+        "test: class: front-end error",
+        "test: diagnostic: AbstractCurryComments.curry:<location> Error: Interface for module Char not found | <location> | import Char | <location>",
+        "test: diagnostic: AbstractCurryComments.curry:<location> Error: Interface for module Directory not found | <location> | import Directory(doesFileExist) | <location>",
+        "test: diagnostic: AbstractCurryComments.curry:<location> Error: Interface for module List not found | <location> | import List(isSuffixOf) | <location>",
+        "test: diagnostic: STATIC ERRORS IN PROGRAMS:",
+        "test: diagnostic: module DSDCurryTransform: Module 'DSDCurryTransform': incorrect source program: ERROR: user error: Illegal source program"
+      ]
+    },
+    "easycheck": {
+      "version": "3.2.0",
+      "measured_seconds": 23.1,
+      "result": "pass",
+      "shard": 5
+    },
+    "exact-print": {
+      "version": "2.0.0",
+      "measured_seconds": 70.5,
+      "result": "pass",
+      "shard": 4
+    },
+    "failfree": {
+      "version": "4.0.0",
+      "measured_seconds": 341.3,
+      "result": "exception",
+      "reason": "Requires the absent system solver z3; verification fails with PAKCS 3.10.0 too.",
+      "shard": 5,
+      "failure_class": "test failure",
+      "failure_set": [
+        "test: class: test failure",
+        "test: diagnostic: Abs.curry: FULL VERIFICATION FAILED!",
+        "test: diagnostic: Average.curry: FULL VERIFICATION FAILED!",
+        "test: diagnostic: Digit.curry: FULL VERIFICATION FAILED!",
+        "test: diagnostic: Fac.curry: FULL VERIFICATION FAILED!",
+        "test: diagnostic: Fold.curry: FULL VERIFICATION FAILED!",
+        "test: diagnostic: Head.curry: FULL VERIFICATION FAILED!",
+        "test: diagnostic: Last.curry: FULL VERIFICATION FAILED!",
+        "test: diagnostic: Lookup.curry: FULL VERIFICATION FAILED!",
+        "test: diagnostic: Max.curry: FULL VERIFICATION FAILED!",
+        "test: diagnostic: Nth.curry: FULL VERIFICATION FAILED!",
+        "test: diagnostic: Peano.curry: FULL VERIFICATION FAILED!",
+        "test: diagnostic: Perm.curry: FULL VERIFICATION FAILED!",
+        "test: diagnostic: ReadCommand.curry: FULL VERIFICATION FAILED!",
+        "test: diagnostic: Scanr.curry: FULL VERIFICATION FAILED!",
+        "test: diagnostic: Sign.curry: FULL VERIFICATION FAILED!",
+        "test: diagnostic: Split.curry: FULL VERIFICATION FAILED!",
+        "test: diagnostic: Unwords.curry: FULL VERIFICATION FAILED!",
+        "test: diagnostic: UserIntList.curry: FULL VERIFICATION FAILED!",
+        "test: diagnostic: UserList.curry: FULL VERIFICATION FAILED!",
+        "test: diagnostic: but the program 'z3' is not found on the PATH!"
+      ]
+    },
+    "filepath": {
+      "version": "3.0.0",
+      "measured_seconds": 23.6,
+      "result": "pass",
+      "shard": 4
+    },
+    "finite-map": {
+      "version": "3.0.0",
+      "measured_seconds": 29.6,
+      "result": "pass",
+      "shard": 7
+    },
+    "flatcurry": {
+      "version": "5.0.0",
+      "measured_seconds": 49.6,
+      "result": "pass",
+      "shard": 2
+    },
+    "flatcurry-xml": {
+      "version": "1.0.0",
+      "measured_seconds": 63.2,
+      "result": "exception",
+      "issue": "#216",
+      "reason": "Sprite reports a choice that reaches an I/O step as an error, by design",
+      "failure_class": "test failure",
+      "shard": 7,
+      "failure_set": [
+        "test: class: test failure",
+        "test: diagnostic: nondet error: non-determinism in monadic actions occurred!",
+        "test: diagnostic: testXML_test_for_rev (module TestFlatCurryXML): EXECUTION FAILURE:"
+      ]
+    },
+    "global": {
+      "version": "3.2.0",
+      "measured_seconds": 31.5,
+      "result": "open",
+      "issue": "#215",
+      "reason": "Implement interpreter-owned Data.Global initialization, reads and writes with GC and reset support.",
+      "issue_text": "Implement interpreter-owned Data.Global initialization, reads and writes with GC and reset support.",
+      "failure_class": "missing external",
+      "shard": 4,
+      "failure_set": [
+        "test: class: missing external",
+        "test: diagnostic: i/o error: Data.Global.prim_globalT: not implemented (no primitive in the runtime)",
+        "test: diagnostic: sh: 1: lockfile-create: not found",
+        "test: diagnostic: sh: 1: lockfile-remove: not found",
+        "test: diagnostic: testGlobalHandles (module TestGlobalHandles): EXECUTION FAILURE:",
+        "test: diagnostic: testReadWriteTwoTemporaryGlobals (module TestDataGlobal): EXECUTION FAILURE:",
+        "test: diagnostic: testSimpleIntReadGlobalWriteGlobal (module TestDataGlobal): EXECUTION FAILURE:",
+        "test: diagnostic: testSimpleIntlistReadGlobalWriteGlobal (module TestDataGlobal): EXECUTION FAILURE:"
+      ]
+    },
+    "global-variables": {
+      "version": "1.0.0",
+      "measured_seconds": 22.0,
+      "result": "open",
+      "issue": "#215",
+      "reason": "Implement interpreter-owned GlobalVariable reads and writes with GC and reset support.",
+      "issue_text": "Implement interpreter-owned GlobalVariable reads and writes with GC and reset support.",
+      "failure_class": "missing external",
+      "shard": 3,
+      "failure_set": [
+        "test: class: missing external",
+        "test: diagnostic: i/o error: GlobalVariable.prim_writeGVar: not implemented (no primitive in the runtime)",
+        "test: diagnostic: testGlobalVariableTest1 (module TestGlobalVariable): EXECUTION FAILURE:",
+        "test: diagnostic: testGlobalVariableTest2 (module TestGlobalVariable): EXECUTION FAILURE:"
+      ]
+    },
+    "icurry": {
+      "version": "3.3.0",
+      "measured_seconds": 147.0,
+      "result": "pass",
+      "shard": 6
+    },
+    "inversion": {
+      "version": "3.0.0",
+      "measured_seconds": 22.7,
+      "result": "pass",
+      "shard": 7
+    },
+    "io-extra": {
+      "version": "3.0.0",
+      "measured_seconds": 81.8,
+      "result": "pass",
+      "shard": 1
+    },
+    "json": {
+      "version": "4.0.0",
+      "measured_seconds": 44.1,
+      "result": "pass",
+      "shard": 0
+    },
+    "keydb": {
+      "version": "3.1.0",
+      "measured_seconds": 33.9,
+      "result": "open",
+      "issue": "#215",
+      "reason": "Provide interpreter-owned Data.Global storage required by the SQLite key database.",
+      "issue_text": "Provide interpreter-owned Data.Global storage required by the SQLite key database.",
+      "failure_class": "missing external",
+      "shard": 7,
+      "failure_set": [
+        "test: class: missing external",
+        "test: diagnostic: i/o error: Data.Global.prim_globalT: not implemented (no primitive in the runtime)",
+        "test: diagnostic: testAllInfosEmpty (module TestKeyDatabaseSQLite): EXECUTION FAILURE:",
+        "test: diagnostic: testAllKeyInfosEmpty (module TestKeyDatabaseSQLite): EXECUTION FAILURE:",
+        "test: diagnostic: testAllKeysEmpty (module TestKeyDatabaseSQLite): EXECUTION FAILURE:",
+        "test: diagnostic: testCreatedExists (module TestKeyDatabaseSQLite): EXECUTION FAILURE:",
+        "test: diagnostic: testCreatedGoneAfterClean (module TestKeyDatabaseSQLite): EXECUTION FAILURE:",
+        "test: diagnostic: testDeleteAllCreated (module TestKeyDatabaseSQLite): EXECUTION FAILURE:",
+        "test: diagnostic: testDeleteKeyEmpty (module TestKeyDatabaseSQLite): EXECUTION FAILURE:",
+        "test: diagnostic: testDeleteKeysEmpty (module TestKeyDatabaseSQLite): EXECUTION FAILURE:",
+        "test: diagnostic: testDeleteOneCreated (module TestKeyDatabaseSQLite): EXECUTION FAILURE:",
+        "test: diagnostic: testEmptyAfterRollback (module TestKeyDatabaseSQLite): EXECUTION FAILURE:",
+        "test: diagnostic: testGetAllCreatedInfos (module TestKeyDatabaseSQLite): EXECUTION FAILURE:",
+        "test: diagnostic: testGetAllCreatedKeyInfos (module TestKeyDatabaseSQLite): EXECUTION FAILURE:",
+        "test: diagnostic: testGetAllCreatedKeys (module TestKeyDatabaseSQLite): EXECUTION FAILURE:",
+        "test: diagnostic: testGetCreatedInfo (module TestKeyDatabaseSQLite): EXECUTION FAILURE:",
+        "test: diagnostic: testGetCreatedInfos (module TestKeyDatabaseSQLite): EXECUTION FAILURE:",
+        "test: diagnostic: testInfoEmpty (module TestKeyDatabaseSQLite): EXECUTION FAILURE:",
+        "test: diagnostic: testInfosEmpty (module TestKeyDatabaseSQLite): EXECUTION FAILURE:",
+        "test: diagnostic: testNotExists (module TestKeyDatabaseSQLite): EXECUTION FAILURE:",
+        "test: diagnostic: testQueryDeleted (module TestKeyDatabaseSQLite): EXECUTION FAILURE:",
+        "test: diagnostic: testQueryListWithOneDeleted (module TestKeyDatabaseSQLite): EXECUTION FAILURE:",
+        "test: diagnostic: testRollbackOnError (module TestKeyDatabaseSQLite): EXECUTION FAILURE:",
+        "test: diagnostic: testUpdateCreated (module TestKeyDatabaseSQLite): EXECUTION FAILURE:",
+        "test: diagnostic: testUpdateEmpty (module TestKeyDatabaseSQLite): EXECUTION FAILURE:"
+      ]
+    },
+    "plural-arguments": {
+      "version": "3.1.0",
+      "measured_seconds": 95.6,
+      "result": "pass",
+      "shard": 3
+    },
+    "printf": {
+      "version": "3.0.0",
+      "measured_seconds": 27.0,
+      "result": "pass",
+      "shard": 2
+    },
+    "property-prover": {
+      "version": "2.0.0",
+      "measured_seconds": 423.8,
+      "result": "exception",
+      "reason": "Requires the absent system solver z3; verification fails with PAKCS 3.10.0 too.",
+      "shard": 1,
+      "failure_class": "test failure",
+      "failure_set": [
+        "test: class: test failure",
+        "test: diagnostic: Abs.curry: FULL VERIFICATION FAILED!",
+        "test: diagnostic: Average.curry: FULL VERIFICATION FAILED!",
+        "test: diagnostic: Digit.curry: FULL VERIFICATION FAILED!",
+        "test: diagnostic: Fac.curry: FULL VERIFICATION FAILED!",
+        "test: diagnostic: Fold.curry: FULL VERIFICATION FAILED!",
+        "test: diagnostic: Head.curry: FULL VERIFICATION FAILED!",
+        "test: diagnostic: Last.curry: FULL VERIFICATION FAILED!",
+        "test: diagnostic: Lookup.curry: FULL VERIFICATION FAILED!",
+        "test: diagnostic: Max.curry: FULL VERIFICATION FAILED!",
+        "test: diagnostic: Nth.curry: FULL VERIFICATION FAILED!",
+        "test: diagnostic: Peano.curry: FULL VERIFICATION FAILED!",
+        "test: diagnostic: Perm.curry: FULL VERIFICATION FAILED!",
+        "test: diagnostic: ReadCommand.curry: FULL VERIFICATION FAILED!",
+        "test: diagnostic: Scanr.curry: FULL VERIFICATION FAILED!",
+        "test: diagnostic: Sign.curry: FULL VERIFICATION FAILED!",
+        "test: diagnostic: Split.curry: FULL VERIFICATION FAILED!",
+        "test: diagnostic: Unwords.curry: FULL VERIFICATION FAILED!",
+        "test: diagnostic: UserIntList.curry: FULL VERIFICATION FAILED!",
+        "test: diagnostic: UserList.curry: FULL VERIFICATION FAILED!",
+        "test: diagnostic: but the program 'z3' is not found on the PATH!"
+      ]
+    },
+    "queue": {
+      "version": "3.0.0",
+      "measured_seconds": 27.4,
+      "result": "pass",
+      "shard": 4
+    },
+    "redblacktree": {
+      "version": "3.0.0",
+      "measured_seconds": 26.5,
+      "result": "pass",
+      "shard": 3
+    },
+    "regexp": {
+      "version": "4.1.0",
+      "measured_seconds": 33.7,
+      "result": "pass",
+      "shard": 0
+    },
+    "runcurry": {
+      "version": "3.0.0",
+      "measured_seconds": 41.7,
+      "result": "pass",
+      "shard": 3
+    },
+    "rw-data": {
+      "version": "1.1.0",
+      "measured_seconds": 46.0,
+      "result": "pass",
+      "shard": 1
+    },
+    "rw-data-generator": {
+      "version": "2.0.0",
+      "measured_seconds": 131.5,
+      "result": "pass",
+      "shard": 5
+    },
+    "searchtree": {
+      "version": "3.0.0",
+      "measured_seconds": 27.4,
+      "result": "exception",
+      "reason": "Requires the PAKCS foreign strong-encapsulation primitives of Control.Findall, including allValues and oneValue.",
+      "shard": 5,
+      "failure_class": "missing external",
+      "failure_set": [
+        "test: class: missing external",
+        "test: diagnostic: i/o error: Control.Findall.allValues: not implemented (no primitive in the runtime)",
+        "test: diagnostic: i/o error: Control.Findall.oneValue: not implemented (no primitive in the runtime)",
+        "test: diagnostic: testGetAllSolutions (module TestAllSolutions): EXECUTION FAILURE:",
+        "test: diagnostic: testGetOneValue (module TestAllSolutions): EXECUTION FAILURE:",
+        "test: diagnostic: testQueens1 (module TestAllSolutions): EXECUTION FAILURE:",
+        "test: diagnostic: testQueens2 (module TestAllSolutions): EXECUTION FAILURE:"
+      ]
+    },
+    "searchtree-unsafe": {
+      "version": "3.0.0",
+      "measured_seconds": 28.0,
+      "result": "exception",
+      "reason": "Requires the PAKCS foreign strong-encapsulation primitives Control.Search.SearchTree.Unsafe.allNormalForms and prim_lookupVarId, preserving unbound results.",
+      "shard": 0,
+      "failure_class": "missing external",
+      "failure_set": [
+        "test: class: missing external",
+        "test: diagnostic: ERROR: Control.Search.SearchTree.Unsafe.allNormalForms: not implemented (no primitive in the runtime)"
+      ]
+    },
+    "setfunctions": {
+      "version": "3.0.0",
+      "measured_seconds": 28.8,
+      "result": "exception",
+      "reason": "The package puts runtime-reserved Control.SetFunctions source on its path; Sprite refuses that path copy (module rule 2).",
+      "shard": 3,
+      "failure_class": "Sprite error",
+      "failure_set": [
+        "test: class: Sprite error",
+        "test: diagnostic: curry.exceptions.LoadError: cannot load '<path> on backend 'cxx': Curry module 'Control.SetFunctions' from 'SetFunctions.curry' has the name of a module the runtime implements; the installed module 'SetFunctions.curry' cannot be replaced."
+      ]
+    },
+    "spicey": {
+      "version": "4.2.0",
+      "measured_seconds": 351.6,
+      "result": "pass",
+      "shard": 4
+    },
+    "string-trie": {
+      "version": "0.0.2",
+      "measured_seconds": 30.9,
+      "result": "pass",
+      "shard": 5
+    },
+    "time": {
+      "version": "3.0.0",
+      "measured_seconds": 26.3,
+      "result": "pass",
+      "shard": 1
+    },
+    "transbooleq": {
+      "version": "3.3.0",
+      "measured_seconds": 258.3,
+      "result": "pass",
+      "shard": 7
+    },
+    "transformers": {
+      "version": "3.0.0",
+      "measured_seconds": 29.7,
+      "result": "pass",
+      "shard": 1
+    },
+    "traversal": {
+      "version": "3.0.0",
+      "measured_seconds": 30.4,
+      "result": "pass",
+      "shard": 2
+    },
+    "ui": {
+      "version": "1.0.0",
+      "measured_seconds": 36.2,
+      "result": "exception",
+      "reason": "Imports retired modules including List and IOExts; PAKCS 3.10.0 fails too after bypassing package compiler metadata.",
+      "shard": 1,
+      "failure_class": "front-end error",
+      "failure_set": [
+        "test: class: front-end error",
+        "test: diagnostic: GUI.curry:<location> Error: Interface for module Char not found | <location> | import Char (isSpace, toUpper) | <location>",
+        "test: diagnostic: GUI.curry:<location> Error: Interface for module IO not found | <location> | import IO | <location>",
+        "test: diagnostic: GUI.curry:<location> Error: Interface for module IOExts not found | <location> | import IOExts (connectToCommand) | <location>",
+        "test: diagnostic: GUI.curry:<location> Error: Interface for module Read not found | <location> | import Read | <location>",
+        "test: diagnostic: GUI.curry:<location> Error: Interface for module System not found | <location> | import System (system) | <location>",
+        "test: diagnostic: GUI.curry:<location> Error: Interface for module Unsafe not found | <location> | import Unsafe (trace) | <location>",
+        "test: diagnostic: HtmlCgi.curry:<location> Error: Interface for module CPNS not found | <location> | import CPNS(unregisterPort) | <location>",
+        "test: diagnostic: HtmlCgi.curry:<location> Error: Interface for module Char not found | <location> | import Char | <location>",
+        "test: diagnostic: HtmlCgi.curry:<location> Error: Interface for module Directory not found | <location> | import Directory(doesFileExist,getCurrentDirectory) | <location>",
+        "test: diagnostic: HtmlCgi.curry:<location> Error: Interface for module IO not found | <location> | import IO | <location>",
+        "test: diagnostic: HtmlCgi.curry:<location> Error: Interface for module IOExts not found | <location> | import IOExts(exclusiveIO,connectToCommand) | <location>",
+        "test: diagnostic: HtmlCgi.curry:<location> Error: Interface for module List not found | <location> | import List | <location>",
+        "test: diagnostic: HtmlCgi.curry:<location> Error: Interface for module NamedSocket not found | <location> | import NamedSocket | <location>",
+        "test: diagnostic: HtmlCgi.curry:<location> Error: Interface for module ReadNumeric not found | <location> | import ReadNumeric | <location>",
+        "test: diagnostic: HtmlCgi.curry:<location> Error: Interface for module ReadShowTerm not found | <location> | import ReadShowTerm | <location>",
+        "test: diagnostic: HtmlCgi.curry:<location> Error: Interface for module System not found | <location> | import System | <location>",
+        "test: diagnostic: HtmlCgi.curry:<location> Error: Interface for module Time not found | <location> | import Time | <location>",
+        "test: diagnostic: STATIC ERRORS IN PROGRAMS:",
+        "test: diagnostic: UI.curry:<location> Error: Unexpected token `class' | <location> | addStyle widget class = addStyles widget [class] | <location>",
+        "test: diagnostic: module GUI2HTML: Module 'GUI2HTML': incorrect source program: ERROR: user error: Illegal source program",
+        "test: diagnostic: module UI2GUI: Module 'UI2GUI': incorrect source program: ERROR: user error: Illegal source program",
+        "test: diagnostic: module UI2HTML: Module 'UI2HTML': incorrect source program: ERROR: user error: Illegal source program",
+        "test: diagnostic: module UI: Module 'UI': incorrect source program: ERROR: user error: Illegal source program"
+      ]
+    },
+    "verify": {
+      "version": "3.1.0",
+      "measured_seconds": 294.5,
+      "result": "open",
+      "issue": "#240",
+      "reason": "Two checks pass and five verifier-compilation checks fail because the Sprite-built preprocessor calls Debug.Profile.garbageCollect, which has no runtime primitive.",
+      "issue_text": "Two checks pass and five verifier-compilation checks fail because the Sprite-built preprocessor calls Debug.Profile.garbageCollect, which has no runtime primitive.",
+      "failure_class": "missing external",
+      "shard": 6,
+      "failure_set": [
+        "test: class: missing external",
+        "test: diagnostic: ERROR: Debug.Profile.garbageCollect: not implemented (no primitive in the runtime)",
+        "test: diagnostic: testCompileDouble (module TestVerify): FAILED!",
+        "test: diagnostic: testCompileEvenOdd (module TestVerify): FAILED!",
+        "test: diagnostic: testCompileGame (module TestVerify): FAILED!",
+        "test: diagnostic: testCompileMyList (module TestVerify): FAILED!",
+        "test: diagnostic: testCompilePerm (module TestVerify): FAILED!"
+      ]
+    },
+    "wui": {
+      "version": "1.1.0",
+      "measured_seconds": 63.8,
+      "result": "exception",
+      "reason": "Imports retired modules including Time; PAKCS 3.10.0 also rejects its required html-2.0.0 dependency after bypassing top-level compiler metadata.",
+      "shard": 6,
+      "failure_class": "front-end error",
+      "failure_set": [
+        "test: class: front-end error",
+        "test: diagnostic: Base.curry:<location> Error: Interface for module Char not found | <location> | import Char ( isAlphaNum, isSpace ) | <location>",
+        "test: diagnostic: Base.curry:<location> Error: Interface for module ReadNumeric not found | <location> | import ReadNumeric ( readNat, readHex ) | <location>",
+        "test: diagnostic: Base.curry:<location> Error: Interface for module System not found | <location> | import System ( getEnviron ) | <location>",
+        "test: diagnostic: Base.curry:<location> Error: Interface for module Time not found | <location> | import Time ( CalendarTime(..), ClockTime, toTimeString, toUTCTime ) | <location>",
+        "test: diagnostic: STATIC ERRORS IN PROGRAMS:",
+        "test: diagnostic: module WUI: Module 'WUI': incorrect source program: ERROR: user error: Illegal source program",
+        "test: diagnostic: module WUIjs: Module 'WUIjs': incorrect source program: ERROR: user error: Illegal source program"
+      ]
+    },
+    "wui2": {
+      "version": "3.1.0",
+      "measured_seconds": 65.5,
+      "result": "pass",
+      "shard": 3
+    },
+    "xml": {
+      "version": "3.0.0",
+      "measured_seconds": 43.3,
+      "result": "pass",
+      "shard": 4
+    },
+    "xmldata": {
+      "version": "3.0.0",
+      "measured_seconds": 108.6,
+      "result": "pass",
+      "shard": 2
+    }
+  },
+  "shards": {
+    "count": 8,
+    "setup_minutes": 30,
+    "package_budget_minutes": 90,
+    "measured_seconds": [
+      675.1,
+      682.6,
+      686.1,
+      665.8,
+      680.1,
+      680.1,
+      621.3,
+      665.3
+    ]
+  }
+}

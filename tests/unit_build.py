@@ -37,7 +37,7 @@ class TestDistribution(cytest.TestCase):
     with tempfile.TemporaryDirectory() as directory:
       wheel = Path(directory) / 'fixture.whl'
       for name in ('Prelude.dll.123.1.tiered', 'Prelude.dll.old-123-1'):
-        member = 'curry/_sprite/curry/.curry/products/' + name
+        member = 'curry/_sprite/curry/lib/.curry/products/' + name
         with zipfile.ZipFile(wheel, 'w') as archive:
           archive.writestr(member, b'transient')
         with self.subTest(name=name), self.assertRaises(AssertionError) as error:
@@ -114,7 +114,7 @@ class TestDistribution(cytest.TestCase):
           if '.curry' in source.relative_to(ROOT / 'curry/lib').parts:
             continue
           stem = source.parent / '.curry/sprite-pakcs-3.10.0' / source.stem
-          for suffix in ('.icy', '.fint', '.icurry', '.icy.imports', '.icy.source'):
+          for suffix in ('.icy', '.fint', '.icurry', '.icy.imports', '.icy.source', '.fcy', '.acy'):
             self.assertIn(prefix + str(stem.with_suffix(suffix).relative_to(ROOT)), names)
         self.assertFalse(any('/object-root/' in n or '/install/' in n for n in names))
         metadata = BytesParser().parsebytes(archive.extractfile(prefix + 'PKG-INFO').read())
@@ -194,10 +194,10 @@ else:
       run(cmake, '-S', ROOT, '-B', build, '-DSKBUILD=ON')
       run(cmake, '--install', build, '--prefix', wheel)
       resources = wheel / 'curry/_sprite'
-      for name in ('curry', 'cleancurry', 'sprite-frontend'):
-        self.assertTrue((resources / 'bin' / name).is_file(), name)
+      for name in ('curry', 'cleancurry', 'sprite-frontend', 'cypm'):
+        self.assertTrue((resources / 'curry/bin' / name).is_file(), name)
       env.update(SPRITE_HOME=str(resources), PYTHONPATH=str(wheel))
-      result = run(python, resources / 'bin/curry', '--compiler-name')
+      result = run(python, resources / 'curry/bin/curry', '--compiler-name')
       self.assertEqual(result.stdout, 'sprite\n')
 
   REQUIREMENTS = REQUIREMENTS

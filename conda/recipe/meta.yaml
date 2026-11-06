@@ -128,7 +128,7 @@ test:
       test -z "$(grep -rlF "$PREFIX" "$PREFIX/opt/sprite/curry" --include='*.py' --include='*.cpp')"
     - >-
       python -c "import curry, os; from curry.lib import Prelude;
-      assert Prelude.__file__ == os.path.join(curry.config.prefix(), 'curry', 'Prelude.curry'), Prelude.__file__;
+      assert Prelude.__file__ == os.path.join(curry.config.prefix(), 'curry', 'lib', 'Prelude.curry'), Prelude.__file__;
       print(curry.typeof(Prelude.length))" | grep -x '\[a\] -> Int'
 about:
   license: BSD-3-Clause

@@ -141,7 +141,7 @@ class TestCondaRecipe(cytest.TestCase):
         "grep -rlF \"$PREFIX\" \"$PREFIX/opt/sprite/curry\" --include='*.py' --include='*.cpp'"
       , meta
       )
-    self.assertIn("os.path.join(curry.config.prefix(), 'curry', 'Prelude.curry')", meta)
+    self.assertIn("os.path.join(curry.config.prefix(), 'curry', 'lib', 'Prelude.curry')", meta)
     self.assertIn('ln -s ../../../bin/pakcs-frontend "$tools/curry-frontend"', script)
     self.assertIn('SPRITE_CXX', script)
     # No Boost variable and no include flag for it in the build.
@@ -277,8 +277,8 @@ class TestCondaRecipe(cytest.TestCase):
                'tests/data/curry/.curry/sprite-pakcs-3.10.0/M.icy.source',
                'tests/data/curry/.curry/sprite-pakcs-3.10.0/M.icy.imports',
                'tests/data/curry/.curry/pakcs-3.10.0/M.fcy',
-               'install/curry/.curry/pakcs-3.10.0/Prelude.fint',
-               'install/curry/.curry/sprite-pakcs-3.10.0/Prelude.icy']
+               'install/curry/lib/.curry/pakcs-3.10.0/Prelude.fint',
+               'install/curry/lib/.curry/sprite-pakcs-3.10.0/Prelude.icy']
       for name in names:
         path = root / name
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -784,7 +784,7 @@ class TestPackageRules(cytest.TestCase):
     from curry.backends.cxx import toolchain
     from curry.objects.handle import getHandle
     original = toolchain.installation_path()
-    subdir = os.path.join('curry', '.curry', config.intermediate_subdir())
+    subdir = os.path.join('curry', 'lib', '.curry', config.intermediate_subdir())
     prelude_so = os.path.join(original, subdir, 'Prelude.so')
     step = toolchain.Cpp2So(cytest.raw.interp())
     if not os.path.isfile(prelude_so) or not step.stamp_is_current(prelude_so):
@@ -858,7 +858,7 @@ class TestPackageRules(cytest.TestCase):
           'SPRITE_HOME': copy
         , 'PYTHONPATH': relocated('PYTHONPATH', 'python')
         , 'LD_LIBRARY_PATH': relocated('LD_LIBRARY_PATH', 'lib')
-        , 'CURRYPATH': relocated('CURRYPATH', 'curry')
+        , 'CURRYPATH': relocated('CURRYPATH', 'curry/lib')
         , 'SPRITE_INTERPRETER_FLAGS': 'backend:cxx'
         }):
         proc = cytest.run_in_subprocess(code, timeout=300)
@@ -867,11 +867,11 @@ class TestPackageRules(cytest.TestCase):
       self.assertEqual(result['commands'], [])
       self.assertEqual(result['value'], [3])
       self.assertEqual(result['prefix'], copy)
-      self.assertEqual(result['prelude_file'], os.path.join(copy, 'curry', 'Prelude.curry'))
+      self.assertEqual(result['prelude_file'], os.path.join(copy, 'curry', 'lib', 'Prelude.curry'))
       self.assertEqual(result['prelude_object'], os.path.join(copy, subdir, 'Prelude.so'))
       self.assertEqual(
           result['list_object']
-        , os.path.join(copy, 'curry', 'Data', '.curry', config.intermediate_subdir(), 'List.so')
+        , os.path.join(copy, 'curry', 'lib', 'Data', '.curry', config.intermediate_subdir(), 'List.so')
         )
       self.assertEqual(result['compile'], 0)
       self.assertTrue(result['copy_mapped'])
@@ -926,7 +926,7 @@ class TestPackageRules(cytest.TestCase):
     from curry.toolchain import _filenames
     from curry.lib import Prelude
     home = config.prefix()
-    relative = os.path.join('curry', 'Prelude.curry')
+    relative = os.path.join('curry', 'lib', 'Prelude.curry')
     source = os.path.join(home, relative)
     self.assertEqual(_filenames.installed_relpath(source), relative)
     self.assertEqual(
@@ -946,13 +946,13 @@ class TestPackageRules(cytest.TestCase):
     text = curry._interpreter_.save(Prelude, module_main=False)
     if 'IModule.fromBOM' in text:
       self.assertIn(
-          "filename=curry.config.installed_path('curry/Prelude.curry')", text
+          "filename=curry.config.installed_path('curry/lib/Prelude.curry')", text
         )
     else:
-      self.assertIn('/*filename */ "curry/Prelude.curry"', text)
+      self.assertIn('/*filename */ "curry/lib/Prelude.curry"', text)
     self.assertNotIn(home, text)
     self.assertNotIn(os.path.realpath(home), text)
-    subdir = os.path.join(home, 'curry', '.curry', config.intermediate_subdir())
+    subdir = os.path.join(home, 'curry', 'lib', '.curry', config.intermediate_subdir())
     for name in ['Prelude.cpp']:
       path = os.path.join(subdir, name)
       if os.path.isfile(path):

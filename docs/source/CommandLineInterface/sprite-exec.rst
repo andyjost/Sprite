@@ -59,7 +59,7 @@ Finding Curry code
 modules. The directory of a program given as a file comes first, as in
 PAKCS. The Curry library is always on the path, so the modules beside
 the program and the Prelude need no ``CURRYPATH``. The installed library
-is under ``curry/`` in the installation.
+is under ``curry/lib/`` in the installation.
 
 ``-m`` names a module instead of a file. From the repository root::
 

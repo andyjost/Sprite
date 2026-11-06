@@ -56,6 +56,9 @@ compiler group or remove the parent's temporary module directories.
 Completed executable mappings remain retained without entering or destroying
 their inherited compiler owners.
 Inherited nonstandard file handles must be reopened in the child.
+Buffered command close, flush, seek and write run unmasked immediately after
+a native ownership check, so a signal handler that forks during a blocking
+operation and returns in the child can let that operation retry there.
 
 The bindings release the GIL while the runtime steps or waits, take it
 for Python callbacks and conversion and poll signals while they wait.  A
@@ -1119,8 +1122,14 @@ Use standard C++ where a portable standard exists: filesystem, clocks,
 exists, including process arguments, hostname, and future sockets and command
 pipes. A future C++ implementation can register the same name without changing
 Curry code or the image format. ``System.Environment`` is the first Python
-registration user; the installation prefix is supplied from Python at runtime
-so relocated installations report their actual prefix.
+registration user; the installation prefix is supplied from Python at runtime.
+``Distribution.installDir`` appends ``curry`` to that prefix and reports the
+relocated Curry home, with private launchers in ``bin`` and sources in ``lib``.
+The stock analyses under ``lib/.curry/sprite-<version>`` have their own
+``.source`` receipts, written during staging. The private front-end adapter
+checks these receipts; recompiling runtime ICurry updates only its separate
+``.icy.source`` receipt. An edited installed source therefore reaches the
+configured front end until its stock analyses are staged again.
 
 An IORef is one cell shared by the alternatives of a pull-tab.
 Reads snapshot its current pointer. ``getElapsedTime`` counts from the library
@@ -1193,6 +1202,32 @@ pipe probes other than a closed pipe report an error. Python ``SystemExit``
 and ``KeyboardInterrupt`` pass through the binding boundary. Terminal checks and readiness have no
 portable C++ interface and use the Python host, including Windows console and
 pipe readiness. Regular file handles are immediately ready, including at EOF.
+
+Command streams retain their child process until the final handle closes.
+Each launch and handle close polls pending children without blocking; there
+is no reaper thread. A child that exits while the interpreter is idle is
+reaped at the next launch, handle close or shutdown. After a fork, the child
+clears inherited process ownership and replaces the registry lock. Shutdown
+terminates each command's POSIX process group or Windows Job Object, waits
+up to one second, then kills the group and waits up to one more second per
+child. Commands start in separate POSIX sessions; Windows commands start
+suspended until assigned to the shared Job Object implementation. Shutdown
+closes raw pipe ends before buffered wrappers, discarding unflushed command
+input so a full pipe cannot block cleanup even if termination fails.
+Waits run outside the registry lock and cleanup failures are isolated per
+child. Reaping also closes the Windows process handle. POSIX waits use
+``waitid`` with ``WNOWAIT`` where available, preserving the leader's id until
+all group signals have been sent; without it, no final group kill follows a
+reaping wait.
+
+Sprite ends the POSIX process group or Windows Job Object that it started
+for a command. A descendant that leaves that group or session itself (for
+example with ``setsid``, ``setpgid`` or daemonization) is outside this boundary,
+and Sprite does not chase it. A host program that reaps child processes
+itself (a ``SIGCHLD`` handler that calls ``waitpid(-1, ...)``) takes over
+Sprite's command children, and an asynchronous interruption inside the
+standard library's process launch is not cleaned up; both are outside the
+boundary too.
 
 ``ReadShowTerm`` from CPM ``read-legacy`` uses pure C++ primitives to print
 and read ground data in PAKCS prefix notation. Constructor names are

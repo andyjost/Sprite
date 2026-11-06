@@ -156,6 +156,332 @@ class TestProcessFork(cytest.TestCase):
       self.fail('scenario timed out and was reaped: ' + stdout + stderr)
     self.assertEqual(process.returncode, 0, stdout + stderr)
 
+  def test_child_does_not_close_parent_command(self):
+    self.command_fork(native_close=False)
+
+  def test_child_rejects_parent_native_command_handle(self):
+    self.command_fork(native_close=True)
+
+  def command_fork(self, native_close):
+    self.run_case(r"""
+import shlex
+from pathlib import Path
+curry.path.insert(0, str(Path('data/curry/cpm_index').resolve()))
+module = curry.compile('import System.IO\nimport System.IOExts\n'
+    'launch :: String -> IO (Handle,Handle,Handle)\nlaunch = execCmd\n'
+    'close :: Handle -> IO ()\nclose = hClose\n')
+script = 'import sys; print("ready", flush=True); print(sys.stdin.read(4), flush=True)'
+command = 'exec ' + shlex.quote(sys.executable) + ' -c ' + shlex.quote(script)
+handles = curry.eval(module.launch(command)).one()
+process, = rt._command_processes
+assert process.stdout.readline() == 'ready\n'
+tokens = list(rt._command_streams)
+process.stdin.write('STOP')
+try:
+  def child():
+    if NATIVE_CLOSE:
+      try:
+        curry.eval(module.close(handles[0])).one()
+      except Exception as error:
+        assert 'handle belongs to another process' in str(error), str(error)
+      else:
+        raise AssertionError('child closed parent native command handle')
+    else:
+      rt._standard_stream(tokens[0], 'release', '', 0)
+    own = list(map(int, rt._standard_stream(0, 'exec', 'exit 0', 0).split()))
+    for token in own:
+      rt._standard_stream(token, 'release', '', 0)
+    assert not set(tokens).intersection(rt._command_streams), 'inherited command streams'
+  fork_check(child)
+  assert process.poll() is None, 'child stopped parent command'
+  process.stdin.flush()
+  assert process.stdout.readline() == 'STOP\n'
+  for token in tokens:
+    rt._standard_stream(token, 'release', '', 0)
+  process.wait(timeout=3)
+  rt._reap_commands()
+  assert process not in rt._command_processes
+finally:
+  rt._shutdown_native()
+""".replace('NATIVE_CLOSE', repr(native_close)))
+
+  def test_child_leaves_retired_parent_command_alive(self):
+    self.run_case(r"""
+import gc, shlex
+from pathlib import Path
+curry.path.insert(0, str(Path('data/curry/cpm_index').resolve()))
+module = curry.compile('import System.IO\nimport System.IOExts\n'
+    'launch :: String -> IO (Handle,Handle,Handle)\nlaunch = execCmd\n')
+command = 'exec ' + shlex.quote(sys.executable) + ' -c ' + shlex.quote(
+    'import sys; print("ready", flush=True); sys.stdin.read()')
+handles = curry.eval(module.launch(command)).one()
+process, = rt._command_processes
+assert process.stdout.readline() == 'ready\n'
+tokens = list(rt._command_streams)
+del handles
+gc.collect()
+rt.gc_collect()
+try:
+  def child():
+    assert not rt._command_processes and not rt._command_pending
+    own = curry.eval(module.launch('exit 0')).one()
+    del own
+    gc.collect()
+    rt.gc_collect()
+  fork_check(child)
+  assert process.poll() is None, 'child retired parent command'
+  for token in tokens:
+    rt._standard_stream(token, 'release', '', 0)
+  process.wait(timeout=3)
+  rt._reap_commands()
+  assert process not in rt._command_processes
+finally:
+  rt._shutdown_native()
+""")
+
+  def test_signal_fork_during_command_retirement(self):
+    self.command_cleanup_fork('retirement')
+
+  def test_signal_fork_during_explicit_command_close(self):
+    self.command_cleanup_fork('close')
+
+  def test_signal_fork_during_command_reap(self):
+    self.command_cleanup_fork('reap')
+
+  def test_signal_fork_during_command_shutdown(self):
+    self.command_cleanup_fork('shutdown')
+
+  def test_full_command_pipe_close_and_flush_are_interruptible(self):
+    for operation in ('prim_hClose', 'prim_hFlush'):
+      with self.subTest(operation=operation):
+        self.run_case('operation = %r\n' % operation + r"""
+import select, shlex
+command = 'exec ' + shlex.quote(sys.executable) + ' -c ' + shlex.quote(
+    'import signal; signal.pause()')
+tokens = list(map(int, rt._standard_stream(0, 'exec', command, 0).split()))
+process, = rt._command_processes
+descriptor = process.stdin.fileno()
+os.set_blocking(descriptor, False)
+try:
+  while True:
+    os.write(descriptor, b'x' * 4096)
+except BlockingIOError:
+  pass
+finally:
+  os.set_blocking(descriptor, True)
+process.stdin.write('STOP')
+read_end, write_end = os.pipe()
+watchdog = os.fork()
+if watchdog == 0:
+  os.close(write_end)
+  ready = select.select([read_end], [], [], 3)[0]
+  if not ready:
+    os.write(2, b'full-pipe operation timed out after 3 seconds (command killed)\n')
+    os.killpg(process.pid, signal.SIGKILL)
+  os._exit(0 if ready else 1)
+os.close(read_end)
+class Interrupted(Exception): pass
+def interrupt(signum, frame):
+  raise Interrupted()
+previous = signal.signal(signal.SIGALRM, interrupt)
+started = time.monotonic()
+try:
+  # TextIOWrapper.close can flush again through BufferedWriter.close after
+  # the first flush raises, so interrupt both attempts.
+  signal.setitimer(signal.ITIMER_REAL, .1, .1)
+  try:
+    rt._standard_stream(tokens[0], operation, '', 0)
+  except Interrupted:
+    pass
+finally:
+  signal.setitimer(signal.ITIMER_REAL, 0)
+  signal.signal(signal.SIGALRM, previous)
+  elapsed = time.monotonic() - started
+  os.close(write_end)
+  # The watchdog bounds the failure too, and always exits before cleanup.
+  try:
+    wait_child(watchdog)
+  finally:
+    rt._shutdown_native()
+assert elapsed < 2.5, 'full-pipe operation timed out'
+""")
+
+  def test_concurrent_command_waiters_preserve_exit_status(self):
+    self.run_case(r"""
+import subprocess
+from unittest import mock
+process = subprocess.Popen([sys.executable, '-c', 'raise SystemExit(37)'])
+process._command_creator_pid = os.getpid()
+entered, resume = threading.Event(), threading.Event()
+results, errors = [], []
+original = rt._command_call
+def paused(process, operation, *args, **kwargs):
+  result = original(process, operation, *args, **kwargs)
+  if operation is os.waitpid and result[0]:
+    entered.set()
+    assert resume.wait(3), 'status publication was not released'
+  return result
+def waiter():
+  try:
+    results.append(rt._wait_command(process, timeout=3))
+  except BaseException as error:
+    errors.append(error)
+first = threading.Thread(target=waiter)
+second = threading.Thread(target=waiter)
+try:
+  with mock.patch.object(rt, '_command_call', paused):
+    first.start()
+    assert entered.wait(3), 'first waiter did not reap command'
+    second.start()
+    # With Popen's waiter lock held, this waiter cannot overwrite the status.
+    second.join(.1)
+    resume.set()
+    first.join(3)
+    second.join(3)
+  assert not first.is_alive() and not second.is_alive(), 'waiter timed out'
+  assert not errors, errors
+  assert results == [37, 37] and process.returncode == 37, (results, process.returncode)
+finally:
+  resume.set()
+  if process.returncode is None:
+    process.kill()
+  process.wait(timeout=3)
+""")
+
+  def command_cleanup_fork(self, point):
+    self.run_case('point = %r\n' % point + r"""
+import atexit, inspect, select, shlex
+from unittest import mock
+command = 'exec ' + shlex.quote(sys.executable) + ' -c ' + shlex.quote(
+    'import sys; print("ready", flush=True); '
+    'print(repr(sys.stdin.read()), flush=True)')
+tokens = list(map(int, rt._standard_stream(0, 'exec', command, 0).split()))
+process, = rt._command_processes
+def command_line():
+  assert select.select([process.stdout], [], [], 3)[0], 'command output timed out'
+  return process.stdout.readline()
+assert command_line() == 'ready\n'
+owners = dict(rt._command_owners)
+# No newline: input remains in the parent's TextIOWrapper until it flushes.
+process.stdin.write('STOP')
+parent = os.getpid()
+children = []
+class ParentPaused(BaseException): pass
+
+def handler(signum, frame):
+  child = os.fork()
+  if child:
+    children.append(child)
+    wait_child(child)
+    # Inspect the command before resuming any parent cleanup.
+    raise ParentPaused()
+  # The child returns into the interrupted cleanup with its inherited locals.
+
+if point == 'close':
+  target = rt._standard_stream.__wrapped__
+  needle = 'if stream is not None:'
+  action = lambda: rt._standard_stream(tokens[0], 'prim_hClose', '', 0)
+elif point == 'retirement':
+  target = rt._signal_command
+  needle = '_os.killpg'
+  rt._command_owners.clear()
+  rt._command_owners[tokens[-1]] = process
+  action = lambda: rt._retire_command(tokens[-1])
+elif point == 'reap':
+  target = rt._reap_commands.__wrapped__
+  needle = 'if _command_exited(process):'
+  rt._command_pending.add(process)
+  action = rt._reap_commands
+else:
+  target = getattr(rt, '_shutdown_commands', rt._shutdown_native)
+  target = getattr(target, '__wrapped__', target)
+  needle = 'for process in processes:'
+  action = rt._shutdown_native
+source, first = inspect.getsourcelines(target)
+line, = [first + i for i, text in enumerate(source) if needle in text]
+fired = []
+def trace(frame, event, arg):
+  if frame.f_code is target.__code__ and event == 'line' and frame.f_lineno == line:
+    sys.settrace(None)
+    fired.append(True)
+    signal.raise_signal(signal.SIGUSR1)
+  return trace
+
+previous = signal.signal(signal.SIGUSR1, handler)
+try:
+  # Force retirement's exit-observation branch while keeping its command live.
+  with mock.patch.object(rt, '_command_exited', return_value=True):
+    sys.settrace(trace)
+    try:
+      action()
+    except curry.exceptions.ForkError:
+      assert os.getpid() != parent
+    except ParentPaused:
+      assert os.getpid() == parent
+    finally:
+      sys.settrace(None)
+    if os.getpid() != parent:
+      status = 0
+      try:
+        rejected(curry.reset)
+        atexit._run_exitfuncs()
+      except BaseException:
+        traceback.print_exc()
+        status = 1
+      os._exit(status)
+  assert fired and len(children) == 1, 'signal hook did not fork'
+  assert process.poll() is None, 'child cleanup stopped parent command'
+  rt._command_owners.update(owners)
+  process.stdin.flush()
+  process.stdin.close()
+  # A child close/flush would deliver its buffered STOP too, yielding STOPSTOP.
+  assert command_line() == "'STOP'\n", 'child flushed inherited input'
+  for token in tokens:
+    rt._standard_stream(token, 'release', '', 0)
+  process.wait(timeout=3)
+  rt._reap_commands()
+  assert process not in rt._command_processes
+  assert all(stream.closed for stream in (process.stdin, process.stdout, process.stderr))
+finally:
+  sys.settrace(None)
+  signal.signal(signal.SIGUSR1, previous)
+  rt._shutdown_native()
+""")
+
+  def test_busy_stock_analysis_receipt_check(self):
+    self.run_case(r"""
+from pathlib import Path
+from unittest import mock
+from curry.toolchain import _analysisproducts
+from curry import config
+import hashlib
+with fork_directory() as work:
+  library = Path(work)
+  source = library / 'ForkReceipt.curry'
+  source.write_text('module ForkReceipt where\nanswer = True\n')
+  output = Path('.curry') / config.analysis_subdir()
+  products = library / output
+  products.mkdir(parents=True)
+  (products / 'ForkReceipt.source').write_text(hashlib.sha256(source.read_bytes()).hexdigest())
+  (products / 'ForkReceipt.fcy').write_text('')
+  (products / 'ForkReceipt.fint').write_text('')
+  with mock.patch.object(config, 'system_curry_path', return_value=work):
+    assert during(lambda: _analysisproducts.shipped_request(
+        ['--flat', '-o', str(output), 'ForkReceipt']), Path, 'read_bytes')
+""")
+
+  def test_busy_image_load_attachment(self):
+    self.run_case(r"""
+from curry.backends.cxx import image
+from curry.toolchain import _curry2icurry
+with fork_directory() as work:
+  source = os.path.join(work, 'ForkAttach.curry')
+  with open(source, 'w') as stream:
+    stream.write('module ForkAttach where\nanswer :: Int\nanswer = 42\n')
+  icy = _curry2icurry.curry2icurry(source, curry.path)
+  during(lambda: image.load(curry._interpreter_, icy), image, 'attach')
+""")
+
   def test_busy_callback_public_entries_reject_before_shortcuts(self):
     self.busy_public_entries(held_lock=False)
 

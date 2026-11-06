@@ -60,7 +60,7 @@ def is_loader_snapshot(modulename, filename, records=None):
     with open(source, 'rb') as stream:
       digest = hashlib.sha256(stream.read()).hexdigest()
     installed = config.installed_path(
-        'curry', modulename.replace('.', os.sep) + '.curry')
+        'curry', 'lib', modulename.replace('.', os.sep) + '.curry')
     with open(installed, 'rb') as stream:
       expected = hashlib.sha256(stream.read()).hexdigest()
     return record == dict(name=modulename, digest=digest,
@@ -76,7 +76,7 @@ def record_loader_input(modulename, filename, origin, records=None):
   if active is None:
     return
   installed = config.installed_path(
-      'curry', modulename.replace('.', os.sep) + '.curry')
+      'curry', 'lib', modulename.replace('.', os.sep) + '.curry')
   try:
     if not (os.path.samefile(origin, installed) or
         is_loader_snapshot(modulename, origin, records=records)):
@@ -96,7 +96,7 @@ def reject_library_shadow(modulename, filename, interp):
   if is_loader_snapshot(modulename, filename):
     return
   libraryfile = config.installed_path(
-      'curry', modulename.replace('.', os.sep) + '.curry')
+      'curry', 'lib', modulename.replace('.', os.sep) + '.curry')
   raise ModuleLookupError(
       "Curry module %r from %r has the name of a module the runtime implements; "
       "the installed module %r cannot be replaced."
@@ -108,7 +108,7 @@ def _installed_library_file(filename):
     return False
   # Native module identity belongs to this installation. The source path
   # used to classify build products can be a different tree.
-  root = os.path.realpath(config.installed_path('curry'))
+  root = os.path.realpath(config.installed_path('curry', 'lib'))
   path = os.path.realpath(filename)
   return path == root or path.startswith(root + os.sep)
 

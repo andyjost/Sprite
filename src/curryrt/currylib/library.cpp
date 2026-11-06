@@ -49,7 +49,7 @@ namespace
     else if(name == "baseVersion")
       value = build_curry_string(SPRITE_BASE_VERSION);
     else if(name == "installDir")
-      value = build_curry_string(install_prefix.c_str());
+      value = build_curry_string((install_prefix + "/curry").c_str());
     else if(name.find("Major") != std::string::npos)
       value = int_(SPRITE_VERSION_MAJOR);
     else if(name.find("Minor") != std::string::npos)

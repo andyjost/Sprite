@@ -10,11 +10,25 @@ Unreleased
   and raise the public ``ForkError`` in children forked while Sprite is busy;
   a callback fork on the large-stack worker attempts a bounded error report
   and exits the child.
+- Make ``Distribution.installDir`` a Curry home at ``<root>/curry`` (#214):
+  move library sources and products to ``curry/lib`` and the private tool
+  launchers to ``curry/bin``; ship FlatCurry and AbstractCurry library analyses
+  for stock CPM readers. Native libraries remain in ``<root>/lib``.
+
+- Cap image translation, attachment and ICurry conversion retries so an input
+  that keeps changing reports a compilation error instead of retrying forever (#226).
 - Raise ``curry.ReentrancyError`` for host reentry under Sprite locks or the
   evaluation-worker handoff, preserving primitive callback evaluation; defer
   front-end and ICurry-cache diagnostics until locks release, retain ownership
   through thread creation, and refuse worker stack sizes the Windows thread
   API cannot represent before trying smaller reservations.
+- Add a weekly CPM index workflow with pinned package expectations,
+  regression checks, and downloadable package results and logs. Fix
+  CurryCheck driver loading, transitive local imports and saved application
+  options, accept an empty runtime argument list, read piped commands after
+  startup settings, support ``:add`` imports, and implement
+  the CPM clock and UTC conversion used for random seeds, binary files,
+  and command pipes, including a bidirectional command handle.
 - Preserve module path order, saved dependency provenance and ICurry import
   validation; rebuild stale installed and read-only user products privately,
   retain local CPM sources without packages, and validate private rebuild

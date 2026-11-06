@@ -439,8 +439,11 @@ To run a source file instead, use::
 ``cypm test`` runs the package's declared test suites. It needs CurryCheck;
 without it CPM only compiles the modules. CurryCheck invokes the Curry system
 that compiled CurryCheck, so installing a PAKCS CurryCheck does not test Sprite.
-Sprite supplies private ``bin/curry`` and ``bin/cleancurry`` launchers in the
+Sprite supplies private ``curry/bin/curry``, ``curry/bin/cleancurry`` and
+``curry/bin/cypm`` launchers in the
 installation (also in the wheel's resources); these add no commands to PATH.
+The CPM launcher selects Sprite and forwards to CPM beside the configured
+PAKCS tool, falling back to CPM on PATH.
 Build CurryCheck with ``cypm -d CURRYBIN=sprite install currycheck``.
 
 The package index currently omits Sprite from compiler compatibility lists,
@@ -470,6 +473,26 @@ EasyCheck supplies its own ``Test.Prop`` interface, which follows the same
 path rules as other ordinary library modules. CurryCheck runs on Sprite.
 The local prerequisite for property execution is the ``sqlite3`` program
 that CurryCheck needs.
+
+The weekly ``CPM index`` workflow (also available through
+``workflow_dispatch``) runs the package versions pinned in
+``tests/data/cpm/index-expected.json`` with the test-only index overlay.
+Dependency resolution uses the recorded snapshot too. An incomplete
+expectation file blocks execution until the survey is completed. The job prepares a
+private CurryCheck 4.0.0 with ``scripts/cpm-currycheck-prepare.py`` to select
+explicit test-data generators for Sprite and read Prelude types from the
+pinned interface; package properties are unchanged.
+Its private CPM configuration selects the overlay for nested CPM commands too.
+It uploads the package results and logs, fails on regressions of packages
+expected to pass, and reports exceptions that now pass. Sprite defects with
+tracked issues use the ``open`` class: the recorded failure is accepted,
+a different failure fails the job, and a passing suite is reported.
+Known exceptions
+are classified as failures also reproduced with PAKCS 3.10.0, dependencies
+on PAKCS-only features (including strong encapsulation), missing system
+tools, or the reserved-module rule for source copies in the base and
+setfunctions packages. Download failures remain
+separate network results. Newer compatible versions are listed for review.
 
 The script adds ``"sprite": ">= 0.9.0"`` to every compatibility list that
 names PAKCS. CPM also reads metadata from downloaded packages; ``--packages``

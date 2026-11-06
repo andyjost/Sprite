@@ -1,0 +1,10 @@
+{- AbstractCurry 3.0 -}
+CurryProg "System.CPUTime"
+[]
+Nothing
+ []
+ []
+ []
+ [CFunc ("System.CPUTime","getCPUTime") 0 Public (CQualType (CContext []) (CTApply (CTCons ("Prelude","IO")) (CTCons ("Prelude","Int")))) [],
+  CFunc ("System.CPUTime","getElapsedTime") 0 Public (CQualType (CContext []) (CTApply (CTCons ("Prelude","IO")) (CTCons ("Prelude","Int")))) []]
+ []

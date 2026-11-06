@@ -109,7 +109,7 @@ from curry.objects.handle import getHandle
 curry.reset(interpret=%r, jit='off')
 curry.path.insert(0, %r)
 m = curry.import_('Numeric')
-assert not os.path.realpath(getHandle(m).icurry.filename).startswith(os.path.realpath(curry.config.installed_path('curry')) + os.sep)
+assert not os.path.realpath(getHandle(m).icurry.filename).startswith(os.path.realpath(curry.config.installed_path('curry', 'lib')) + os.sep)
 assert curry.show(curry.eval(m.readNat(curry.term('1'))).one()) == '[(1,"")]'
 """ % (mode, work)
             child = cytest.run_in_subprocess(code, timeout=120, address_space=3 << 30)
@@ -292,7 +292,7 @@ goal = ( getSum mempty, getProduct mempty, getAll mempty, getAny mempty
     from curry.toolchain import _filenames
     rebuiltfile = _filenames.icurryfilename(getHandle(Numeric).icurry.filename)
     self.assertFalse(os.path.realpath(rebuiltfile).startswith(
-        os.path.realpath(config.installed_path('curry')) + os.sep))
+        os.path.realpath(config.installed_path('curry', 'lib')) + os.sep))
     with open(rebuiltfile, 'rb') as rebuilt:
       with open(os.path.join(saved, 'Numeric.icy'), 'rb') as staged:
         self.assertEqual(rebuilt.read(), staged.read())
@@ -420,7 +420,7 @@ goal = ( getSum mempty, getProduct mempty, getAll mempty, getAny mempty
       product.write_text('first')
       installed_path = config.installed_path
       def installed(*parts):
-        return str(Path(work) / 'library') if parts == ('curry',) else installed_path(*parts)
+        return str(Path(work) / 'library') if parts == ('curry', 'lib') else installed_path(*parts)
       with patch.object(config, 'syslibs', return_value=['Probe']), \
            patch.object(config, 'installed_path', installed):
         with _interfaceview.interface_view(outdir) as first:
@@ -448,7 +448,7 @@ goal = ( getSum mempty, getProduct mempty, getAll mempty, getAny mempty
             'listToMaybe (a : _) = Just a', 'listToMaybe (a : _) = Nothing'))
         target = Path(_filenames.icurryfilename(sourcefile('System.Console.GetOpt')))
         removed = [target, Path(str(target) + '.imports')]
-        library = Path(config.installed_path('curry'))
+        library = Path(config.installed_path('curry', 'lib'))
         before = {p: p.read_bytes() for p in library.rglob('*') if p.is_file()}
         try:
           for p in removed:
@@ -463,12 +463,12 @@ curry.path.insert(0, %r)
 lists = curry.import_('Data.List')
 raw = getHandle(lists).icurry
 generation = raw._loaded_generation
-assert generation.source.startswith(curry.config.installed_path('curry')), generation.source
-assert not generation.image.startswith(curry.config.installed_path('curry')), generation.image
+assert generation.source.startswith(curry.config.installed_path('curry', 'lib')), generation.source
+assert not generation.image.startswith(curry.config.installed_path('curry', 'lib')), generation.image
 module = curry.import_('System.Console.GetOpt')
 raw = getHandle(module).icurry
-assert not raw.filename.startswith(curry.config.installed_path('curry')), raw.filename
-assert not raw._loaded_generation.image.startswith(curry.config.installed_path('curry'))
+assert not raw.filename.startswith(curry.config.installed_path('curry', 'lib')), raw.filename
+assert not raw._loaded_generation.image.startswith(curry.config.installed_path('curry', 'lib'))
 curry.reset(interpret=%r, jit='off')
 curry.path.remove(%r)
 module = curry.import_('Data.Maybe')
@@ -610,7 +610,7 @@ assert curry.show(curry.eval(module.listToMaybe(curry.term([1]))).one()) == 'Jus
     # This file runs exclusively: restore every installed byte and mode even
     # when an unfixed builder writes replacement-dependent products there.
     from pathlib import Path
-    root = Path(config.installed_path('curry'))
+    root = Path(config.installed_path('curry', 'lib'))
     with tempfile.TemporaryDirectory() as work:
       backup = Path(work) / 'backup'
       shutil.copytree(root, backup)
@@ -771,7 +771,7 @@ def checked_command(*args, **kwargs):
                or path in loaded_views for path in paths
                if path != library and tiered._state.tmpdir
                and path.startswith(tiered._state.tmpdir + os.sep)), paths
-    assert not any(path.startswith(curry.config.installed_path('curry')) for path in paths)
+    assert not any(path.startswith(curry.config.installed_path('curry', 'lib')) for path in paths)
     assert any(path.is_file() for path in Path(library).rglob('*.curry')) == external
     assert list(Path(library).rglob('*.fint'))
   return cmd
@@ -795,7 +795,7 @@ if spelling != 'absolute':
 if %r:
   module = curry.import_('Numeric')
   handle = getHandle(module)
-  assert handle.sofilename and not handle.sofilename.startswith(curry.config.installed_path('curry'))
+  assert handle.sofilename and not handle.sofilename.startswith(curry.config.installed_path('curry', 'lib'))
   assert Path(handle.sofilename).with_suffix('.cpp').is_file()
   answer = curry.show(curry.eval(curry.parse('readNat "1"', imports=[module])).one())
   assert answer == '[(2,"")]', answer
@@ -830,7 +830,7 @@ if %r:
     assert list(Path(tiered._state.tmpdir).rglob('List.icy')), 'private translation missing'
   module = curry.import_('System.Console.GetOpt')
   path = image._path(curry._interpreter_, getHandle(module).icurry.filename)
-  assert not path.startswith(curry.config.installed_path('curry')), path
+  assert not path.startswith(curry.config.installed_path('curry', 'lib')), path
 if missing_frontend:
   assert read_list, 'GetOpt did not read its private List interface'
 assert any(command_routes) == %r, command_routes
@@ -860,7 +860,7 @@ assert any(command_routes) == %r, command_routes
           [cmake, '--install', build, '--prefix', prefix], env=ENV
         , stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=600)
       self.assertEqual(result.returncode, 0, result.stdout)
-      libdir = os.path.join(prefix, 'curry')
+      libdir = os.path.join(prefix, 'curry', 'lib')
       flatdir = os.path.join(libdir, '.curry', config.frontend_subdir())
       for name in config.syslibs():
         parts = name.split('.')

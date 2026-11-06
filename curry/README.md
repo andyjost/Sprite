@@ -12,14 +12,21 @@ carries a three-line prefix that defines `__KICS2__`; NOTICE explains why.
 The same sources compile with front end 2.0.0 (PAKCS macro 304) and
 front end 3.1.0 (PAKCS macro 310). No upstream backend files are shipped.
 
-`make stage` copies the sources, LICENSE, and NOTICE to `$(PREFIX)/curry`.
+`make stage` copies the sources, LICENSE, and NOTICE to `$(PREFIX)/curry/lib`.
 Sprite appends that directory to the Curry path, so the front end and the
 toolchain find the library there and never read the PAKCS library.  The
 install uses shipped interfaces when no front end is available. With a
 front end, it also writes FlatCurry under
-`$(PREFIX)/curry/.curry/pakcs-<ver>/`, so later compilations can read the
+`$(PREFIX)/curry/lib/.curry/pakcs-<ver>/`, so later compilations can read the
 library without writing into the installation. The overlay archive packs
 the interfaces from the staged library for the oracle tests.
+
+`Distribution.installDir` returns `$(PREFIX)/curry`, with private tool
+launchers in `bin/` and sources in `lib/`. Native runtime libraries remain
+in `$(PREFIX)/lib`. Stock CPM readers find raw `.fcy`, `.fint` and `.acy`
+products under `$(PREFIX)/curry/lib/.curry/sprite-<version>/`. The private
+`sprite-frontend` serves ordinary library requests from these shipped files,
+without writing to the installation or requiring a front end.
 
 The text shim in `oracle/Sprite/Stream.curry` gives PAKCS and KiCS2 the
 same module name and signature for stream programs. Put `oracle/` first
@@ -31,9 +38,11 @@ Pinned build products
 Every library module has committed products under its package's
 `.curry/sprite-pakcs-3.10.0/` directory: `.icy` (ICurry), `.fint` and
 `.icurry` (interfaces), `.icy.imports` (import provenance), and `.icy.source`
-(the SHA-256 receipt of its Curry source). They belong to front end 3.1.0
-with PAKCS 3.10.0 and base 3.4.0, regenerated with Sprite's runtime route
-(`icurry_compat=False`).
+(the SHA-256 receipt of its Curry source). Raw `.fcy` and `.acy` pins
+also preserve the stock-reader products for builds without a front end.
+They belong to front end 3.1.0 with PAKCS 3.10.0 and base 3.4.0. ICurry
+uses Sprite's runtime route (`icurry_compat=False`); the analysis pins
+are the front end's unmodified output.
 In compatibility mode the port is byte-identical to `icurry` 3.3.0; the
 independent references are in `overlay-pakcs-3.10.0.tgz`.
 
@@ -61,8 +70,8 @@ standard streams, including redirected streams. `Debug.Trace.traceIO` works
 through these handles; pure `trace` runs through
 `System.IO.Unsafe.unsafePerformIO`. The CPM packages `directory` and `process`
 resolve their externals through the same registry (the packages are installed
-separately). Distribution reports Sprite's build version and installation
-prefix; CPUTime reports milliseconds.
+separately). Distribution reports Sprite's build version and Curry home;
+CPUTime reports milliseconds.
 Environment uses native environment operations and registered Python functions
 for arguments, the program name and hostname. IORef stores lazy graph values
 in cells displayed as `<IORef>`; writes go through `Variable::set_successor`.
@@ -125,10 +134,12 @@ From the project root:
 
     make stage SPRITE_REBUILD_ICY=1
 
-This writes fresh products in the build's `stage/curry/` image and copies
+This writes fresh products in the build's `stage/curry/lib/` image and copies
 them into the installation. Copy every module's `.icy`, `.fint`, `.icurry`,
 `.icy.imports`, and `.icy.source` back to the matching
-`.curry/sprite-pakcs-3.10.0/` directory under `lib/`. Check the ICurry bytes
+`.curry/sprite-pakcs-3.10.0/` directory under `lib/`. Copy the raw `.fcy` and
+`.acy` from the image's `curry/lib/.curry/sprite-<version>/` hierarchy to
+those same per-module pin directories. Check the ICurry bytes
 by regenerating them with the runtime route before replacing the committed
 products. The independent outputs of `icurry` 3.3.0 are the 30 library
 oracles in `tests/overlay/overlay-pakcs-3.10.0.tgz`;

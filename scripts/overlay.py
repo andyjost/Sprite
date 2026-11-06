@@ -163,7 +163,7 @@ def archive_products(root, subdir='pakcs-3.10.0', prefix=None):
                        % (len(missing), '\n'.join(missing[:10])))
   # The library is built out of source now. Keep its interfaces under the
   # historical curry/lib names in the test archive.
-  library = (root / 'install' if prefix is None else prefix) / 'curry/.curry' / subdir
+  library = (root / 'install' if prefix is None else prefix) / 'curry/lib/.curry' / subdir
   if not library.is_dir():
     raise RuntimeError('make stage before packing the overlay: library interfaces are missing')
   for path in library.rglob('*'):

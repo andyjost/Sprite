@@ -1,0 +1,9 @@
+{- AbstractCurry 3.0 -}
+CurryProg "Data.Functor.Const"
+[]
+Nothing
+ []
+ [CInstance ("Prelude","Functor") (CContext []) [CTApply (CTCons ("Data.Functor.Const","Const")) (CTVar (0,"a"))] [CFunc ("","fmap") 2 Public (CQualType (CContext []) (CFuncType (CFuncType (CTVar (1,"b")) (CTVar (2,"c"))) (CFuncType (CTApply (CTApply (CTCons ("Data.Functor.Const","Const")) (CTVar (0,"a"))) (CTVar (1,"b"))) (CTApply (CTApply (CTCons ("Data.Functor.Const","Const")) (CTVar (0,"a"))) (CTVar (2,"c")))))) [CRule [CPVar (0,"_"),CPComb ("Data.Functor.Const","Const") [CPVar (1,"x")]] (CSimpleRhs (CApply (CSymbol ("Data.Functor.Const","Const")) (CVar (1,"x"))) [])]]]
+ [CNewType ("Data.Functor.Const","Const") Public [(0,"a"),(1,"_")] (CRecord ("Data.Functor.Const","Const") Public [CField ("Data.Functor.Const","getConst") Public (CTVar (0,"a"))]) [("Prelude","Eq"),("Prelude","Ord"),("Prelude","Read"),("Prelude","Show")]]
+ []
+ []

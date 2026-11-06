@@ -119,11 +119,25 @@ The repository contains these sources and generated trees:
     ``make install`` follows the same layout.
 
     ``bin/``
-        Executable files installed by Sprite.
+        Public commands installed by Sprite.
 
     ``curry/``
-        The built-in Curry library.  Sprite automatically adds this to the end
-        of the search path used to locate Curry modules.
+        The Curry home returned by ``Curry.Compiler.Distribution.installDir``.
+        In a wheel it is ``curry/_sprite/curry/`` within site-packages.
+
+    ``curry/bin/``
+        Private ``curry``, ``cleancurry``, ``sprite-frontend`` and ``cypm``
+        launchers for CPM tools. The ``cypm`` launcher uses the configured
+        PAKCS installation's CPM executable or one available on PATH,
+        selecting Sprite unless the caller supplies ``CURRYBIN``.
+
+    ``curry/lib/``
+        The built-in Curry library, automatically appended to Sprite's module
+        search path. Runtime products stay beside their sources. Stock
+        analysis readers use ``.fcy``, ``.fint`` and ``.acy`` products under
+        ``curry/lib/.curry/sprite-<major>.<minor>.<revision>/``, with hierarchical
+        module names represented as directories. These products ship in wheels
+        and can be read without writing into the installation.
 
     ``include/``
         The headers of the runtime, which the generated code of a module
