@@ -1155,6 +1155,32 @@ and ``KeyboardInterrupt`` pass through the binding boundary. Terminal checks and
 portable C++ interface and use the Python host, including Windows console and
 pipe readiness. Regular file handles are immediately ready, including at EOF.
 
+Command streams retain their child process until the final handle closes.
+Each launch and handle close polls pending children without blocking; there
+is no reaper thread. A child that exits while the interpreter is idle is
+reaped at the next launch, handle close or shutdown. After a fork, the child
+clears inherited process ownership and replaces the registry lock. Shutdown
+terminates each command's POSIX process group or Windows Job Object, waits
+up to one second, then kills the group and waits up to one more second per
+child. Commands start in separate POSIX sessions; Windows commands start
+suspended until assigned to the shared Job Object implementation. Shutdown
+closes raw pipe ends before buffered wrappers, discarding unflushed command
+input so a full pipe cannot block cleanup even if termination fails.
+Waits run outside the registry lock and cleanup failures are isolated per
+child. Reaping also closes the Windows process handle. POSIX waits use
+``waitid`` with ``WNOWAIT`` where available, preserving the leader's id until
+all group signals have been sent; without it, no final group kill follows a
+reaping wait.
+
+Sprite ends the POSIX process group or Windows Job Object that it started
+for a command. A descendant that leaves that group or session itself (for
+example with ``setsid``, ``setpgid`` or daemonization) is outside this boundary,
+and Sprite does not chase it. A host program that reaps child processes
+itself (a ``SIGCHLD`` handler that calls ``waitpid(-1, ...)``) takes over
+Sprite's command children, and an asynchronous interruption inside the
+standard library's process launch is not cleaned up; both are outside the
+boundary too.
+
 ``ReadShowTerm`` from CPM ``read-legacy`` uses pure C++ primitives to print
 and read ground data in PAKCS prefix notation. Constructor names are
 unqualified; applications are parenthesized, and lists and tuples use compact

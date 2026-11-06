@@ -434,7 +434,7 @@ if(SKBUILD)
   install(DIRECTORY "${image}/python/curry/" DESTINATION curry
     PATTERN __pycache__ EXCLUDE)
   install(PROGRAMS "${image}/bin/curry" "${image}/bin/cleancurry"
-    "${image}/bin/sprite-frontend"
+    "${image}/bin/sprite-frontend" "${image}/bin/cypm"
     DESTINATION curry/_sprite/bin)
   foreach(dir lib include sysconfig curry)
     install(DIRECTORY "${image}/${dir}" DESTINATION curry/_sprite

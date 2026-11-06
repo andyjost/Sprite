@@ -5,6 +5,13 @@ Release Notes
 Unreleased
 ==========
 
+- Add a weekly CPM index workflow with pinned package expectations,
+  regression checks, and downloadable package results and logs. Fix
+  CurryCheck driver loading, transitive local imports and saved application
+  options, accept an empty runtime argument list, read piped commands after
+  startup settings, support ``:add`` imports, and implement
+  the CPM clock and UTC conversion used for random seeds, binary files,
+  and command pipes, including a bidirectional command handle.
 - Preserve module path order, saved dependency provenance and ICurry import
   validation; rebuild stale installed and read-only user products privately,
   retain local CPM sources without packages, and validate private rebuild

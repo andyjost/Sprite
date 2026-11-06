@@ -35,6 +35,7 @@ class REPL(object):
     self.command = None
     self.args = None
     self.module = None
+    self.added = []
     # The last load, retained across a reset or an unsuccessful retry.
     self.loaded = None
     self.loaded_name = None
@@ -76,6 +77,9 @@ class REPL(object):
       self.eval()
       if self.status:
         sys.exit(self.status)
+    # Settings alone configure a session whose commands arrive on stdin.
+    self.batch = any(resolve(command, commands.COMMANDS, 'command') != ':set'
+                     for command, _ in cmds)
     if self.module is None:
       self.command = ':load'
       self.args = ['Prelude']
@@ -117,10 +121,12 @@ class REPL(object):
     self.options.values.update(flags)
     loaded = self.loaded
     loaded_name = self.loaded_name
+    added = [module.__name__ for module in self.added]
     if loaded is None:
       return
     try:
       commands.load(self, loaded_name)
+      self.added = [curry.import_(name) for name in added]
       self.loaded = loaded
     except Exception:
       commands.load(self, 'Prelude')

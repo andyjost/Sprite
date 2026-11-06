@@ -225,10 +225,98 @@ def _flush_stdout():
     pass
 
 
-# One character of lookahead per current Python standard stream. Replacing a
+# One character of lookahead per hosted stream. Replacing a standard
 # stream drops its old lookahead. File handles use native binary UTF-8 streams.
-_stream_lookahead = [None, None, None]
-_stream_recovered = [None, None, None]
+from collections import defaultdict as _defaultdict
+_stream_lookahead = _defaultdict(lambda: None)
+_stream_recovered = _defaultdict(lambda: None)
+_command_streams = {}
+_command_processes = set()
+_command_owners = {}
+import threading as _threading
+_command_lock = _threading.RLock()
+_command_pending = set()
+
+
+def _reset_commands_after_fork():
+  global _command_lock
+  # Inherited children belong to the parent; its lock owner may not survive.
+  _command_lock = _threading.RLock()
+  _command_pending.clear()
+  _command_processes.clear()
+  _command_owners.clear()
+
+
+if hasattr(_os, 'register_at_fork'):
+  _os.register_at_fork(after_in_child=_reset_commands_after_fork)
+
+
+def _command_exited(process, timeout=0):
+  """Observe exit without releasing the leader's process/group id."""
+  import errno
+  import time
+  if process.returncode is not None:
+    return True
+  if sys.platform != 'win32' and all(hasattr(_os, name) for name in
+                                    ('waitid', 'WNOWAIT', 'WEXITED', 'WNOHANG', 'P_PID')):
+    deadline = time.monotonic() + timeout
+    while True:
+      try:
+        result = _os.waitid(_os.P_PID, process.pid,
+                           _os.WEXITED | _os.WNOWAIT | _os.WNOHANG)
+      except ChildProcessError:
+        # Another waiter already reaped it: record that before any signal.
+        process.poll()
+        return True
+      except OSError as error:
+        if error.errno not in (errno.EINVAL, errno.ENOSYS, errno.ENOTSUP):
+          raise
+        break
+      if result is not None:
+        return True
+      remaining = deadline - time.monotonic()
+      if remaining <= 0:
+        return False
+      time.sleep(min(.01, remaining))
+  # Some systems (including older macOS) lack waitid/WNOWAIT support.
+  # Signals must precede this reaping wait; skip the final group kill after it.
+  if not timeout:
+    return process.poll() is not None
+  import subprocess
+  try:
+    process.wait(timeout=timeout)
+    return True
+  except subprocess.TimeoutExpired:
+    return False
+
+
+def _reap_commands():
+  # No worker: a child exiting while idle is reaped at the next launch,
+  # handle close or shutdown. Poll never waits for a running child.
+  with _command_lock:
+    for process in list(_command_pending):
+      try:
+        if _command_exited(process):
+          _signal_command(process, kill=True)
+          process.wait(timeout=1)
+          if sys.platform == 'win32':
+            process._command_job.close()
+            process._handle.Close()
+          _command_pending.discard(process)
+          _command_processes.discard(process)
+      except Exception:
+        # Keep this child pending without preventing cleanup of the others.
+        logger.exception('Command %s retirement failed; will retry', process.pid)
+
+
+def _retire_command(token):
+  with _command_lock:
+    process = _command_owners.pop(token, None)
+    if process in _command_processes and process not in _command_owners.values():
+      _command_pending.add(process)
+  _reap_commands()
+
+_next_command_stream = 3
 
 def _read_standard_char(stream, index):
   from collections import deque
@@ -343,20 +431,104 @@ def _peek_standard_char(stream, index, nonblocking=False):
       restore()
 
 
+class _CommandStream:
+  """A command's output reader and input writer exposed as one handle."""
+  def __init__(self, reader, writer):
+    self.reader, self.writer = reader, writer
+
+  def __getattr__(self, name):
+    return getattr(self.reader, name)
+
+  def writable(self):
+    return self.writer.writable()
+
+  def write(self, text):
+    return self.writer.write(text)
+
+  def flush(self):
+    self.writer.flush()
+
+  def close(self):
+    try:
+      self.writer.close()
+    finally:
+      self.reader.close()
+
+
 def _standard_stream(index, operation, text, value):
   import io
   import select
   import time
-  streams = (sys.stdin, sys.stdout, sys.stderr)
+  global _next_command_stream
+  if operation in ('exec', 'connect'):
+    import subprocess
+    _reap_commands()
+    if sys.platform == 'win32':
+      from ....utility.windowsjob import WindowsJob
+    process = None
+    try:
+      process = subprocess.Popen(text, shell=True, stdin=subprocess.PIPE,
+          stdout=subprocess.PIPE, stderr=subprocess.PIPE if operation == 'exec' else None, text=True,
+          encoding='utf-8', errors='replace', bufsize=1,
+          start_new_session=sys.platform != 'win32',
+          creationflags=0x4 if sys.platform == 'win32' else 0)
+      if sys.platform == 'win32':
+        process._command_job = WindowsJob(process)
+        # Popen closes the suspended primary thread's handle.
+        import ctypes
+        from ctypes import wintypes
+        resume = ctypes.WinDLL('ntdll').NtResumeProcess
+        resume.argtypes, resume.restype = [wintypes.HANDLE], ctypes.c_int32
+        if resume(int(process._handle)) < 0:
+          raise OSError('cannot resume command')
+      with _command_lock:
+        _command_processes.add(process)
+    except BaseException:
+      if process is None: raise
+      # Each cleanup must run even if another cleanup fails or is interrupted.
+      job = getattr(process, '_command_job', None)
+      cleanups = ([job.close] if job is not None else [])
+      cleanups += [process.kill, lambda: process.wait(timeout=1)]
+      cleanups += [stream.close for stream in
+                   (process.stdin, process.stdout, process.stderr) if stream is not None]
+      if sys.platform == 'win32':
+        cleanups.append(process._handle.Close)
+      for cleanup in cleanups:
+        try: cleanup()
+        except BaseException: pass
+      with _command_lock:
+        _command_processes.discard(process)
+      raise
+    ids = []
+    streams = ((process.stdin, process.stdout, process.stderr) if operation == 'exec'
+               else (_CommandStream(process.stdout, process.stdin),))
+    for stream in streams:
+      token = _next_command_stream
+      _next_command_stream += 1
+      _command_streams[token] = stream
+      _command_owners[token] = process
+      ids.append(str(token))
+    return ' '.join(ids)
+  streams = {0: sys.stdin, 1: sys.stdout, 2: sys.stderr, **_command_streams}
+  if operation in ('release', 'prim_hClose') and index >= 3:
+    stream = _command_streams.pop(index, None)
+    try:
+      if stream is not None: stream.close()
+    finally:
+      _stream_lookahead.pop(index, None)
+      _stream_recovered.pop(index, None)
+      _retire_command(index)
+    return ''
   stream = streams[index]
   if operation == 'waits':
-    selected = [streams[int(i)] for i in text]
+    indices = list(map(int, text.split(','))) if text else []
+    selected = [streams[i] for i in indices]
     if not selected:
       if value > 0: time.sleep(value / 1000)
       return '-1'
     for i, item in enumerate(selected):
-      pending = _stream_lookahead[int(text[i])]
-      recovered = _stream_recovered[int(text[i])]
+      pending = _stream_lookahead[indices[i]]
+      recovered = _stream_recovered[indices[i]]
       if item.closed: raise ValueError('stream does not exist (closed handle)')
       if not item.readable(): raise ValueError('stream is not readable')
       if pending is not None and pending[0] is item: return str(i)
@@ -364,7 +536,7 @@ def _standard_stream(index, operation, text, value):
       if isinstance(item, io.StringIO): return str(i)
       # A text wrapper may already hold decoded input although its descriptor
       # is empty. Probe the same reader without blocking, retaining the char.
-      if _peek_standard_char(item, int(text[i]), nonblocking=True) is not None:
+      if _peek_standard_char(item, indices[i], nonblocking=True) is not None:
         return str(i)
       import stat
       if stat.S_ISREG(_os.fstat(item.fileno()).st_mode): return str(i)
@@ -393,6 +565,7 @@ def _standard_stream(index, operation, text, value):
     ready, _, _ = select.select(selected, [], [], None if value < 0 else value / 1000)
     return str(next((i for i, item in enumerate(selected) if item in ready), -1))
   if operation == 'prim_hClose':
+    _reap_commands()
     if not stream.closed: stream.close()
     _stream_lookahead[index] = None
     _stream_recovered[index] = None
@@ -429,11 +602,80 @@ def _standard_stream(index, operation, text, value):
 
 set_stream_hook(_standard_stream)
 import atexit as _atexit
+def _signal_command(process, kill=False):
+  if sys.platform == 'win32':
+    process._command_job.terminate()
+  else:
+    # Sprite owns this group only until its leader is reaped. Descendants
+    # leaving the group/session themselves are outside command containment.
+    if process.returncode is not None: return
+    import signal
+    try:
+      _os.killpg(process.pid, signal.SIGKILL if kill else signal.SIGTERM)
+    except ProcessLookupError:
+      pass
+    except PermissionError:
+      # XNU reports EPERM for a group containing only zombies. Confirm the
+      # leader's exit without reaping it before allowing retirement. A live
+      # descendant with different credentials can also cause EPERM, so keep
+      # that uncertainty visible even though the dead leader can be reaped.
+      if not _command_exited(process):
+        raise
+      logger.warning('Cannot signal command group %s: leader exited; '
+                     'live descendants may remain', process.pid, exc_info=True)
+
+
+def _discard_command_stream(stream):
+  # Closing FileIO first discards buffered output, even if termination failed.
+  # No flush may wait for a command that is no longer consuming its input.
+  if isinstance(stream, _CommandStream):
+    _discard_command_stream(stream.writer)
+    _discard_command_stream(stream.reader)
+    return
+  raw = getattr(getattr(stream, 'buffer', None), 'raw', None)
+  if raw is not None:
+    raw.close()
+  try: stream.close()
+  except (OSError, ValueError): pass
+
+
 def _shutdown_native():
   # The hot tier registers later, so it quiesces before this drain. The heap
   # and its root registries remain alive for late Python finalizers.
+  with _command_lock:
+    processes = list(_command_processes)
+  # Never hold the registry lock while waiting, and never start a thread.
+  for process in processes:
+    try:
+      try: _signal_command(process)
+      except Exception:
+        logger.exception('Command %s termination failed', process.pid)
+      try: _command_exited(process, timeout=1)
+      except Exception:
+        logger.exception('Command %s exit observation failed', process.pid)
+      # WNOWAIT keeps the exited leader's id reserved through this signal.
+      try: _signal_command(process, kill=True)
+      except Exception:
+        logger.exception('Command %s final group kill failed', process.pid)
+      if process.returncode is None:
+        process.wait(timeout=1)
+      if sys.platform == 'win32':
+        process._command_job.close()
+        process._handle.Close()
+      with _command_lock:
+        _command_processes.discard(process)
+        _command_pending.discard(process)
+    except Exception:
+      # A failed child must not prevent bounded cleanup of later children.
+      logger.exception('Command %s shutdown failed', process.pid)
+  for stream in list(_command_streams.values()):
+    try: _discard_command_stream(stream)
+    except Exception: pass
   _curryrtbindings._heap_drain()
   shutdown_handles()
+  for token in list(_command_streams):
+    try: _standard_stream(token, 'release', '', 0)
+    except Exception: pass
 
 _atexit.register(_shutdown_native)
 
