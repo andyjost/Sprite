@@ -2,7 +2,7 @@
 import cytest  # from ./lib; must be first
 import curry
 from curry import config
-from curry.backends.cxx import msvc, toolchain
+from curry.backends.cxx import msvc, pe, toolchain
 from curry.objects.handle import getHandle
 from pathlib import Path
 import os
@@ -363,7 +363,7 @@ class TestPERecord(cytest.TestCase):
     put('<I', address(0x1044), 0x1050)
     put('<H', address(0x1048), 0)
     text(0x1050, '_bom_')
-    put('<I4xQQQI', address(0x1100), 3, base + 0x1180, 0, base + 0x11c0, 2)
+    put('<I4xQQQI', address(0x1100), pe.RECORD_VERSION, base + 0x1180, 0, base + 0x11c0, 2)
     text(0x1180, 'Test.Module')
     put('<QQ', address(0x11c0), base + 0x1200, base + 0x1210)
     text(0x1200, 'Prelude')
@@ -380,6 +380,12 @@ class TestPERecord(cytest.TestCase):
   def test_record_names_without_loading_the_dll(self):
     self.assertEqual(self.read(self.image()), ('Test.Module', ['Prelude', 'Data.Maybe']))
 
+  def test_record_version_matches_runtime_header(self):
+    header = Path(config.installed_path('include', 'curryrt', 'bom.hpp')).read_text()
+    version = re.search(r'static constexpr unsigned VERSION\s*=\s*(\d+)\s*;', header)
+    self.assertIsNotNone(version)
+    self.assertEqual(pe.RECORD_VERSION, int(version.group(1)))
+
   def test_loader_dispatches_by_object_magic(self):
     from curry.backends.cxx import loader
     with tempfile.TemporaryDirectory(prefix='sprite-pe-dispatch-') as work:
@@ -392,10 +398,11 @@ class TestPERecord(cytest.TestCase):
   def test_invalid_record_is_refused(self):
     import struct
     data = self.image()
-    for version in (2, 99):
-      struct.pack_into('<I', data, 0x300, version)
-      with self.assertRaisesRegex(ValueError, 'record version'):
-        self.read(data)
+    for version in (pe.RECORD_VERSION - 1, pe.RECORD_VERSION + 1):
+      with self.subTest(version=version):
+        struct.pack_into('<I', data, 0x300, version)
+        with self.assertRaisesRegex(ValueError, 'record version'):
+          self.read(data)
     with self.assertRaises(ValueError):
       self.read(self.image()[:0x210])
 
