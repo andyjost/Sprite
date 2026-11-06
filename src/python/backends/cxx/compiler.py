@@ -80,7 +80,8 @@ __all__ = ['compile', 'write_module', 'FORMAT_VERSION']
 # table constructors from overwriting an earlier object's exported data.
 # Format 30: installed-origin provenance and explicit stage authorization.
 # Format 31: effective wrapper authorization in translation input receipts.
-FORMAT_VERSION = 31
+# Format 32: monadic flags exclude effects hidden by unsafePerformIO (#241).
+FORMAT_VERSION = 32
 
 # The runtime headers every generated file includes, as vEmitHeader writes
 # them: one directive per name.  The toolchain digests the include closure

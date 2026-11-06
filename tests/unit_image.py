@@ -287,7 +287,7 @@ class TestImage(cytest.TestCase):
       module = curry.import_(source)
       path = image.filename(source)
       self.assertEqual(curry.eval(module.answer).one(), 42)
-      for corruption in ('body', 'header', 'version', 'source'):
+      for corruption in ('body', 'header', 'old_version', 'version', 'source'):
         curry.reset(backend='cxx', interpret='all', jit='off')
         with open(path, 'rb') as stream:
           data = bytearray(stream.read())
@@ -297,8 +297,9 @@ class TestImage(cytest.TestCase):
           size = struct.unpack_from('<I', data, 12)[0]
           data.insert(image.PREFIX.size, ord(' '))
           struct.pack_into('<I', data, 12, size + 1)
-        elif corruption == 'version':
-          struct.pack_into('<I', data, 8, image.VERSION + 1)
+        elif corruption in ('old_version', 'version'):
+          struct.pack_into('<I', data, 8,
+              image.VERSION + (-1 if corruption == 'old_version' else 1))
         else:
           with open(source, 'a') as stream:
             stream.write('\n-- edited source\n')

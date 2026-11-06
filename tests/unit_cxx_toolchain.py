@@ -432,16 +432,17 @@ class TestFormatStamp(ToolchainTestCase):
 
   def test_other_stamp_is_regenerated(self):
     '''A file of another format is written again from the module image.'''
-    name = self.write_image(2)
-    path = self.write_cpp(
-        name, [self.IMPORTS, self.stamp(compiler.FORMAT_VERSION + 1), self.STALE]
-      )
-    cpp2so = toolchain.Cpp2So(cytest.raw.interp())
-    self.assertTrue(cpp2so.is_stale(path))
-    self.check_value(self.import_module(name), 2)
-    text = cytest.readfile(path)
-    self.assertIn(self.stamp(compiler.FORMAT_VERSION), text)
-    self.assertNotIn('#error', text)
+    for offset in (-1, 1):
+      with self.subTest(offset=offset):
+        name = self.write_image(2)
+        path = self.write_cpp(name, [self.IMPORTS,
+            self.stamp(compiler.FORMAT_VERSION + offset), self.STALE])
+        cpp2so = toolchain.Cpp2So(cytest.raw.interp())
+        self.assertTrue(cpp2so.is_stale(path))
+        self.check_value(self.import_module(name), 2)
+        text = cytest.readfile(path)
+        self.assertIn(self.stamp(compiler.FORMAT_VERSION), text)
+        self.assertNotIn('#error', text)
 
   def test_missing_stamp_is_regenerated(self):
     '''A file from before the stamp has format 1, and is written again.'''

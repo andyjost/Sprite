@@ -1,6 +1,9 @@
 '''Read a PE32+ module's exported bill of materials without loading its DLL.'''
 import struct
 
+# Keep in sync with curryrt/bom.hpp; checked by unit_windows_aot.py.
+RECORD_VERSION = 4
+
 
 def record_names(filename):
   with open(filename, 'rb') as stream:
@@ -72,7 +75,7 @@ def record_names(filename):
   # bom::Module's header on x64: unsigned, padding, three pointers,
   # unsigned. All its names and import pointers have static initializers.
   version, fullname, filename_ptr, imports, count = at('<I4xQQQI', record)
-  if version != 3:
+  if version != RECORD_VERSION:
     raise ValueError('unsupported Curry module record version %d' % version)
   if count:
     offset(imports - base, count * 8)

@@ -621,7 +621,7 @@ their bytecode call counters; already compiled LLVM steps keep their code.
 The module image
 ================
 
-Format 15 (2026-11-05)
+Format 16 (2026-11-06)
 ----------------------
 
 A module image, ``M.img``, lives beside ``M.icy``. The translator writes it
@@ -1249,8 +1249,8 @@ Curry definitions keep their bodies on every execution route. The named
 own source, with their source definitions and arities checked. These bind
 directly so strict application cannot normalize shared terms before the
 configuration-sensitive observation. A shadowing user module keeps its bodies.
-Native record version 3 rejects older objects even on explicit load; generated
-code uses format 31 and images use version 15. ICurry uses
+Native record version 4 rejects older objects even on explicit load; generated
+code uses format 32 and images use version 16. ICurry uses
 ``Prelude.(?)`` as a compiler intrinsic to lower nondeterministic rules. All twelve
 ``System.Directory`` externals use ``std::filesystem``; modification times are
 ``Data.Time.CTime`` values in POSIX seconds. Directory listings include ``.``
