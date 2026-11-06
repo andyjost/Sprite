@@ -14,6 +14,9 @@ Unreleased
   are no longer supported because the front end runs in an empty directory
   to preserve module path order; use absolute paths or preprocessors on PATH.
   The front end reports relative paths it cannot find.
+- Stop selecting Microsoft ``cl`` from PATH on Windows; it is not
+  supported. Use clang-cl (the Visual Studio component "C++ Clang tools
+  for Windows").
 - Give each interpreter its own runtime module registry; share static runtime
   builtin tables and loaded compiled objects across resets (#184).
   Interpreted reserved importers keep their interpreter's dependencies; compiled

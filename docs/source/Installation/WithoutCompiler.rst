@@ -12,7 +12,7 @@ and flags. With neither llvmlite nor a compiler, the interpreter runs
 alone and notes it once per process in its log.
 
 A source build records its compiler at ``tools/cxx``. A wheel uses
-``CXX`` or ``g++`` on PATH, and on Windows clang-cl or cl of Visual Studio
+``CXX`` or ``g++`` on PATH, and on Windows clang-cl of Visual Studio
 discovered with ``vswhere`` and the developer environment of
 ``vcvars64.bat``; no developer prompt is needed. The runtime library, its bindings
 and the Curry front end need no compiler at run time.
