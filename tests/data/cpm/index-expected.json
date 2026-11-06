@@ -941,16 +941,17 @@
     },
     "currypp": {
       "version": "3.2.0",
-      "measured_seconds": 442.7,
+      "measured_seconds": 1799.5,
       "result": "open",
-      "issue": "#241",
-      "reason": "IntegratedCode passes all 31 checks. All five Contracts modules now preprocess and compile, but execution fails with non-determinism in monadic actions occurred. Reproducer: in examples/Contracts, run curry-check --nospec --nosource --nodet --deftype=Int BubbleSort; the first generated sort7 check alone also fails. This is a new contract-execution failure, not a missing Debug.Profile primitive. The separate DeterministicOperations suite passes all nine tests; its earlier suspension does not recur. The separate DefaultRules suite analyzes all 14 modules and compiles its test main, passes both BreakWhere checks, and times out at 1800 seconds while evaluating the next check, BubbleSort.bsort7; the earlier evaluation timeout recurs (#242).",
-      "issue_text": "IntegratedCode passes all 31 checks. All five Contracts modules now preprocess and compile, but execution fails with non-determinism in monadic actions occurred. Reproducer: in examples/Contracts, run curry-check --nospec --nosource --nodet --deftype=Int BubbleSort; the first generated sort7 check alone also fails. This is a new contract-execution failure, not a missing Debug.Profile primitive. The separate DeterministicOperations suite passes all nine tests; its earlier suspension does not recur. The separate DefaultRules suite analyzes all 14 modules and compiles its test main, passes both BreakWhere checks, and times out at 1800 seconds while evaluating the next check, BubbleSort.bsort7; the earlier evaluation timeout recurs (#242).",
-      "failure_class": "Sprite error",
+      "issue": "#247",
+      "reason": "IntegratedCode passes all 31 checks; optional SQL integration skips without erd2curry. All five Contracts modules preprocess and compile. The #241 non-determinism error is gone, but the first generated BubbleSort.sort7 check now exceeds the remaining package test budget (1460.1 seconds). A separate BubbleSort-only Contracts run times out at 300 seconds; the direct contracted sort [2,1] prints [1,2], while sort [7,1,6,3,5,4,2] times out at 90 seconds. Reproducer: in examples/Contracts run curry-check -k --nospec --nosource --nodet --deftype=Int BubbleSort. This Contracts evaluation timeout is #247; its cause is not established. DeterministicOperations passes all nine tests. The separate DefaultRules suite analyzes all 14 modules and compiles its test main, passes both BreakWhere checks, and times out at 1800 seconds while evaluating BubbleSort.bsort7 (#242).",
+      "issue_text": "IntegratedCode passes all 31 checks; optional SQL integration skips without erd2curry. All five Contracts modules preprocess and compile. The #241 non-determinism error is gone, but the first generated BubbleSort.sort7 check now exceeds the remaining package test budget (1460.1 seconds). A separate BubbleSort-only Contracts run times out at 300 seconds; the direct contracted sort [2,1] prints [1,2], while sort [7,1,6,3,5,4,2] times out at 90 seconds. Reproducer: in examples/Contracts run curry-check -k --nospec --nosource --nodet --deftype=Int BubbleSort. This Contracts evaluation timeout is #247; its cause is not established. DeterministicOperations passes all nine tests. The separate DefaultRules suite analyzes all 14 modules and compiles its test main, passes both BreakWhere checks, and times out at 1800 seconds while evaluating BubbleSort.bsort7 (#242).",
+      "failure_class": "timeout",
       "shard": 2,
       "failure_set": [
-        "test: class: Sprite error",
-        "test: diagnostic: ERROR: non-determinism in monadic actions occurred!"
+        "test: class: timeout",
+        "test: diagnostic: timeout",
+        "test: termination: 124"
       ]
     },
     "db-pakcs": {

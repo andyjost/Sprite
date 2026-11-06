@@ -11,6 +11,9 @@ Unreleased
   the key), and record ``global-variables`` as a known exception because it was
   written for PAKCS 2.x and PAKCS 3.10.0 has no implementation or reference
   semantics (#215).
+- Keep pure functions that call ``trace`` out of monadic choice rejection
+  by stopping effect propagation at ``unsafePerformIO`` (#241).
+
 - Support process fork at an idle Sprite boundary with fresh child workers
   and locks, preserve parent-owned compiler processes and temporary directories,
   and raise the public ``ForkError`` in children forked while Sprite is busy;

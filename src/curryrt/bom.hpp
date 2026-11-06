@@ -33,7 +33,9 @@ namespace curryrt { namespace bom
   // Raise it with every change to a record of this header.  Version 2: the
   // slots (issue #163). Version 3 rejects objects that predate external-only
   // primitive binding, including explicit loads of generated format 20.
-  static constexpr unsigned VERSION = 3;
+  // Version 4 rejects monadic flags that predate the unsafePerformIO
+  // boundary (#241), including explicit loads of saved native modules.
+  static constexpr unsigned VERSION = 4;
 
   // The kind of a metadata value.  MDValue holds a string, an int, or a bool.
   enum Kind : int { STRING = 0, INTEGER = 1, BOOLEAN = 2 };
