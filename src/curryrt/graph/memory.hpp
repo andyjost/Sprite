@@ -140,6 +140,10 @@ namespace curryrt
   // evaluations (gc_eval_depth() == 0).
   void run_gc();
 
+  // Request a full collection at the next scheduler safepoint. Safe inside
+  // a primitive: it does not collect while a step holds unrooted nodes.
+  void request_gc();
+
   // Roots outside the graph.  A node that Python holds (a value handed to
   // Python, an expression built with curry.expr, a successor read from
   // Python) is registered when its wrapper is created and removed when the
