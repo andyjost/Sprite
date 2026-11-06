@@ -93,12 +93,19 @@ class TestStepFunctions(cytest.TestCase):
   BENCHMARKS = os.path.join(HERE, 'data', 'curry', 'benchmarks')
 
   def sofile(self, name):
-    '''Compiles a benchmark module, if needed, and returns its object.'''
+    '''Reads the benchmark object of the prepare pass; never compiles.'''
+    from curry.backends.cxx import toolchain
     curry.import_(name, path=[self.BENCHMARKS] + curry.path)
     path = os.path.join(
         self.BENCHMARKS, '.curry', config.intermediate_subdir(), name + '.so'
       )
-    self.assertTrue(os.path.exists(path), path)
+    message = ('the object of %s is missing or stale; run the prepare pass '
+               '(./run_tests --prepare)') % name
+    self.assertTrue(os.path.exists(path), message)
+    self.assertEqual(
+        toolchain.Cpp2So.read_stamp(path), toolchain.object_digest()
+      , message
+      )
     return path
 
   def test_no_allocator_in_steps(self):
