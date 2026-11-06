@@ -11,6 +11,7 @@ from ... import cache, exceptions, icurry
 from ...objects.handle import getHandle
 from ...utility.binding import binding
 from ...utility.strings import int_text
+from ...utility.procfork import work as fork_work
 from ...toolchain import _filenames, _loadcurry, _productlock, _destination
 from . import bytecode, curryrtbindings as curryrt
 
@@ -90,12 +91,20 @@ def writable(source):
 
 
 
+def _private_generations(interp):
+  # These are writable destinations; loaded generations retain their own inputs.
+  if interp.__dict__.get('_product_generations_pid') != os.getpid():
+    interp._product_generations = {}
+    interp._product_generations_pid = os.getpid()
+  return interp._product_generations
+
+
 def _private_path(interp, source):
   from . import tiered
   source = _filenames.sourcefilename(_destination.canonical(source))
   from ...toolchain import _findcurry
   if _findcurry._installed_library_file(source):
-    generations = interp.__dict__.setdefault('_product_generations', {})
+    generations = _private_generations(interp)
     key = (source, digest(_filenames.icurryfilename(source)),
            interp.flags['inline_budget'])
     with _findcurry.loader_inputs() as records:
@@ -122,7 +131,7 @@ def _path(interp, source):
   if _findcurry._installed_library_file(source):
     key = (_filenames.sourcefilename(_destination.canonical(source)),
            digest(_filenames.icurryfilename(source)), interp.flags['inline_budget'])
-    generation = getattr(interp, '_product_generations', {}).get(key)
+    generation = _private_generations(interp).get(key)
     if generation is not None and not _findcurry.is_loader_snapshot(
         _filenames.module_name(source), generation[0], generation[1]):
       interp._product_generations.pop(key, None)
@@ -458,6 +467,7 @@ def _publication_path(interp, source, path, imports, importing=False):
   return path
 
 
+@fork_work
 def ensure(interp, icyfile, currypath=None, importing=False):
   from ...toolchain import _findcurry
   with _findcurry.loader_inputs(), _findcurry.resolving(interp):
@@ -561,6 +571,7 @@ def _ensure(interp, icyfile, currypath=None, importing=False):
     return path, _check(interp, source, path, imports, registry)
 
 
+@fork_work
 def load(interp, icyfile, currypath=None):
   from ...toolchain import _findcurry
   generation = _findcurry.generation_for_source(icyfile, interp)

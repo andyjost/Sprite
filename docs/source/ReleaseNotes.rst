@@ -5,6 +5,11 @@ Release Notes
 Unreleased
 ==========
 
+- Support process fork at an idle Sprite boundary with fresh child workers
+  and locks, preserve parent-owned compiler processes and temporary directories,
+  and raise the public ``ForkError`` in children forked while Sprite is busy;
+  a callback fork on the large-stack worker attempts a bounded error report
+  and exits the child.
 - Answer compiler version probes using only the installed Curry library,
   ignoring the caller's Curry path and CPM project sources.
 - Implement the CPM ``Debug.Profile`` process information and collection

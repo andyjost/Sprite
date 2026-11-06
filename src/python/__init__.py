@@ -46,7 +46,7 @@ from .exceptions import (
   , SymbolLookupError, TypeLookupError, CurryIndexError, CurryTypeError
   , TypeSyntaxError, InterfaceError, ModuleExistsError, LoadError
   , FlagError, CurryWarning, IntOverflowError, NoValueError
-  , ManyValuesError, StaleError, ReentrancyError, PrerequisiteError, EvaluationError
+  , ManyValuesError, StaleError, ForkError, ReentrancyError, PrerequisiteError, EvaluationError
   , SuspensionError, DivisionByZeroError, CurryIOError, CurryFileNotFoundError
   , NondetError, StackLimitError, EvaluationTimeout, InstantiationError
   )
@@ -96,36 +96,44 @@ if not getattr(_config._package_logger, '_sprite_process_logged', False):
 
 from .interpreter import session as _session
 from .utility.locking import entry as _entry
+from .utility.procfork import work as _fork_work
 
 @_entry
+@_fork_work
 def compile(source, *, name=None, imports=()):
   return _session.compile(_interpreter_, source, name=name, imports=imports)
 
 @_entry
+@_fork_work
 def eval(goal):
   """Return the converted values of a goal as a lazy Results."""
   return _interpreter_.eval(goal)
 
 @_entry
+@_fork_work
 def solve(goal):
   return _interpreter_.solve(goal)
 
 @_entry
+@_fork_work
 def stream(action):
   """Return the ordered values yielded by a lazy I/O action as a Stream."""
   return _interpreter_.stream(action)
 flags = _session.Flags(_interpreter_)
 @_entry
+@_fork_work
 def import_(name, *, path=None):
   return _session.import_(_interpreter_, name, path=path)
 
 @_entry
+@_fork_work
 def load(path):
   return _session.load(_interpreter_, path)
 
 modules = _session.Modules(_interpreter_)
 
 @_entry
+@_fork_work
 def cpm_path(root):
   """Return source directories of a local CPM project and its packages."""
   return _config.cpm_path(root)
@@ -133,17 +141,21 @@ def cpm_path(root):
 path = _interpreter_.path
 
 @_entry
+@_fork_work
 def reset(**flags):
   return _session.reset(_interpreter_, **flags)
 
 @_entry
+@_fork_work
 def save(module, path, *, main=None):
   return _session.save(_interpreter_, module, path, main=main)
 
 @_entry
+@_fork_work
 def wait(module=None):
   return _session.wait(_interpreter_, module)
 @_entry
+@_fork_work
 def stats():
   return _interpreter_.stats()
 from .objects import CurryModule as Module
@@ -155,36 +167,43 @@ from .typecheck.errors import ConversionError, MismatchError, ArityError, NoInst
 from .typecheck.defaulting import DefaultingError
 
 @_entry
+@_fork_work
 def info(module):
   from .objects.terms import check_module
   check_module(module)
   return getattr(module, '.info')
 
 @_entry
+@_fork_work
 def term(value, *, type=None):
   from .objects.terms import term as build_term
   return build_term(_interpreter_, value, type)
 
 @_entry
+@_fork_work
 def parse(text, *, imports=()):
   from .objects.terms import parse as parse_term
   return parse_term(_interpreter_, text, imports)
 
 @_entry
+@_fork_work
 def free(name=None, *, type=None):
   return Var(_interpreter_, name, type)
 
 @_entry
+@_fork_work
 def choice(first, second, *more):
   from .objects.terms import choice as build_choice
   return build_choice(_interpreter_, first, second, *more)
 
 @_entry
+@_fork_work
 def let(body, /, **bindings):
   from .objects.terms import let as build_let
   return build_let(_interpreter_, body, bindings)
 
 @_entry
+@_fork_work
 def ref(name):
   return Reference(_interpreter_, name)
 
@@ -203,10 +222,12 @@ def _qualified(name):
   raise ModuleLookupError('no module prefix in %r' % name)
 
 @_entry
+@_fork_work
 def symbol(name):
   module, local = _qualified(name)
   return module[local]
 @_entry
+@_fork_work
 def type(name):
   module, local = _qualified(name)
   try:
@@ -214,12 +235,14 @@ def type(name):
   except KeyError:
     raise TypeLookupError('module %r has no type %r' % (module.__name__, local)) from None
 @_entry
+@_fork_work
 def typeof(value, *, defaulted=False):
   if isinstance(value, str):
     value = term(value)
   return _interpreter_.typeof(value, defaulted=defaulted)
 
 @_entry
+@_fork_work
 def reload(module, *, text=None):
   """Reload a module, dropping its interpreter's queued and posted hot work.
 
@@ -234,6 +257,7 @@ from .objects.results import Results, Answer, Bindings, Stream
 from .show import show as _show_node
 
 @_entry
+@_fork_work
 def show(value):
   if isinstance(value, (Answer, Bindings)):
     return str(value)
@@ -315,6 +339,7 @@ __all__ = [
   , 'SymbolLookupError'
   , 'TypeLookupError'
   , 'StaleError'
+  , 'ForkError'
   , 'LoadError'
   , 'PrerequisiteError'
   , 'FlagError'

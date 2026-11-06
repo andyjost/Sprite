@@ -57,11 +57,12 @@ TIME_MODE = 'time:%dms' % QUANTUM_MS
 
 
 # A child on the C++ backend in the rotation mode %(mode)r with the rewrite
-# test module imported.  ``report`` prints one JSON line.
+# test module imported. Disable background JIT work so forks are idle.
+# ``report`` prints one JSON line.
 CHILD = r'''
 import curry, json, os, sys, time
 curry.reset(**
-    {'backend': 'cxx', 'rotation': %(mode)r}
+    {'backend': 'cxx', 'rotation': %(mode)r, 'jit': 'off'}
   )
 from curry.backends.cxx import curryrtbindings as curryrt
 M = curry.import_('CxxRewrite')
@@ -472,17 +473,12 @@ report(
     self.assertIsNotNone(child['thread'])
 
   @cytest.linux_only('reads /proc/self/task for the ticker thread; no counterpart on macOS')
-  def test_fork_child_with_an_evaluation_in_flight(self):
-    '''
-    The count of the evaluations in flight at a fork carries over to the
-    child, and none of them has a ticker there.  An evaluation entered in
-    the child while that count is positive (a Python callback inside a
-    step that evaluates, a second interpreter) starts the ticker all the
-    same, because the state of the child has no thread; before the fix
-    only a count of zero started it, and fair spun in the child.  The
-    parent holds the count with ticker_enter, as the outermost scheduler
-    of an evaluation in flight would.
-    '''
+  def test_fork_discards_parent_ticker_scope(self):
+    """An artificial ticker scope carries no count into an idle child.
+
+    Actual evaluation callbacks are covered by unit_process_fork: their
+    children raise ForkError before resuming the interrupted evaluation.
+    """
     lines = run_child(self, TIME_MODE, '''
 import signal
 next(curry.eval((M.plusOne)(1)))  # the first evaluation starts the ticker
@@ -498,7 +494,6 @@ if pid == 0:
   value = next(curry.eval(M.fair))
   seconds = time.monotonic() - t0
   status1 = curryrt.ticker_status()
-  curryrt.ticker_leave()
   os.write(w, json.dumps({
       'value': value, 'seconds': seconds, 'status0': status0
     , 'status1': status1, 'thread': ticker_thread()
@@ -527,15 +522,15 @@ report(
     self.assertEqual(line['parent_after']['active'], 0)
     child = line['child']
     self.assertIsNotNone(child, 'the forked child reported nothing')
-    # The carried-over count, no thread, no ticks.
+    # Fresh state, no parent scope, no thread and no ticks.
     self.assertFalse(child['status0']['started'])
-    self.assertEqual(child['status0']['active'], 1)
+    self.assertEqual(child['status0']['active'], 0)
     self.assertEqual(child['status0']['ticks'], 0)
     self.assertEqual(child['value'], 42)
     self.assertLess(child['seconds'], GENEROUS_SECONDS)
     self.assertTrue(child['status1']['started'])
     self.assertGreaterEqual(child['status1']['ticks'], 1)
-    self.assertEqual(child['status1']['active'], 1)
+    self.assertEqual(child['status1']['active'], 0)
     self.assertIsNotNone(child['thread'])
 
   @cytest.linux_only('reads /proc/self/task for the ticker thread; no counterpart on macOS')

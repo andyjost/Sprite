@@ -297,6 +297,10 @@ namespace
     assert(data);
     auto * pyobj = (PyObject *) data;
     py::object value = py::reinterpret_steal<py::object>(PyIter_Next(pyobj));
+    // A Python conversion callback can already have raised ForkError.
+    // Clear its pending indicator before translating the native boundary error.
+    if(fork_poisoned()) PyErr_Clear();
+    fork_check();
     if(PyErr_Occurred()) { throw py::error_already_set(); }
     // Note: the Node * is not owned directly by the PyObject but rather by the
     // garbage collector.  So it is safe to extract the Node * and return it
@@ -865,6 +869,9 @@ namespace curryrt { namespace python
     mod.def("_test_resumer_ready", &heap_test_resumer_ready);
     mod.def("_test_dispose", &heap_test_dispose);
     mod.def("_test_applied", &heap_test_applied);
+    mod.def("_test_pause_worker_startup", &worker_test_pause_startup);
+    mod.def("_test_resume_worker_startup", &worker_test_resume_startup);
+    mod.def("_test_worker_startup_paused", &worker_test_startup_paused);
     mod.def("_test_defer_stale_root", [](Node * node)
       {
         auto * action = new RootHolder<Node>::Removal(node);

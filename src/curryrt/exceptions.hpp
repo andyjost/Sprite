@@ -18,6 +18,12 @@
 
 namespace curryrt
 {
+  struct CURRYRT_EXCEPTION ForkError : std::runtime_error
+  {
+    ForkError() : std::runtime_error("Sprite was busy when the process forked; "
+        "start a new process to use Sprite") {}
+  };
+
   struct CURRYRT_EXCEPTION ReentrancyError : std::runtime_error
   {
     using std::runtime_error::runtime_error;

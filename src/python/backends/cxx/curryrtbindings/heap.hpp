@@ -10,6 +10,7 @@ namespace curryrt { namespace python
   {
     explicit HeapAccessScope(bool poll = true)
     {
+      fork_check();
       if(!heap_try_lock())
       {
         pybind11::gil_scoped_release release;
@@ -35,10 +36,23 @@ namespace curryrt { namespace python
   };
   template<class T> using HeapOwned = std::unique_ptr<T, HeapDeleter<T>>;
   struct heap_access {};
+  struct fork_access {};
 }}
 
 namespace pybind11 { namespace detail
 {
+  template<> struct process_attribute<curryrt::python::fork_access>
+    : process_attribute_default<curryrt::python::fork_access>
+  {
+    static void precall(function_call &)
+    {
+      auto scope = std::make_unique<curryrt::ForkWork>();
+      capsule patient(scope.get(), [](void * p)
+        { delete static_cast<curryrt::ForkWork *>(p); });
+      scope.release();
+      loader_life_support::add_patient(patient);
+    }
+  };
   template<> struct process_attribute<curryrt::python::heap_access>
     : process_attribute_default<curryrt::python::heap_access>
   {

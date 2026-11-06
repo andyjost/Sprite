@@ -99,6 +99,7 @@ __all__ = [
   , 'SymbolLookupError'
   , 'TypeLookupError'
   , 'StaleError'
+  , 'ForkError'
   , 'LoadError'
   , 'PrerequisiteError'
   , 'FlagError'
@@ -751,6 +752,9 @@ class StaleError(CurryError, RuntimeError):
   message names the module, the event and the spelling that follows
   (``build it again from Coin``).
   """
+
+class ForkError(CurryError, RuntimeError):
+  """Sprite was busy when this child process was forked."""
 
 class LoadError(CurryError, OSError):
   """``save``, ``load`` or ``reload`` could not write, read or replace the object; the message names the file, the backend and the way out."""

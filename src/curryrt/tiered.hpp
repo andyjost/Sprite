@@ -72,6 +72,7 @@
 // the result reports the cause, and the Python side logs it once.
 namespace curryrt
 {
+  void tiered_after_fork();
   struct TieredJob
   {
     ModuleRegistry registry;
@@ -175,7 +176,8 @@ namespace curryrt
 
   // Register a module job until one of its functions reaches the threshold.
   void cxx_arm(TieredJob);
-  void cxx_hot(InfoTable const *);
+  // True when the table belongs to this backend, even after its job was taken.
+  bool cxx_hot(InfoTable const *);
 
   // Applies the finished jobs on the calling thread, which must be the
   // thread that evaluates.  Returns at once when no job finished.  Never

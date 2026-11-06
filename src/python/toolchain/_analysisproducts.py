@@ -3,8 +3,10 @@ from pathlib import Path
 import hashlib
 import os
 from .. import config
+from ..utility.procfork import work as fork_work
 
 
+@fork_work
 def shipped_request(arguments):
   """Accept only ordinary stock-reader requests for the installed source.
 

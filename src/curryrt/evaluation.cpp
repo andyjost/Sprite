@@ -1,12 +1,16 @@
 #include "curryrt/evaluation.hpp"
 #include "curryrt/evaluation_test.hpp"
 #include "curryrt/exceptions.hpp"
+#include "curryrt/tiered.hpp"
+#include "curryrt/icurry.hpp"
 #include "curryrt/state/rts.hpp"
 #include <algorithm>
 #include <atomic>
 #include <cerrno>
 #include <chrono>
 #include <condition_variable>
+#include <cstdlib>
+#include <cstring>
 #include <exception>
 #include <mutex>
 #include "curryrt/platform.hpp"
@@ -14,6 +18,7 @@
 #include <stdexcept>
 #include <system_error>
 #ifndef _WIN32
+#include <signal.h>
 #include <sys/wait.h>
 #include <unistd.h>
 #endif
@@ -33,6 +38,14 @@ namespace curryrt
       HeapStatus counts{0, 0, 0};
     };
     Gate *& gate_ptr() { static auto * p = new Gate; return p; }
+    struct ForkState
+    {
+      std::mutex mutex;
+      size_t work = 0;
+      bool prepared_busy = false;
+      std::atomic<bool> poisoned{false};
+    };
+    ForkState *& fork_state() { static auto * p = new ForkState; return p; }
     void drain_pending(bool complete) noexcept;
     void before_fork();
     void parent_after_fork();
@@ -76,14 +89,19 @@ namespace curryrt
         test_preparing = true;
         fence->lock();
       }
+      fork_state()->mutex.lock();
       gate_ptr()->mutex.lock();
       pending().mutex.lock();
+      fork_state()->prepared_busy = fork_state()->prepared_busy
+          || fork_state()->work != 0 || gate_ptr()->depth != 0;
       test_preparing = true;
     }
     void parent_after_fork()
     {
       pending().mutex.unlock();
       gate_ptr()->mutex.unlock();
+      fork_state()->prepared_busy = false;
+      fork_state()->mutex.unlock();
       drain_fence_ptr()->unlock();
     }
     thread_local bool draining = false;
@@ -116,9 +134,16 @@ namespace curryrt
       std::string attempts;
     };
     Worker * retained_worker = nullptr; // guarded by the heap lock
+    std::atomic<bool> test_pause_worker_startup{false}, test_worker_startup_paused{false};
 
     void child_after_fork()
     {
+      auto * fresh_fork = new ForkState;
+      fresh_fork->poisoned = fork_state()->poisoned.load()
+          || fork_state()->prepared_busy;
+      fork_state() = fresh_fork; // Abandon inherited synchronization, never destroy it.
+      tiered_after_fork();
+      icurry_after_fork();
       // As with the ticker, the parent's parked thread does not survive
       // fork.  Keep recursion belonging to the surviving thread and leak
       // the old synchronization objects, which may have vanished waiters.
@@ -144,10 +169,18 @@ namespace curryrt
 
     void * worker_main(void * arg)
     {
+      auto const owner = platform::process_id();
       auto & w = *static_cast<Worker *>(arg);
       is_worker = true;
       char base;
       worker_base = &base;
+      if(test_pause_worker_startup.load())
+      {
+        test_worker_startup_paused = true;
+        while(test_pause_worker_startup.load())
+          std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        test_worker_startup_paused = false;
+      }
       std::unique_lock<std::mutex> lock(w.mutex);
       w.id = std::this_thread::get_id();
       w.ready = true;
@@ -159,8 +192,50 @@ namespace curryrt
         RuntimeState & rts = *w.job;
         reserved_room = std::min(rts.worker_stack, w.reserved) - STACK_MARGIN;
         lock.unlock();
-        try { w.value = rts.procD(); }
-        catch(...) { w.error = std::current_exception(); }
+        Expr value;
+        std::exception_ptr error;
+        try { value = rts.procD(); }
+        catch(...) { error = std::current_exception(); }
+        if(owner != platform::process_id())
+        {
+          // Only this worker survived the callback's fork. Its Python
+          // evaluation caller exists in the parent, so there is no caller
+          // to receive an exception here. Report the boundary error without
+          // stdio locks or exit handlers, then end the child process.
+#ifndef _WIN32
+          // This child is about to exit. Bound even a blocked diagnostic
+          // write, without changing stderr's parent-shared file flags.
+          // Replace and unblock any inherited alarm before attempting I/O.
+          struct sigaction action{};
+          action.sa_handler = [](int) { std::_Exit(EXIT_FAILURE); };
+          sigemptyset(&action.sa_mask);
+          sigset_t alarms;
+          sigemptyset(&alarms);
+          sigaddset(&alarms, SIGALRM);
+          if(sigaction(SIGALRM, &action, nullptr) != 0
+              || sigprocmask(SIG_UNBLOCK, &alarms, nullptr) != 0)
+            std::_Exit(EXIT_FAILURE);
+          alarm(1);
+          ForkError const boundary_error;
+          auto const message = boundary_error.what();
+          auto report = [](char const * text, size_t size)
+          {
+            while(size)
+            {
+              auto written = ::write(STDERR_FILENO, text, size);
+              if(written > 0) { text += written; size -= written; }
+              else if(written < 0 && errno == EINTR) continue;
+              else break;
+            }
+          };
+          report("ForkError: ", 11);
+          report(message, std::strlen(message));
+          report("\n", 1);
+#endif
+          std::_Exit(EXIT_FAILURE);
+        }
+        w.value = value;
+        w.error = std::move(error);
         lock.lock();
         w.job = nullptr;
         w.done = true;
@@ -188,6 +263,7 @@ namespace curryrt
         delete retained_worker;
         retained_worker = nullptr;
       }
+      auto const owner = platform::process_id();
       std::ostringstream attempts;
       std::string refusal;
       for(size_t size = requested; ; size /= 2)
@@ -221,6 +297,14 @@ namespace curryrt
               if(!interrupted)
                 try { host_poll(); }
                 catch(...) { interrupted = std::current_exception(); }
+              if(owner != platform::process_id())
+              {
+                // The worker vanished at fork. Leave its synchronization
+                // intact and disarm the surrounding join/delete cleanup.
+                (void) w.release();
+                started = false;
+                throw ForkError();
+              }
               lock.lock();
             }
             if(interrupted) std::rethrow_exception(interrupted);
@@ -268,9 +352,37 @@ namespace curryrt
 
   void set_host_wait(host_wait_type hook) { wait_hook.store(hook); }
   void set_host_poll(host_poll_type hook) { poll_hook.store(hook); }
+  bool fork_poisoned() noexcept { return fork_state()->poisoned.load(); }
+  void fork_check() { if(fork_poisoned()) throw ForkError(); }
+  void fork_prepare()
+  {
+    (void) gate(); // Register native hooks even before the first heap entry.
+    std::lock_guard<std::mutex> lock(fork_state()->mutex);
+    std::lock_guard<std::mutex> heap_lock(gate_ptr()->mutex);
+    fork_state()->prepared_busy = fork_state()->poisoned.load()
+        || fork_state()->work != 0 || gate_ptr()->depth != 0;
+  }
+  long long fork_work_begin()
+  {
+    fork_check();
+    (void) gate();
+    std::lock_guard<std::mutex> lock(fork_state()->mutex);
+    ++fork_state()->work;
+    return platform::process_id();
+  }
+  void fork_work_end(long long owner) noexcept
+  {
+    if(owner != platform::process_id()) return;
+    std::lock_guard<std::mutex> lock(fork_state()->mutex);
+    assert(fork_state()->work);
+    --fork_state()->work;
+  }
+
   void set_host_lock_held(host_lock_held_type hook) { lock_held_hook.store(hook); }
   void check_reentrancy()
   {
+    // A poisoned process cannot enter Sprite, regardless of thread ownership.
+    fork_check();
     auto held = lock_held_hook.load();
     if(boundary_depth || (held && held()))
       throw ReentrancyError("cannot reenter Sprite while this thread holds a Sprite lock "
@@ -278,8 +390,10 @@ namespace curryrt
   }
   void host_poll()
   {
+    fork_check();
     BoundaryScope boundary;
     if(auto hook = poll_hook.load()) hook();
+    fork_check();
   }
 
   bool heap_try_lock()
@@ -321,6 +435,7 @@ namespace curryrt
 
   void heap_lock(bool poll)
   {
+    fork_check();
     if(heap_try_lock()) return;
     check_reentrancy();
     if(auto wait = wait_hook.load()) wait(&wait_for_heap, &poll);
@@ -498,6 +613,9 @@ namespace curryrt
     test_resumer_ready = false;
     test_pause = true;
   }
+  void worker_test_pause_startup() { test_pause_worker_startup = true; }
+  void worker_test_resume_startup() { test_pause_worker_startup = false; }
+  bool worker_test_startup_paused() { return test_worker_startup_paused.load(); }
   void heap_test_resume_drain() { test_pause = false; }
   void heap_test_resume_at_fork()
   {
@@ -530,6 +648,9 @@ namespace curryrt
 
   void heap_dispose(PendingHeapAction * action) noexcept
   {
+    // A poisoned child's graph may be an interrupted mutation. Even deleting
+    // a holder can enter inherited runtime state; retain it until process exit.
+    if(fork_poisoned()) return;
     if(heap_try_lock())
     {
       action->apply(action->generation == heap_generation());
@@ -607,6 +728,9 @@ namespace curryrt
       if(!interrupted)
         try { host_poll(); }
         catch(...) { interrupted = std::current_exception(); rts.cancelled = true; }
+      // A fork on the waiting caller can return from a host callback too.
+      // Its unique_lock is still unlocked; never reacquire the old worker.
+      fork_check();
       lock.lock();
     }
     heap_handoff(caller);
