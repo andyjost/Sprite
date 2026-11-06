@@ -108,7 +108,7 @@ The backends are optional.  What you install selects them:
 - A C++ compiler on the machine (g++, clang++ from Xcode or clang-cl of
   Visual Studio on Windows) adds the C++ compiler backend and compilation
   ahead of time.  A source build records its compiler at ``tools/cxx``; a
-  wheel uses ``CXX`` or ``g++`` from PATH, on Windows clang-cl or cl.
+  wheel uses ``CXX`` or ``g++`` from PATH, on Windows clang-cl.
 - Neither is needed to run Curry code: :doc:`Installation/WithoutCompiler`
   describes an installation with the interpreter alone.
 
@@ -128,7 +128,7 @@ Windows x64         yes          yes          yes [2]_    yes [2]_
    environment of ``vcvars64.bat`` for clang-cl; no developer prompt is
    needed. ``sprite-make --so`` writes a DLL; the library
    ships compiled, and ``interpret`` defaults to ``new`` on every platform.
-   Microsoft cl remains experimental.
+   Microsoft cl is not supported; clang-cl is the Windows compiler.
 
 Watching the choice
 ===================

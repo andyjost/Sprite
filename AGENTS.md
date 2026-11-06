@@ -192,7 +192,7 @@ reproducers pass.
   and wrapper rules are in `tests/data/curry/benchmarks/README.md`.
   On Windows, clang-cl of Visual Studio builds the runtime and the
   bindings (the workflow `windows.yml`, on windows-2025, in the developer
-  environment of vcvars64; cl is experimental); the services of the
+  environment of vcvars64; Microsoft cl is not supported); the services of the
   operating system are behind `curryrt/platform.hpp`, the data symbols
   that other objects read carry `CURRYRT_DATA` (`curryrt/export.hpp`),
   and generated code compiles to DLLs with clang-cl. Sprite finds Visual Studio
