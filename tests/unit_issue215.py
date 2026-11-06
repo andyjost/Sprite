@@ -9,6 +9,50 @@ from unit_cpm_primitives import NAMED_GLOBALS
 class TestIssue215(cytest.TestCase):
   @cytest.with_flags(interpret='all', jit='off', rotation='steps:65536',
                     checker=True)
+  def test_named_global_resumes_ground_pair_x_first(self):
+    self.check_resumed_ground_pair(first=0)
+
+  @cytest.with_flags(interpret='all', jit='off', rotation='steps:65536',
+                    checker=True)
+  def test_named_global_resumes_ground_pair_y_first(self):
+    self.check_resumed_ground_pair(first=1)
+
+  def check_resumed_ground_pair(self, first):
+    from curry import inspect
+    from curry.backends.cxx import curryrtbindings as native
+    module = curry.compile(NAMED_GLOBALS + '''
+goal :: Int -> Int -> GlobalT (Int,Int)
+goal x y = globalT "CPM.pair" (x,y)
+readOld :: IO (Int,Int)
+readOld = readGlobalT (GlobalT "CPM.pair")
+''')
+    variables = [curry.term(curry.free(name, type='Int'))._node
+                 for name in ('x', 'y')]
+    rts = native.RuntimeState(cytest.raw.interp(),
+                             cytest.raw.expr(module.goal, *variables))
+    try:
+      def assert_waiting():
+        with self.assertRaises(curry.SuspensionError):
+          next(rts.generate_values())
+        self.assertEqual(rts.queue_size, 1)
+        with self.assertRaisesRegex(curry.EvaluationError, 'not initialized'):
+          curry.eval(module.readOld).one()
+      assert_waiting()
+      vids = [inspect.fwd_chain_target(var).successors[0] for var in variables]
+      bindings = (17, 23)
+      native.checker_debug_bind(rts, vids[first], cytest.raw.expr(bindings[first]))
+      assert_waiting()
+      last = 1 - first
+      native.checker_debug_bind(rts, vids[last], cytest.raw.expr(bindings[last]))
+      handles = list(rts.generate_values())
+      self.assertEqual([str(handle) for handle in handles], ['GlobalT "CPM.pair"'])
+      self.assertEqual(curry.eval(module.readOld).one(), bindings)
+      self.assertEqual(rts.queue_size, 0)
+    finally:
+      rts.close()
+
+  @cytest.with_flags(interpret='all', jit='off', rotation='steps:65536',
+                    checker=True)
   def test_named_global_suspension_keeps_alternative_and_resumes(self):
     from curry.backends.cxx import curryrtbindings as native
     module = curry.compile(NAMED_GLOBALS + '''
