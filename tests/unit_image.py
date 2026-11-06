@@ -13,6 +13,93 @@ import struct
 import tempfile
 
 
+def image_input_race(source, phase, changes):
+  '''Child entry point: replace a complete input at each race boundary.'''
+  from curry import exceptions
+  from curry.toolchain import _curry2icurry, _frontend, _loadcurry
+  curry.reset(backend='cxx', interpret='all', jit='off')
+  icyfile = toolchain.icurryfilename(source)
+  attempts = 0
+
+  def replace_input():
+    nonlocal attempts
+    attempts += 1
+    if changes is None or attempts <= changes:
+      with open(icyfile, 'rb') as stream:
+        data = stream.read()
+      image.cache.write_file(icyfile, data + b'\n')
+      _curry2icurry.write_source_receipt(icyfile,
+          _curry2icurry.source_digest(source))
+      return True
+    return False
+
+  load, optimize, attach = _loadcurry.loadicurry, image.optimize, image.attach
+  def after_parse(path):
+    raw = load(path)
+    if path == icyfile:
+      replace_input()
+    return raw
+  def after_optimize(interp, raw, *args, **kwargs):
+    result = optimize(interp, raw, *args, **kwargs)
+    if raw.fullname == 'ImageRetryRace':
+      replace_input()
+    return result
+  def before_attach(interp, input_source, path, header):
+    if header['name'] == 'ImageRetryRace' and replace_input():
+      image.ensure(interp, icyfile, importing=True)
+    return attach(interp, input_source, path, header)
+  convert = _frontend.curry2icurry
+  def after_convert(file_in, *args, **kwargs):
+    nonlocal attempts
+    result = convert(file_in, *args, **kwargs)
+    if file_in == source:
+      attempts += 1
+      if changes is None or attempts <= changes:
+        with open(source, 'a') as stream:
+          stream.write('\n-- source replaced during conversion\n')
+    return result
+  rebuild = _curry2icurry.curry2icurry
+  def after_rebuild(file_in, *args, **kwargs):
+    nonlocal attempts
+    result = rebuild(file_in, *args, **kwargs)
+    attempts += 1
+    if changes is None or attempts <= changes:
+      with open(source, 'a') as stream:
+        stream.write('\n-- source replaced after rebuilding ICurry\n')
+    return result
+
+  target, name, hook = {
+      'parse': (_loadcurry, 'loadicurry', after_parse),
+      'write': (image, 'optimize', after_optimize),
+      'attach': (image, 'attach', before_attach),
+      'convert': (_frontend, 'curry2icurry', after_convert),
+      'rebuild': (_curry2icurry, 'curry2icurry', after_rebuild)}[phase]
+  with mock.patch.object(target, name, side_effect=hook):
+    try:
+      if phase == 'convert':
+        _curry2icurry.Curry2ICurryConverter(use_cache=False).convert(source, curry.path)
+      if phase == 'rebuild':
+        with open(source, 'a') as stream:
+          stream.write('\n-- force an ICurry rebuild\n')
+        raw = image.load(curry._interpreter_, icyfile)
+        module = curry._interpreter_.import_(raw)
+      else:
+        module = curry.import_(source)
+    except exceptions.CompileError as exc:
+      assert changes is None, str(exc)
+      assert 'ImageRetryRace' in str(exc), str(exc)
+      assert 'input kept changing' in str(exc), str(exc)
+      limit = (_curry2icurry._MAX_CONVERSION_ATTEMPTS if phase == 'convert'
+          else image._MAX_IMAGE_ATTEMPTS)
+      assert attempts == limit, attempts
+      print('%s: CompileError after %d attempts: %s' % (phase, attempts, exc))
+    else:
+      assert changes is not None, 'changing input was accepted'
+      assert attempts == changes + 1, attempts
+      assert curry.eval(module.answer).one() == 42
+      print('%s: recovered after %d attempts' % (phase, attempts))
+
+
 class TestImage(cytest.TestCase):
   def setUp(self):
     curry.reset(backend='cxx', interpret='all', jit='off')
@@ -62,6 +149,29 @@ class TestImage(cytest.TestCase):
 
   def test_icurry_replaced_after_parse(self):
     self.check_icurry_replaced_after_parse()
+
+  def test_continuously_replaced_input_is_bounded(self):
+    for phase in ('parse', 'write', 'attach', 'convert', 'rebuild'):
+      with self.subTest(phase=phase):
+        self.check_input_race(phase, changes=None)
+
+  def test_replaced_input_recovers(self):
+    for phase in ('parse', 'write', 'attach', 'convert', 'rebuild'):
+      for changes in ((1,) if phase == 'rebuild' else (1, 2)):
+        with self.subTest(phase=phase, changes=changes):
+          self.check_input_race(phase, changes=changes)
+
+  def check_input_race(self, phase, changes):
+    with tempfile.TemporaryDirectory() as directory:
+      source = os.path.join(directory, 'ImageRetryRace.curry')
+      with open(source, 'w') as stream:
+        stream.write('module ImageRetryRace where\nanswer :: Int\nanswer = 42\n')
+      toolchain.curry2icurry(source, curry.path)
+      code = 'from unit_image import image_input_race; image_input_race(%r, %r, %r)' % (
+          source, phase, changes)
+      result = subprocess.run([sys.executable, '-B', '-c', code],
+          capture_output=True, text=True, timeout=5)
+      self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
   def test_incomplete_icurry_replacement_after_parse(self):
     self.check_icurry_replaced_after_parse(incomplete=True)

@@ -5,6 +5,8 @@ Release Notes
 Unreleased
 ==========
 
+- Cap image translation, attachment and ICurry conversion retries so an input
+  that keeps changing reports a compilation error instead of retrying forever (#226).
 - Preserve module path order, saved dependency provenance and ICurry import
   validation; rebuild stale installed and read-only user products privately,
   retain local CPM sources without packages, and validate private rebuild

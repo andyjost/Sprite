@@ -18,6 +18,7 @@ __all__ = [
   , 'reset_counts', 'rewrite_on_hit', 'translated_before_rewrite'
   ]
 logger = logging.getLogger(__name__)
+_MAX_CONVERSION_ATTEMPTS = 3
 
 class _InputsChanged(Exception):
   pass
@@ -520,10 +521,13 @@ class Curry2ICurryConverter(object):
         _destination.interfaces(file_in, currypath))
     from . import _productlock
     with _productlock.locked(file_in):
-      while True:
+      for attempt in range(_MAX_CONVERSION_ATTEMPTS):
         try:
           return self._convert(file_in, currypath)
-        except _InputsChanged:
+        except _InputsChanged as exc:
+          if attempt + 1 == _MAX_CONVERSION_ATTEMPTS:
+            raise CompileError('cannot translate module %r: its input kept changing'
+                % _filenames.module_name(file_in)) from exc
           _productlock.log(logger, logging.INFO,
               'inputs changed during ICurry conversion; retrying')
 
