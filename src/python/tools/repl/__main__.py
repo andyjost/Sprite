@@ -34,6 +34,8 @@ def main(args):
       break
   if requested:
     import curry
+    # Compiler metadata belongs to the installation, even inside a CPM project.
+    curry.path = [curry.config.system_curry_path()]
     distribution = curry.import_('Curry.Compiler.Distribution')
     version = '.'.join(str(curry.eval(distribution[name]).one()) for name in
         ('curryCompilerMajorVersion', 'curryCompilerMinorVersion',
