@@ -4,6 +4,7 @@
 Never install this script or use its output as a user's package index.
 """
 import argparse
+import hashlib
 from contextlib import closing, nullcontext
 import json
 import os
@@ -15,13 +16,38 @@ import sys
 import tempfile
 
 
-def overlay(source, destination):
+def manifest_digest(root):
+  """SHA256 of sorted relative manifest names, NUL, bytes, NUL."""
+  root = Path(root)
+  digest = hashlib.sha256()
+  for path in sorted(root.rglob('package.json')):
+    digest.update(path.relative_to(root).as_posix().encode('utf8') + b'\0')
+    digest.update(path.read_bytes() + b'\0')
+  return digest.hexdigest()
+
+
+def overlay(source, destination, snapshot=None):
   source, destination = Path(source).resolve(), Path(destination).resolve()
   if source == destination or source in destination.parents:
     raise ValueError('the overlay must be separate from the original index')
-  validate_cache(source)
+  if snapshot is None:
+    validate_cache(source)
   shutil.copytree(source, destination, dirs_exist_ok=True,
                   ignore=shutil.ignore_patterns('REPOSITORY_CACHE*'))
+  if snapshot is not None:
+    versions = snapshot['versions']
+    if not versions:
+      raise ValueError('empty index snapshot')
+    for path in list(destination.rglob('package.json')):
+      data = read_package(path, warn=False)
+      if data['version'] not in versions.get(data['name'], []):
+        if path.parent.name != data['version'] or path.parent.parent.name != data['name']:
+          raise ValueError('unsupported index layout')
+        shutil.rmtree(path.parent)
+    # The live repository cache is ignored. Only these verified manifests
+    # enter the private database, including the versions of dependencies.
+    if manifest_digest(destination) != snapshot['sha256']:
+      raise ValueError('index snapshot manifest digest differs')
   count = patch(destination)
   create_cache(destination, replace=True)
   for path in destination.glob('REPOSITORY_CACHE*'):
@@ -250,6 +276,9 @@ if __name__ == '__main__':
   parser.add_argument('destination', type=Path)
   parser.add_argument('--packages', nargs='*', type=Path, default=[],
                       help='downloaded package copies inside the scratch HOME')
+  parser.add_argument('--snapshot', type=Path,
+                      help='expected-results file whose index snapshot limits dependencies')
   args = parser.parse_args()
-  print('Updated %d package specifications' % overlay(args.source, args.destination))
+  snapshot = json.loads(args.snapshot.read_text())['index'] if args.snapshot else None
+  print('Updated %d package specifications' % overlay(args.source, args.destination, snapshot))
   patch_downloads(args.packages)

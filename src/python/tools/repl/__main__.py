@@ -7,7 +7,7 @@ HELP = """usage: sprite [OPTION ...] [COMMAND ...] [-- ARG ...]
 
 python -m curry or sprite-exec without a program starts this REPL too.
 Evaluate Curry expressions and print curry.show(answer) per answer.
-Commands: :load FILE, :reload, :eval EXPR, :type EXPR,
+Commands: :load FILE, :add MODULE, :reload, :eval EXPR, :type EXPR,
           :set FLAG VALUE, :set [+|-]FLAG, :save [EXPR], :quit.
 :set accepts the session flags of curry.reset; :set alone lists them.
 PAKCS options: --nocypm, --noreadline, -q; :set v0 through v4,
