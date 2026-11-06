@@ -19,9 +19,12 @@ MAGIC = b'SPRTIMG\0'
 # Version 15 records effective library wrapper authorization in freshness facts.
 VERSION = 15
 PREFIX = struct.Struct('<8sII')
+_MAX_IMAGE_ATTEMPTS = 3
 
 class _InputChanged(Exception):
-  pass
+  def __init__(self, message, icyfile=None):
+    super().__init__(message)
+    self.icyfile = icyfile
 
 
 def digest(filename):
@@ -153,7 +156,7 @@ def _check(interp, source, path, imports=None, registry=None):
 def _import_images(interp, names, currypath):
   result = {}
   for name in names:
-    module = interp.import_(name, currypath=currypath)
+    module = interp._import_(name, currypath=currypath)
     h = getHandle(module)
     generation = getattr(h.icurry, '_loaded_generation', None)
     if generation is not None:
@@ -222,7 +225,7 @@ def _summaries(interp, module, currypath=None):
     if prefix not in interp.modules:
       package = icurry.IPackage(prefix)
       package.filename = os.path.dirname(module.filename or '')
-      interp.import_(package)
+      interp._import_(package)
   return summaries
 
 
@@ -241,7 +244,7 @@ def optimize(interp, module, currypath=None, summaries=None):
       package_ir = getattr(package, '.icurry', package)
       if isinstance(package_ir, icurry.IPackage):
         stack.enter_context(binding(package_ir, local, summary))
-    interp.optimize(module)
+    interp._optimize(module)
 
 
 class Encoder:
@@ -327,7 +330,7 @@ class Resolver:
       for datatype in h.icurry.types.values():
         for ctor in datatype.constructors:
           fullname = h.fullname + '.' + ctor.name
-          self.tags[fullname] = interp.symbol(fullname).info.tag
+          self.tags[fullname] = interp._symbol(fullname).info.tag
     self.refresh()
 
   def refresh(self):
@@ -458,12 +461,16 @@ def _publication_path(interp, source, path, imports, importing=False):
 def ensure(interp, icyfile, currypath=None, importing=False):
   from ...toolchain import _findcurry
   with _findcurry.loader_inputs(), _findcurry.resolving(interp):
-    while True:
+    for _ in range(_MAX_IMAGE_ATTEMPTS):
       try:
         result = _ensure(interp, icyfile, currypath, importing)
         break
-      except _InputChanged:
-        pass
+      except _InputChanged as exc:
+        if exc.icyfile is not None:
+          icyfile = exc.icyfile
+    else:
+      raise exceptions.CompileError('cannot translate module %r: its input kept changing'
+          % _filenames.module_name(icyfile))
     generation = _findcurry.generation_for_source(icyfile, interp)
     if generation is not None and generation.image is None:
       generation.image = result[0]
@@ -486,7 +493,7 @@ def _ensure(interp, icyfile, currypath=None, importing=False):
   if generation is None:
     # Explicit ICurry inputs enter at this writer too. Resolve imports before
     # testing the translation receipt, just as the normal build plan does.
-    interp.import_(_interfaces.imports(icyfile), currypath=currypath)
+    interp._import_(_interfaces.imports(icyfile), currypath=currypath)
     search = _findcurry.import_path(interp, currypath)
     search = interp.path if search is None else search
     if _curry2icurry.icurry_is_stale(icyfile, search):
@@ -494,7 +501,7 @@ def _ensure(interp, icyfile, currypath=None, importing=False):
         raise ValueError('stale ICurry imports without source for rebuilding')
       with _destination.publication(importing):
         selected = _curry2icurry.curry2icurry(source, search)
-      return ensure(interp, selected, currypath, importing=importing)
+      raise _InputChanged('ICurry rebuilt before image translation', selected)
   path = _path(interp, source)
   if not importing:
     from . import tiered
@@ -513,7 +520,7 @@ def _ensure(interp, icyfile, currypath=None, importing=False):
     log('module image %s: %s: %s; translating again', path, type(exc).__name__, exc)
   from ... import toolchain
   raw = _loadcurry.loadicurry(icyfile)
-  interp.import_(raw.imports, currypath=currypath)
+  interp._import_(raw.imports, currypath=currypath)
   imports = _import_images(interp, raw.imports, currypath)
   toolchain.mergebuiltins(raw, interp.backend)
   toolchain.validatemodule(raw)
@@ -559,13 +566,15 @@ def load(interp, icyfile, currypath=None):
   generation = _findcurry.generation_for_source(icyfile, interp)
   if generation is not None:
     return getHandle(interp.modules[generation.name]).icurry
-  while True:
+  for _ in range(_MAX_IMAGE_ATTEMPTS):
     path, header = ensure(interp, icyfile, currypath, importing=True)
     try:
       return attach(interp, _filenames.sourcefilename(icyfile), path, header)
     except ValueError as exc:
       if 'image changed before attachment' not in str(exc):
         raise
+  raise exceptions.CompileError('cannot load module %r: its input kept changing'
+      % _filenames.module_name(icyfile))
 
 
 def current(interp, source, currypath=None):

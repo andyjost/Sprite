@@ -68,6 +68,7 @@ was interrupted; the test runner calls it on its own cache after the
 prepare pass (tests/README, section 10).  The directory may be deleted at
 any time.
 '''
+from ..utility.locking import Lock as _SpriteLock
 
 from .. import cache, config
 from . import _productlock
@@ -105,7 +106,7 @@ LINK_SUFFIXES = (config.module_object_suffix(),)
 # The counts of this process: the products restored from the cache and the
 # products stored in it.  sprite-make reports them.
 counts = {'restored': 0, 'stored': 0}
-_counts_lock = threading.Lock()
+_counts_lock = _SpriteLock()
 
 def reset_counts():
   with _counts_lock:

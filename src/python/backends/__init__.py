@@ -5,6 +5,7 @@ API and backends.
 This contains definitions common to all backends and the interfaces each should
 implement.
 '''
+from ..utility.locking import Lock as _SpriteLock
 
 from .. import config
 import abc, importlib, threading
@@ -20,7 +21,7 @@ class IBackend(metaclass=abc.ABCMeta):
   is shared among all interpreters using the same backend.
   '''
   _instances = {}
-  _instances_lock = threading.Lock()
+  _instances_lock = _SpriteLock()
 
   def __new__(cls, backend=None):
     if backend not in cls._instances:

@@ -642,7 +642,7 @@ class CxxCompiler(compiler.CompilerBase):
     yield 'switch(tag)'
     switchbody = []
     for branch in icase.branches:
-      value = self.interp.symbol(branch.symbolname).info.tag
+      value = self.interp._symbol(branch.symbolname).info.tag
       switchbody.append(('case %s:' % value, branch.symbolname))
       switchbody.append(list(self.compileS(branch.block)))
     switchbody.append('default: return tag;')

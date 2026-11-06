@@ -277,7 +277,7 @@ class CompilerBase(abc.ABC):
 
   @importSymbol.when(str)
   def importSymbol(self, symbolname):
-    cy_symbol = self.interp.symbol(symbolname)
+    cy_symbol = self.interp._symbol(symbolname)
     return self.importSymbol(cy_symbol.icurry)
 
   @importSymbol.when(icurry.ISymbol)
@@ -301,7 +301,7 @@ class CompilerBase(abc.ABC):
 
   @importDataType.when(str)
   def importDataType(self, symbolname):
-    cy_datatype = self.interp.type(symbolname)
+    cy_datatype = self.interp._type(symbolname)
     return self.importDataType(cy_datatype.icurry)
 
   @importDataType.when(icurry.ISymbol)
@@ -615,7 +615,7 @@ class CompilerBase(abc.ABC):
   @compileS.when(icurry.ICaseCons)
   def compileS(self, icase):
     assert icase.branches
-    cy_ctorobj = self.interp.symbol(icase.branches[0].symbolname)
+    cy_ctorobj = self.interp._symbol(icase.branches[0].symbolname)
     h_datatype = self.importDataType(cy_ctorobj.typename)
     varident = self.compileE(icase.var)
     return self.vEmit_compileS_ICaseCons(icase, h_datatype, varident)
