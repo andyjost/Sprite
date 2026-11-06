@@ -1,12 +1,16 @@
 '''The lazy results of an evaluation and its variable bindings.'''
+from ..utility.locking import Lock as _SpriteLock
 
 from collections.abc import Iterator, Mapping
 from typing import NamedTuple
 import functools, threading
+from ..utility.locking import entry
+from ..utility import locking
 
 def _consuming(function):
   @functools.wraps(function)
   def call(self, *args, **kwds):
+    locking.check_entry()
     with self._lock:
       if self._busy:
         raise ValueError('generator already executing')
@@ -23,7 +27,7 @@ from ..exceptions import NoValueError, ManyValuesError, SuspensionError
 class Results(Iterator):
   '''A lazy search. Closing it releases the evaluation.'''
   def __init__(self, values, text):
-    self._lock = threading.Lock()
+    self._lock = _SpriteLock()
     self._busy = False
     self._values = values
     self._text = text
@@ -82,7 +86,7 @@ class Results(Iterator):
 class Stream(Iterator):
   '''The ordered values yielded by an I/O action; result is set at its end.'''
   def __init__(self, values):
-    self._lock = threading.Lock()
+    self._lock = _SpriteLock()
     self._busy = False
     self._values = values
     self.result = None
@@ -147,6 +151,7 @@ class Bindings(Mapping):
   def __len__(self):
     return len(self._items)
 
+  @entry
   def __hash__(self):
     return hash(frozenset((name, _key(value)) for name, value in self.items()))
 
@@ -163,6 +168,7 @@ class Bindings(Mapping):
     return '{%s}' % ', '.join('%s=%s' % (name, show(value, context=context))
         for name, value in self.items())
 
+  @entry
   def __str__(self):
     return self._show(self._context())
 
@@ -173,6 +179,7 @@ class Answer(NamedTuple):
   value: object
   bindings: Bindings
 
+  @entry
   def __str__(self):
     from .termshow import show
     context = self.bindings._context(self.value)

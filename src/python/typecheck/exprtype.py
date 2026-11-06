@@ -15,9 +15,10 @@ with the indices of their first occurrence, and the names of the variables.
 :func:`parse_term` returns the term of the engine, with one rigid variable
 per name.
 '''
+from ..utility.locking import Lock as _SpriteLock
 
 import threading
-_synonym_lock = threading.Lock()
+_synonym_lock = _SpriteLock()
 
 
 from .. import exceptions

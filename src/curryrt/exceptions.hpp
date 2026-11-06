@@ -18,6 +18,11 @@
 
 namespace curryrt
 {
+  struct CURRYRT_EXCEPTION ReentrancyError : std::runtime_error
+  {
+    using std::runtime_error::runtime_error;
+  };
+
   struct CURRYRT_EXCEPTION TypeError : std::invalid_argument
   {
     using std::invalid_argument::invalid_argument;

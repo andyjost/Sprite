@@ -70,14 +70,13 @@ class TestTerms(cytest.TestCase):
 
   def test_constructor_classes_at_internal_node_boundary(self):
     P = curry.import_('Prelude')
-    from curry.objects.terms import raw_symbols
+    from curry.objects import _raw_symbol
     interp = cytest.raw.interp()
     for description in ((P.Just, 1), ([P.Just, 1],)):
       for typed in (False, True):
         node = cytest.raw.expr(*description, typed=typed)
         self.assertEqual(curry.eval(node).one().args, (1,))
-    with raw_symbols():
-      node = interp.backend.make_node(P.Just, cytest.raw.expr(1))
+    node = interp.backend.make_node(_raw_symbol(P, 'Just'), cytest.raw.expr(1))
     self.assertEqual(curry.eval(node).one().args, (1,))
     self.assertTrue(inspect.isa(node, P.Just))
     self.assertTrue(inspect.isa(node, (P.Just,)))

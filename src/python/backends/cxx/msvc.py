@@ -1,4 +1,5 @@
 """Discover the x64 Visual Studio compiler environment, once per process."""
+from ...utility.locking import Lock as _SpriteLock
 import logging
 import os
 import shutil
@@ -6,8 +7,9 @@ import subprocess
 import sys
 import threading
 
+from ...utility.locking import log as _deferred_log
 logger = logging.getLogger(__name__)
-_lock = threading.Lock()
+_lock = _SpriteLock()
 _result = None
 _lookup_result = None
 
@@ -57,7 +59,7 @@ def _lookup_cached():
     try:
       _lookup_result = _lookup()
     except (OSError, subprocess.SubprocessError, ValueError) as exc:
-      logger.info('Visual Studio discovery unavailable: %s', exc)
+      _deferred_log(logger, logging.INFO, 'Visual Studio discovery unavailable: %s', exc)
       _lookup_result = (None, None)
   return _lookup_result
 
@@ -72,7 +74,7 @@ def compiler():
 
 def _discover():
   if _initialized_prompt():
-    logger.info('Visual Studio%s: environment from developer prompt',
+    _deferred_log(logger, logging.INFO, 'Visual Studio%s: environment from developer prompt',
                 ' ' + os.environ['VSINSTALLDIR'] if os.environ.get('VSINSTALLDIR') else '')
     return shutil.which('clang-cl'), {}
   clang, root = _lookup_cached()
@@ -95,7 +97,7 @@ def _discover():
   # Make the selected compiler visible to children that reuse this prompt.
   if not shutil.which('clang-cl', path=env.get('PATH', '')):
     env['PATH'] = os.path.dirname(clang) + os.pathsep + env.get('PATH', '')
-  logger.info('Visual Studio %s: environment from vcvars64.bat', root)
+  _deferred_log(logger, logging.INFO, 'Visual Studio %s: environment from vcvars64.bat', root)
   return clang, {k: v for k, v in env.items() if os.environ.get(k) != v}
 
 
@@ -109,7 +111,7 @@ def discover():
       try:
         _result = _discover()
       except (OSError, subprocess.SubprocessError, ValueError) as exc:
-        logger.info('Visual Studio discovery unavailable: %s', exc)
+        _deferred_log(logger, logging.INFO, 'Visual Studio discovery unavailable: %s', exc)
         _result = (None, {})
     return _result
 

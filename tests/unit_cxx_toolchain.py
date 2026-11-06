@@ -1978,7 +1978,7 @@ class TestFlavor(ToolchainTestCase):
     # A step of the debug flavor on the interpreter of the session: the
     # staleness check imports the imports of a module (import_lacks_an_object).
     debug = toolchain.Cpp2So(types.SimpleNamespace(
-        flags={'debug': True}, import_=cytest.raw.interp().import_
+        flags={'debug': True}, _import_=cytest.raw.interp()._import_
       , path=cytest.raw.interp().path
       ))
     self.assertEqual(release.flavor, 'release')

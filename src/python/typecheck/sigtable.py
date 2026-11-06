@@ -26,6 +26,7 @@ One :class:`SignatureTable` belongs to one interpreter, as
 scheme is an error only when the caller asks for one with ``required=True``;
 an untyped use of a symbol never reads the table.
 '''
+from ..utility.locking import Lock as _SpriteLock, RLock as _SpriteRLock
 
 from .. import config, exceptions
 from ..common import T_CTOR
@@ -36,6 +37,7 @@ from ..utility.trampoline import trampoline
 import logging, os, re, weakref, threading
 from ..utility.locking import synchronized
 
+from ..utility.locking import log as _deferred_log
 logger = logging.getLogger(__name__)
 
 __all__ = [
@@ -247,7 +249,7 @@ def scheme_of_function(func):
   if nleading is None:
     nleading = len(context)
   if nleading > func.arity:
-    logger.warning(
+    _deferred_log(logger, logging.WARNING,
         '%s.%s has %d dictionary parameters but arity %d'
       , modulename, name, nleading, func.arity
       )
@@ -464,7 +466,7 @@ class Interface:
   # The interfaces read in this process, by file.  The key holds the size
   # and the modification time, so a rewritten file is read again.
   _loaded = {}
-  _cache_lock = threading.RLock()
+  _cache_lock = _SpriteRLock()
 
   def __init__(self, path, data=None):
     if data is None:
@@ -484,7 +486,7 @@ class Interface:
     self._types = {}
     self._ctors = {}
     self._decoded = {}
-    self._decode_lock = threading.RLock()
+    self._decode_lock = _SpriteRLock()
     self._index()
 
   @classmethod
@@ -788,7 +790,7 @@ class SignatureTable:
     self._instances = {}
     self._unsupported_classes = {}
     self._pending_removals = []
-    self._lock = threading.Lock()
+    self._lock = _SpriteLock()
 
   def _purge(self):
     while self._pending_removals:
@@ -828,7 +830,7 @@ class SignatureTable:
     loaded module or of a module of the system library, which is imported.
     '''
     if isinstance(module, str):
-      return self.interp.module(module)
+      return self.interp._module(module)
     return module
 
   def _entry(self, module):
@@ -861,20 +863,20 @@ class SignatureTable:
       return Interface.load(embedded)
     filename = handle.icurry.filename
     if filename is None and generation is None:
-      logger.debug('module %s has no source file', module.__name__)
+      _deferred_log(logger, logging.DEBUG, 'module %s has no source file', module.__name__)
       return None
     if generation is None:
       path = find_interface(filename, handle.fullname)
     else:
       path = handle.fullname + '.fint' if '.fint' in generation.texts else None
     if path is None:
-      logger.debug(
+      _deferred_log(logger, logging.DEBUG,
           'no FlatCurry interface for module %s; tried %s'
         , module.__name__, ', '.join(interface_candidates(filename, handle.fullname) if filename else ())
         )
       return None
     iface = Interface.load(path, generation.texts['.fint'] if generation is not None else None)
-    logger.debug('module %s has its interface at %s', module.__name__, path)
+    _deferred_log(logger, logging.DEBUG, 'module %s has its interface at %s', module.__name__, path)
     if handle.fullname == PRELUDE:
       self.check_frontend(iface)
     return iface
@@ -923,7 +925,7 @@ class SignatureTable:
           ``required`` is set and the symbol has no scheme.
     '''
     if isinstance(symbol, str):
-      symbol = self.interp.symbol(symbol)
+      symbol = self.interp._symbol(symbol)
     icur = getattr(symbol, 'icurry', None)
     if icur is None:
       return self._missing(symbol, required, 'the symbol has no ICurry')

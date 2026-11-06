@@ -54,6 +54,12 @@ namespace curryrt
   void set_host_wait(host_wait_type);
   void host_poll();
 
+  // Python lock holders and native handoffs share one entry check. Heap
+  // ownership alone is deliberately absent: primitive callbacks may reenter.
+  using host_lock_held_type = bool (*)();
+  void set_host_lock_held(host_lock_held_type);
+  void check_reentrancy();
+
   struct RuntimeState;
   struct Expr;
   bool on_evaluation_worker();

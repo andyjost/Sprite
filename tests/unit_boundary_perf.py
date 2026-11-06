@@ -123,9 +123,8 @@ class TestBoundaryReuse(cytest.TestCase):
 
   def test_nested_raw_goal_keeps_its_original_error_text(self):
     interp = cytest.raw.interp()
-    with curry.objects.terms.raw_symbols():
-      node = interp.expr(interp.symbol('Prelude.+'), 1, 2)
-      description = [interp.symbol('Prelude.id'), node]
+    node = interp.expr(interp.symbol('Prelude.+'), 1, 2)
+    description = [interp.symbol('Prelude.id'), node]
     expected = 'No value found: %s' % description
     results = interp.eval(description)
     self.assertEqual(next(results), 3)
@@ -190,3 +189,35 @@ class TestBoundaryReuse(cytest.TestCase):
     self.assertEqual(list(curry.eval(goal)), [1, 2])
     self.assertEqual(list(curry.eval(goal)), [1, 2])
     self.assertEqual(list(curry.eval(curry.term(goal, type='Float'))), [1.0, 2.0])
+
+
+def measure_boundary():
+  '''Informational timings; run this file directly with --measure.'''
+  import itertools
+  import statistics
+  import threading
+  import timeit
+  from curry.objects.results import Results
+  from curry.utility import locking
+  curry.reset(backend='cxx', interpret='all', jit='off')
+  curry.term(7)
+  results = Results(itertools.repeat(7), 'boundary measurement')
+  sprite, ordinary = locking.Lock(), threading.Lock()
+  cases = (
+      ('term(7)', 'curry.term(7)', 10000)
+    , ('Results next', 'next(results)', 100000)
+    , ('Sprite lock', 'with sprite: pass', 200000)
+    , ('ordinary lock', 'with ordinary: pass', 200000)
+    )
+  scope = dict(curry=curry, results=results, sprite=sprite, ordinary=ordinary)
+  for name, statement, number in cases:
+    samples = timeit.repeat(statement, globals=scope, number=number, repeat=7)
+    print('%s: %.3f us/op (median of 7 x %d)' % (
+        name, statistics.median(samples) * 1e6 / number, number))
+  results.close()
+
+
+if __name__ == '__main__':
+  import sys
+  if sys.argv[1:] == ['--measure']:
+    measure_boundary()

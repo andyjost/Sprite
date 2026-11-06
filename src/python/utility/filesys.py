@@ -1,3 +1,4 @@
+from .locking import log as _deferred_log
 from .. import config
 import contextlib, logging, os, shutil, sys, tempfile
 from tempfile import TemporaryDirectory
@@ -122,7 +123,7 @@ def remove_file_on_error(filename):
       try:
         os.unlink(filename)
       except BaseException as err:
-        logger.warning(
+        _deferred_log(logger, logging.WARNING,
             'an error occurred while writing the output file %r; while removing '
             'that file, the following additional error was ignored: %s'
                 % (filename, str(err))

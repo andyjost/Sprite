@@ -27,6 +27,7 @@ Environment Variables:
       the pattern is compared with the name of the Curry source file.
 
 '''
+from .utility.locking import RLock as _SpriteRLock
 
 from . import config
 from .utility import filesys, strings
@@ -34,6 +35,7 @@ import glob, hashlib, logging, os, re, tempfile, time, uuid
 import threading
 from .utility.locking import synchronized
 
+from .utility.locking import log as _deferred_log
 logger = logging.getLogger(__name__)
 
 __all__ = [
@@ -47,14 +49,14 @@ try:
   import sqlite3
 except ImportError:
   sqlite3 = None
-  logger.warning("Cannot import sqlite3.  Caching is disabled")
+  _deferred_log(logger, logging.WARNING, "Cannot import sqlite3.  Caching is disabled")
 
 # The state of this module for one process: the cache file name, the update
 # matcher, the database connection, and the digest of each route from Curry
 # to ICurry.
 # ``reset`` clears it, so a test can change the environment.
 _memo = {}
-_memo_lock = threading.RLock()
+_memo_lock = _SpriteRLock()
 _connections = threading.local()
 _generation = 0
 
@@ -79,7 +81,7 @@ def filename():
   if 'filename' not in _memo:
     name = os.environ.get('SPRITE_CACHE_FILE', None)
     if name == '':
-      logger.info(
+      _deferred_log(logger, logging.INFO,
           'Caching is disabled because SPRITE_CACHE_FILE is set to the '
           'empty string'
         )
@@ -89,12 +91,12 @@ def filename():
       if default:
         name = default.format(**os.environ)
       else:
-        logger.info(
+        _deferred_log(logger, logging.INFO,
             'Caching is disabled because no default cache file was specified'
           )
     if name is not None:
       name = os.path.abspath(name)
-      logger.info('Using cache file %s', name)
+      _deferred_log(logger, logging.INFO, 'Using cache file %s', name)
     _memo['filename'] = name
   return _memo['filename']
 
@@ -119,11 +121,11 @@ def must_force_update(filename):
     if pattern is None or pattern == '':
       matcher = lambda s: False
     elif pattern.startswith('/') and pattern.endswith('/'):
-      logger.info('Using regex %r to force-update cache files' % pattern)
+      _deferred_log(logger, logging.INFO, 'Using regex %r to force-update cache files' % pattern)
       regex = re.compile(pattern[1:-1])
       matcher = lambda s: bool(re.search(regex, s))
     else:
-      logger.info('Using glob %r to force-update cache files' % pattern)
+      _deferred_log(logger, logging.INFO, 'Using glob %r to force-update cache files' % pattern)
       matcher = lambda s: bool(glob.fnmatch.fnmatch(s, pattern))
     _memo['matcher'] = matcher
   return _memo['matcher'](filename)
@@ -144,7 +146,7 @@ def _getdb():
         os.makedirs(os.path.dirname(name), exist_ok=True)
         db = sqlite3.connect(name, timeout=30)
       except (OSError, sqlite3.Error) as err:
-        logger.warning('cannot open the cache file %s: %s', name, err)
+        _deferred_log(logger, logging.WARNING, 'cannot open the cache file %s: %s', name, err)
     # Slots in progress retain their connection; reset never closes one
     # that another thread/transaction could still be using.
     _connections.db = db
@@ -262,7 +264,7 @@ def frontend_digest(tool=None):
         _digest_file(hasher, os.path.join(PORT_DIR, name))
       digest = hasher.hexdigest()
     except OSError as err:
-      logger.debug('cannot read the Curry front end: %s', err)
+      _deferred_log(logger, logging.DEBUG, 'cannot read the Curry front end: %s', err)
       digest = ''
     _memo[memokey] = digest
   return _memo[memokey]
@@ -585,7 +587,7 @@ class Curry2ICurryCache(object):
           )
         self.db.commit()
         if must_force_update(file_in):
-          logger.info('file %s is being forced to update', file_in)
+          _deferred_log(logger, logging.INFO, 'file %s is being forced to update', file_in)
           return
         row = self.db.execute(
             'SELECT name, text, fint, icurry, imports, error FROM [%s] WHERE key=?'
@@ -593,14 +595,14 @@ class Curry2ICurryCache(object):
           , (self.key,)
           ).fetchone()
       except (OSError, sqlite3.Error) as err:
-        logger.warning('cannot read the cache: %s', err)
+        _deferred_log(logger, logging.WARNING, 'cannot read the cache: %s', err)
         return
       if row is None:
         with _memo_lock:
           Curry2ICurryCache.stats['miss'] += 1
         if logger.isEnabledFor(logging.INFO):
           from .toolchain._filenames import logging_module_name
-          logger.info('module %s: ICurry cache miss', logging_module_name(file_in))
+          _deferred_log(logger, logging.INFO, 'module %s: ICurry cache miss', logging_module_name(file_in))
         return
       name, text, fint, icurry, imports, error = row
       interfaces = dict(zip(INTERFACE_SUFFIXES, (fint, icurry)))
@@ -610,14 +612,14 @@ class Curry2ICurryCache(object):
         self.error = error
         with _memo_lock:
           Curry2ICurryCache.stats['hit'] += 1
-        logger.info(
+        _deferred_log(logger, logging.INFO,
             'module %s: ICurry cache hit (a program error)',
             self.modulename if self.anonymous else name
           )
         return
       if self.anonymous:
         if not config.is_anonymous_modname(name):
-          logger.warning(
+          _deferred_log(logger, logging.WARNING,
               'ignoring a cache entry of module %r found under the key of %r'
             , name, self.modulename
             )
@@ -630,7 +632,7 @@ class Curry2ICurryCache(object):
                   for suffix, value in interfaces.items()
             }
       elif name.rpartition('.')[2] != self.modulename:
-        logger.warning(
+        _deferred_log(logger, logging.WARNING,
             'ignoring a cache entry of module %r found under the key of %r'
           , name, self.modulename
           )
@@ -639,7 +641,7 @@ class Curry2ICurryCache(object):
       self.found = True
       with _memo_lock:
         Curry2ICurryCache.stats['hit'] += 1
-      logger.info('module %s: ICurry cache hit', name if not self.anonymous else self.modulename)
+      _deferred_log(logger, logging.INFO, 'module %s: ICurry cache hit', name if not self.anonymous else self.modulename)
 
     def __bool__(self):
       return self.found
@@ -675,7 +677,7 @@ class Curry2ICurryCache(object):
         text = stream.read()
       name = icurry_modulename(text)
       if name is None:
-        logger.warning('not caching %s: no module name found', self.file_out)
+        _deferred_log(logger, logging.WARNING, 'not caching %s: no module name found', self.file_out)
         return
       interfaces = {
           suffix: _read_interface(interface_filename(self.file_out, suffix))
@@ -715,7 +717,7 @@ class Curry2ICurryCache(object):
         return
       stderr = getattr(err, 'stderr', None)
       if not is_program_error(stderr):
-        logger.debug('not caching the failure of %s', self.file_in)
+        _deferred_log(logger, logging.DEBUG, 'not caching the failure of %s', self.file_in)
         return
       if not self._refresh_key():
         return
@@ -736,4 +738,4 @@ class Curry2ICurryCache(object):
           )
         self.db.commit()
       except sqlite3.Error as err:
-        logger.warning('cannot update the cache: %s', err)
+        _deferred_log(logger, logging.WARNING, 'cannot update the cache: %s', err)

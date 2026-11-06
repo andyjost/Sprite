@@ -83,7 +83,7 @@ def import_(interp, name, currypath=None, is_sourcefile=False):
 # Import a sequence or specifiers.
 @import_.when(collections.abc.Sequence, no=str)
 def import_(interp, seq, *args, **kwds):
-  return [interp.import_(item, *args, **kwds) for item in seq]
+  return [interp._import_(item, *args, **kwds) for item in seq]
 
 # Import an ICurry package.
 @import_.when(icurry.IPackage)
@@ -211,7 +211,7 @@ class ImportEx(object):
     existing = self.interp.modules.get(imodule.fullname)
     if existing is None or isinstance(existing, objects.CurryPackage):
       for modulename in imodule.imports:
-        self.interp.import_(modulename, currypath=self.import_path)
+        self.interp._import_(modulename, currypath=self.import_path)
     moduleobj = native_metadata(self._finish_module)(imodule, session)
     return self(tail, rv=moduleobj)
 
@@ -238,12 +238,11 @@ class ImportEx(object):
         load.loadSymbols(self.interp, imodule, moduleobj)
         from ...objects.classes import build_classes
         build_classes(self.interp, moduleobj)
-        from ...objects.terms import raw_symbols
-        with raw_symbols():
-          for name, target in imodule.aliases.items():
-            if hasattr(moduleobj, name):
-              raise ValueError("cannot alias previously defined name %r" % name)
-            setattr(moduleobj, name, getattr(moduleobj, target))
+        from ...objects import _raw_symbol
+        for name, target in imodule.aliases.items():
+          if name in vars(moduleobj) or name in getattr(moduleobj, '.symbols'):
+            raise ValueError("cannot alias previously defined name %r" % name)
+          setattr(moduleobj, name, _raw_symbol(moduleobj, target))
         imports = self.import_path
         if imports is None:
           imports = curryname.makeCurryPath(self.interp.path)
