@@ -1,9 +1,10 @@
 '''
 Implements a property tree.  Used for metadata.
 '''
+from ..utility.locking import Lock as _SpriteLock
 import collections.abc, threading
 from .locking import synchronized
-_types_lock = threading.Lock()
+_types_lock = _SpriteLock()
 
 __all__ = ['proptree']
 NODE_TYPES = {}

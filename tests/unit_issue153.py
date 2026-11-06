@@ -14,6 +14,140 @@ def run(n):
 '''
 
 class TestIssue153(cytest.TestCase):
+  def adapter_test(self, text):
+    compiler = curry.config.cxx_tool()
+    if compiler is None or os.name == 'nt':
+      self.skipTest('the adapter harness needs a POSIX C++ compiler')
+    with tempfile.TemporaryDirectory() as directory:
+      source = os.path.join(directory, 'adapter.cpp')
+      with open(source, 'w') as stream:
+        stream.write(text)
+      root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+      program = os.path.join(directory, 'adapter')
+      proc = subprocess.run([compiler, '-std=c++17', source, '-o', program,
+          '-I' + os.path.join(root, 'src'), '-pthread', '-ldl'],
+          capture_output=True, text=True, timeout=120)
+      self.assertEqual(proc.returncode, 0, proc.stderr)
+      proc = subprocess.run([program], capture_output=True, text=True, timeout=5)
+      self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+
+  @cytest.posix_only('injects an allocation failure after pthread_create')
+  def test_handle_allocation_cannot_orphan_started_thread(self):
+    self.adapter_test(r'''
+#include <pthread.h>
+#include <atomic>
+#include <cstdlib>
+#include <new>
+#include <iostream>
+#include <thread>
+static std::atomic<bool> fail_next{false}, finish{false}, entered{false};
+static pthread_t launched;
+void *operator new(std::size_t size)
+{
+  if(fail_next.exchange(false)) throw std::bad_alloc();
+  if(void *p = std::malloc(size)) return p;
+  throw std::bad_alloc();
+}
+void operator delete(void *p) noexcept { std::free(p); }
+void operator delete(void *p, std::size_t) noexcept { std::free(p); }
+static int launch(pthread_t *id, pthread_attr_t const *attr,
+    void *(*entry)(void *), void *arg)
+{
+  int rc = pthread_create(id, attr, entry, arg);
+  if(rc == 0) { launched = *id; fail_next = true; }
+  return rc;
+}
+#define pthread_create launch
+#include "curryrt/platform.cpp"
+#undef pthread_create
+static void *run(void *)
+{
+  entered = true;
+  while(!finish) std::this_thread::yield();
+  return nullptr;
+}
+int main()
+{
+  curryrt::platform::Thread thread;
+  try { curryrt::platform::start(thread, 0, run, nullptr, nullptr); }
+  catch(std::bad_alloc const &) {}
+  fail_next = false;
+  while(!entered) std::this_thread::yield();
+  finish = true;
+  bool const owned = thread.started && thread.handle;
+  if(owned) curryrt::platform::join(thread);
+  else pthread_join(launched, nullptr); // Reap the orphan even on the base.
+  if(!owned)
+  {
+    std::cerr << "started worker has no owner after allocation failure\n";
+    return 1;
+  }
+  return 0;
+}
+''')
+
+  def test_windows_stack_request_cannot_narrow(self):
+    # Exercise the actual Windows adapter body with a recording CRT stub;
+    # no Windows thread or multi-gigabyte reservation is needed.
+    from pathlib import Path
+    text = (Path(__file__).resolve().parent.parent /
+            'src/curryrt/platform.cpp').read_text()
+    start = text.index('  bool start(')
+    end = text.index('\n  void join(', start)
+    self.adapter_test(r'''
+#include "curryrt/platform.hpp"
+#include <cerrno>
+#include <cstring>
+#include <cstdint>
+#include <limits>
+#include <memory>
+#include <iostream>
+static unsigned recorded = 0;
+static int calls = 0;
+struct Start { void *(*main)(void *); void *arg; };
+static unsigned trampoline(void *) { return 0; }
+static constexpr unsigned STACK_SIZE_PARAM_IS_A_RESERVATION = 0x10000;
+static uintptr_t _beginthreadex(void *, unsigned size, unsigned (*)(void *),
+    Start *boxed, unsigned, void *)
+{
+  ++calls;
+  recorded = size;
+  delete boxed;
+  return 1;
+}
+namespace curryrt { namespace platform {
+''' + text[start:end] + r'''
+}}
+int main()
+{
+  if(sizeof(size_t) <= sizeof(unsigned)) return 0;
+  curryrt::platform::Thread thread;
+  std::string error;
+  size_t const request = size_t(1) << 32;
+  bool const accepted = curryrt::platform::start(thread, request, nullptr, nullptr, &error);
+  if(accepted || calls || thread.started)
+  {
+    std::cerr << "unrepresentable reservation accepted: " << request
+              << " became " << recorded << '\n';
+    return 1;
+  }
+  if(!curryrt::platform::start(thread, request / 2, nullptr, nullptr, &error)
+      || calls != 1 || recorded != request / 2) return 2;
+}
+''')
+
+  @unittest.skipUnless(os.name == 'nt', 'actual reservations run in the Windows workflow')
+  def test_windows_unrepresentable_reservation_halves(self):
+    lines = self.child('''
+ev = Evaluator(cytest.raw.interp(), cytest.raw.expr(M.deep, 3000, typed=True))
+assert [cytest.raw.interp().topython(v) for v in ev.evaluate()] == [3000]
+assert ev.rts._escalated
+print(ev.rts._worker_attempts)
+''', stack_limit=65536, worker_stack=1 << 32)
+    sizes = [int(size) for size in lines[0].split(', ')]
+    self.assertEqual(sizes[:2], [1 << 32, 1 << 31])
+    self.assertLess(sizes[-1], 1 << 32)
+
   @cytest.posix_only('pthread_create fault injection')
   def test_creation_exceptions_are_refused_reservations(self):
     '''Exercise both exception paths at the POSIX thread adapter boundary.'''

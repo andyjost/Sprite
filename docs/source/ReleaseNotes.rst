@@ -10,6 +10,11 @@ Unreleased
   launchers to ``curry/bin``; ship FlatCurry and AbstractCurry library analyses
   for stock CPM readers. Native libraries remain in ``<root>/lib``.
 
+- Raise ``curry.ReentrancyError`` for host reentry under Sprite locks or the
+  evaluation-worker handoff, preserving primitive callback evaluation; defer
+  front-end and ICurry-cache diagnostics until locks release, retain ownership
+  through thread creation, and refuse worker stack sizes the Windows thread
+  API cannot represent before trying smaller reservations.
 - Add a weekly CPM index workflow with pinned package expectations,
   regression checks, and downloadable package results and logs. Fix
   CurryCheck driver loading, transitive local imports and saved application
@@ -48,8 +53,7 @@ Unreleased
   abandoned results and streams without heap waits, save counts in the native
   value pull, and apply posted LLVM steps under the heap gate.
 
-  Still open: front-end conversion and the ICurry cache log under a product
-  lock (#194); property bindings do not apply their heap guards (#195); the
+  Still open: property bindings do not apply their heap guards (#195); the
   ``icurry_is_jit`` race with native step/aux writers (#196).
 
 - Serve loaded modules from memory until reload or reset, without product

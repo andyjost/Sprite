@@ -73,7 +73,7 @@ def import_(interp, name, *, path=None):
     record_source(module)
     return module
   try:
-    return interp.import_(name, currypath=path, is_sourcefile=isfile)
+    return interp._import_(name, currypath=path, is_sourcefile=isfile)
   except exceptions.ModuleLookupError as error:
     raise exceptions.ModuleLookupError('%s; searched curry.path' % error) from None
 
@@ -97,7 +97,7 @@ def _source_text(name):
 
 def compile(interp, source, *, name=None, imports=()):
   imports = tuple(imports)
-  module = interp.compile(source, imports=imports, modulename=name)
+  module = interp._compile(source, imports=imports, modulename=name)
   setattr(module, '.compile_imports', imports)
   return module
 
@@ -119,8 +119,8 @@ def reset(interp, **flags):
     settings['backend'] = interp.flags['backend']
     settings.update(flagmod.getflags(flags))
   flagmod.check_flags(settings)
-  interp.reset(flags=settings)
-  interp.import_('Prelude')
+  interp._reset(flags=settings)
+  interp._import_('Prelude')
   # Python owns publication of a hook result until exec_module completes.
   # Wait for each tracked name without holding the heap or a Sprite lock.
   from importlib._bootstrap import _get_module_lock
@@ -268,7 +268,7 @@ def save(interp, module, path, *, main=None, program_arguments=False):
 
       def compile_module(current):
         cpp = os.path.join(directory, current.__name__ + '.cpp')
-        interp.save(current, cpp, module_main=False, interfaces=True)
+        interp._save(current, cpp, module_main=False, interfaces=True)
         product = SavedCpp2So(interp)(cpp, interp.path)
         from .loadsave import record_saved_imports
         record_saved_imports(interp, current, product)
@@ -292,7 +292,7 @@ def save(interp, module, path, *, main=None, program_arguments=False):
           from ..toolchain._findcurry import _installed_library_file
           source = getHandle(current).icurry.filename
           for dependency in getHandle(current).icurry.imports:
-            collect(interp.import_(dependency))
+            collect(interp._import_(dependency))
           if name != module.__name__ and source and _installed_library_file(source):
             step = SavedCpp2So(interp)
             product = step._object_on_disk(name, interp.path)

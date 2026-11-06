@@ -29,6 +29,9 @@ The JIT is unavailable without llvmlite or without the bitcode, which CMake
 builds when it finds clang (WITH_CLANG); the materializer then leaves the
 function interpreted and logs the reason once.
 '''
+from ...utility.locking import log as _deferred_log
+
+from ...utility.locking import Lock as _SpriteLock, RLock as _SpriteRLock
 from ... import config
 from . import bytecode
 from . import curryrtbindings as curryrt
@@ -47,8 +50,8 @@ class Unavailable(Exception):
 # A tag below T_CTOR is a status, not a constructor.
 T_CTOR = curryrt.T_CTOR
 
-_lock = threading.Lock()
-_group_lock = threading.Lock()
+_lock = _SpriteLock()
+_group_lock = _SpriteLock()
 _jit = None       # the JIT of the process, made at the first compile
 _reason = None    # why the JIT is unavailable, once known
 BATCH_SIZE = 32
@@ -143,8 +146,8 @@ def _after_fork_in_child():
   # one of them held at the fork would never open: the child starts with a
   # fresh lock and no hot thread, and the next start_hot_tier starts one.
   global _lock, _group_lock, _hot_thread
-  _lock = threading.Lock()
-  _group_lock = threading.Lock()
+  _lock = _SpriteLock()
+  _group_lock = _SpriteLock()
   _hot_thread = None
 
 if hasattr(os, "register_at_fork"):
@@ -502,11 +505,11 @@ class _JIT(object):
     self.batches += 1
     end = time.perf_counter()
     self.seconds += end - start
-    messages.append((logging.DEBUG,
+    _deferred_log(logger, logging.DEBUG,
         'JIT batch %s: %d functions, %.1f ms (IR %.1f, link %.1f, optimize %.1f, code %.1f)'
-      , (batch.name, len(symbols), 1000 * (end - start), 1000 * (t_ir - start)
+      , *(batch.name, len(symbols), 1000 * (end - start), 1000 * (t_ir - start)
       , 1000 * (t_link - t_ir), 1000 * (t_opt - t_link), 1000 * (end - t_opt))
-      ))
+      )
 
     return context
 
@@ -657,7 +660,7 @@ class _IndexedObjects:
   '''Decoded entries, without per-function file views until they are used.'''
   def __init__(self, path, entries, stream):
     self.path, self.entries, self.stream = path, entries, stream
-    self.read_lock = threading.RLock()
+    self.read_lock = _SpriteRLock()
     self.extra = []
     self.others = []
     self.remaining = len(entries)
@@ -754,8 +757,8 @@ def _resolve_cached(address):
         return context.resolve(name, messages=messages)
       except Exception as exc:
         context.failed.add(name)
-        messages.append((logging.WARNING,
-            'jit cache: function %s stays interpreted: %s', (name, exc)))
+        _deferred_log(logger, logging.WARNING,
+            'jit cache: function %s stays interpreted: %s', *(name, exc))
         return 0
   finally:
     _emit_messages(messages)
@@ -836,12 +839,12 @@ class _CachedModule:
       if name not in self.counted:
         self.counted.add(name)
         self.jit.linked += 1
-      messages.append((logging.INFO, 'jit cache: module %s, resolved %s, %.3f ms',
-          (self.name, name, 1000 * (time.perf_counter() - start))))
+      _deferred_log(logger, logging.INFO, 'jit cache: module %s, resolved %s, %.3f ms',
+          *(self.name, name, 1000 * (time.perf_counter() - start)))
       return tracker[symbol]
     except (OSError, ValueError, KeyError, TypeError, IndexError, RuntimeError) as exc:
       self.failed.add(name)
-      messages.append((logging.WARNING, 'jit cache: function %s stays interpreted: %s', (name, exc)))
+      _deferred_log(logger, logging.WARNING, 'jit cache: function %s stays interpreted: %s', *(name, exc))
       return 0
 
   def release(self, name):
@@ -883,7 +886,7 @@ class _CachedModule:
               else:
                 objects.append((records, obj))
         except (OSError, ValueError, KeyError, TypeError, IndexError, struct.error) as exc:
-          messages.append((logging.DEBUG, 'jit cache: module %s: %s', (self.name, exc)))
+          _deferred_log(logger, logging.DEBUG, 'jit cache: module %s: %s', *(self.name, exc))
           if path == self.private:
             # A merge may replace local and remove private between our reads.
             # Retry local once to pick up the objects that moved there.
@@ -896,7 +899,7 @@ class _CachedModule:
                 objects.close()
               objects = found
     if objects is None:
-      messages.append((logging.INFO, 'jit cache: module %s, miss', (self.name,)))
+      _deferred_log(logger, logging.INFO, 'jit cache: module %s, miss', *(self.name,))
       return False
     self.objects = objects
     if isinstance(objects, _IndexedObjects):
@@ -909,7 +912,7 @@ class _CachedModule:
       name, symbol, _ = records[0]
       self.resolved[name] = (tracker, symbol)
     jit.object_generations[self.runtime_key] = objects
-    messages.append((logging.INFO, 'jit cache: module %s, indexed %d functions', (self.name, len(self.cached))))
+    _deferred_log(logger, logging.INFO, 'jit cache: module %s, indexed %d functions', *(self.name, len(self.cached)))
     return True
 
   def store(self, messages=None):
@@ -927,7 +930,7 @@ class _CachedModule:
       try:
         objects.append((records, _object_bytes(obj)))
       except (OSError, ValueError) as exc:
-        messages.append((logging.DEBUG, 'jit cache: module %s drops %s: %s', (self.name, records[0][0], exc)))
+        _deferred_log(logger, logging.DEBUG, 'jit cache: module %s drops %s: %s', *(self.name, records[0][0], exc))
     if self.index is not None:
       self.index.close()
     self.objects = objects
@@ -1031,10 +1034,10 @@ class _CachedModule:
             for entry in os.scandir(directory):
               if entry.name.endswith('.jit') and entry.path != path:
                 os.unlink(entry.path)
-        messages.append((logging.INFO, 'jit cache: module %s, stored %d functions', (self.name, len(objects))))
+        _deferred_log(logger, logging.INFO, 'jit cache: module %s, stored %d functions', *(self.name, len(objects)))
         return
       except (OSError, ValueError) as exc:
-        messages.append((logging.DEBUG, 'jit cache: cannot store module %s: %s', (self.name, exc)))
+        _deferred_log(logger, logging.DEBUG, 'jit cache: cannot store module %s: %s', *(self.name, exc))
       finally:
         if tmp is not None:
           os.unlink(tmp)

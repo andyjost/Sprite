@@ -4,6 +4,8 @@
 #include <cstdlib>
 #include <cerrno>
 #include <cstring>
+#include <limits>
+#include <memory>
 
 #if defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN
@@ -83,11 +85,16 @@ namespace curryrt { namespace platform {
 
   bool start(Thread & thread, size_t stack_size, void * (*main)(void *), void * arg, std::string * error)
   {
+    if(stack_size > std::numeric_limits<unsigned>::max())
+    {
+      if(error) *error = "worker stack reservation exceeds the thread API limit";
+      return false;
+    }
     auto * boxed = new Start{main, arg};
     // The stack size is a reservation, committed page by page as the thread
     // descends, as pthread_attr_setstacksize reserves on Linux.
     unsigned const flags = stack_size ? STACK_SIZE_PARAM_IS_A_RESERVATION : 0;
-    uintptr_t const handle = _beginthreadex(nullptr, (unsigned) stack_size, trampoline, boxed, flags, nullptr);
+    uintptr_t const handle = _beginthreadex(nullptr, static_cast<unsigned>(stack_size), trampoline, boxed, flags, nullptr);
     if(!handle)
     {
       delete boxed;
@@ -182,20 +189,26 @@ namespace curryrt { namespace platform {
 
   bool start(Thread & thread, size_t stack_size, void * (*main)(void *), void * arg, std::string * error)
   {
+    // No allocation may fail after pthread_create has launched the worker.
+    auto id = std::make_unique<pthread_t>();
     pthread_attr_t attr;
     int rc = pthread_attr_init(&attr);
+    if(rc != 0)
+    {
+      if(error) *error = "cannot initialize thread attributes: " + std::string(std::strerror(rc));
+      return false;
+    }
     if(rc == 0 && stack_size)
       rc = pthread_attr_setstacksize(&attr, stack_size);
-    pthread_t id;
     if(rc == 0)
-      rc = pthread_create(&id, &attr, main, arg);
+      rc = pthread_create(id.get(), &attr, main, arg);
     pthread_attr_destroy(&attr);
     if(rc != 0)
     {
       if(error) *error = "cannot create a thread: " + std::string(std::strerror(rc));
       return false;
     }
-    thread.handle = new pthread_t(id);
+    thread.handle = id.release();
     thread.started = true;
     return true;
   }
