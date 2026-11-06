@@ -28,6 +28,31 @@ values = allValues (coin + coin)
 value :: Maybe Int
 value = oneValue (coin + coin)
 '''
+NAMED_GLOBALS = '''module Data.Global where
+data GlobalT a = GlobalT String
+prim_globalT :: String -> a -> GlobalT a
+prim_globalT external
+prim_readGlobalT :: GlobalT a -> IO a
+prim_readGlobalT external
+prim_writeGlobalT :: GlobalT a -> a -> IO ()
+prim_writeGlobalT external
+globalT :: String -> a -> GlobalT a
+globalT n v = (prim_globalT $## n) v
+readGlobalT :: GlobalT a -> IO a
+readGlobalT g = prim_readGlobalT $# g
+writeGlobalT :: GlobalT a -> a -> IO ()
+writeGlobalT g v = (prim_writeGlobalT $# g) $## v
+counter :: GlobalT Int
+counter = globalT "CPM.counter" 0
+readCounter :: IO Int
+readCounter = readGlobalT counter
+writeCounter :: Int -> IO ()
+writeCounter = writeGlobalT counter
+readMissing :: IO Int
+readMissing = prim_readGlobalT (GlobalT "CPM.missing")
+writeMissing :: IO ()
+writeMissing = prim_writeGlobalT (GlobalT "CPM.missing") 1
+'''
 
 
 class TestCPMPackagePrimitives(cytest.TestCase):
@@ -817,7 +842,6 @@ goal = do
 ''')
     self.assertEqual(curry.eval(module.goal).one(), (True, True, True, 'hello'))
 
-  @unittest.expectedFailure
   def test_named_global_storage(self):
     module = curry.compile('''module Data.Global where
   data GlobalT a = GlobalT String
@@ -838,8 +862,133 @@ goal = do
 ''')
     self.assertEqual(curry.eval(module.goal).one(), (0, 42))
 
-  @unittest.expectedFailure
-  def test_global_variable_storage(self):
+  def test_named_global_keeps_value_across_evaluations(self):
+    module = curry.compile(NAMED_GLOBALS)
+    self.assertEqual(curry.eval(module.readCounter).one(), 0)
+    curry.eval(module.writeCounter(42)).one()
+    self.assertEqual(curry.eval(module.readCounter).one(), 42)
+    self.assertEqual(curry.eval(module.readCounter).one(), 42)
+
+  def test_named_global_reset_clears_store(self):
+    module = curry.compile(NAMED_GLOBALS)
+    curry.eval(module.writeCounter(42)).one()
+    curry.reset()
+    module = curry.compile(NAMED_GLOBALS + '''
+readOld :: IO Int
+readOld = prim_readGlobalT (GlobalT "CPM.counter")
+''')
+    with self.assertRaisesRegex(curry.EvaluationError,
+        '^Internal error in Data.Global: global value CPM.counter not initialized!$'):
+      curry.eval(module.readOld).one()
+    self.assertEqual(curry.eval(module.readCounter).one(), 0)
+
+  def test_named_globals_are_interpreter_owned(self):
+    from curry.interpreter import Interpreter
+    flags = {'interpret': 'all', 'jit': 'off'}
+    first, second = Interpreter(flags=flags), Interpreter(flags=flags)
+    a, b = (interp.compile(NAMED_GLOBALS) for interp in (first, second))
+    first.eval(a.writeCounter(11)).one()
+    self.assertEqual(second.eval(b.readCounter).one(), 0)
+    second.eval(b.writeCounter(22)).one()
+    self.assertEqual(first.eval(a.readCounter).one(), 11)
+    first.reset()
+    self.assertEqual(second.eval(b.readCounter).one(), 22)
+    again = first.compile(NAMED_GLOBALS)
+    self.assertEqual(first.eval(again.readCounter).one(), 0)
+
+  def test_named_global_survives_collection(self):
+    import gc
+    from curry.backends.cxx import curryrtbindings as native
+    module = curry.compile(NAMED_GLOBALS + '''
+items :: GlobalT [Int]
+items = globalT "CPM.items" []
+writeItems :: Int -> IO ()
+writeItems n = writeGlobalT items [1..n]
+readItems :: IO [Int]
+readItems = readGlobalT items
+''')
+    curry.eval(module.writeItems(200)).one()
+    gc.collect()
+    before = native.gc_collections()
+    native.gc_collect()
+    self.assertGreater(native.gc_collections(), before)
+    native.gc_verify()
+    self.assertEqual(curry.eval(module.readItems).one(), list(range(1, 201)))
+
+  def test_named_global_duplicate_key_ignores_initializer(self):
+    module = curry.compile(NAMED_GLOBALS + '''
+same :: IO Int
+same = readGlobalT (prim_globalT "CPM.counter" (error "unused initializer"))
+''')
+    curry.eval(module.writeCounter(42)).one()
+    self.assertEqual(curry.eval(module.same).one(), 42)
+
+  def test_named_global_reads_copy_and_keep_internal_sharing(self):
+    module = curry.compile(NAMED_GLOBALS + '''
+shared :: GlobalT ([Int],[Int])
+shared = globalT "CPM.shared" (xs,xs) where xs = [1001,1002]
+goal :: IO (([Int],[Int]),([Int],[Int]))
+goal = do
+  a <- readGlobalT shared
+  b <- readGlobalT shared
+  return (a,b)
+''')
+    value = cytest.raw.values(module.goal).one()
+    first, second = value.successors
+    self.assertNotEqual(first.id(), second.id())
+    self.assertNotEqual(first.successors[0].id(), second.successors[0].id())
+    for pair in (first, second):
+      self.assertEqual(pair.successors[0].id(), pair.successors[1].id())
+
+  def test_named_global_missing_key_errors(self):
+    module = curry.compile(NAMED_GLOBALS)
+    for action in (module.readMissing, module.writeMissing):
+      with self.subTest(action=str(action)), self.assertRaisesRegex(
+          curry.EvaluationError,
+          '^Internal error in Data.Global: global value CPM.missing not initialized!$'):
+        curry.eval(action).one()
+
+  def test_named_global_initializer_requires_one_ground_normal_form(self):
+    module = curry.compile(NAMED_GLOBALS + '''
+chosen :: GlobalT [Int]
+chosen = globalT "CPM.chosen" [20+1,6*7]
+successful :: GlobalT Int
+successful = globalT "CPM.successful" (failed ? 7)
+goal :: IO ([Int],Int)
+goal = do
+  a <- readGlobalT chosen
+  b <- readGlobalT successful
+  return (a,b)
+''')
+    self.assertEqual(curry.eval(module.goal).one(), ([21, 42], 7))
+
+  def test_named_global_initializer_waits_for_groundness(self):
+    module = curry.compile(NAMED_GLOBALS + '''
+unbound :: GlobalT [Int]
+unbound = globalT "CPM.unbound" [x] where x free
+goal :: IO [Int]
+goal = readGlobalT unbound
+''')
+    with self.assertRaises(curry.SuspensionError):
+      curry.eval(module.goal).one()
+
+  def test_named_global_write_uses_ground_normal_form(self):
+    module = curry.compile(NAMED_GLOBALS + '''
+writeComputed :: IO Int
+writeComputed = writeGlobalT counter (6*7) >> readGlobalT counter
+writeChoice :: IO ()
+writeChoice = writeGlobalT counter (11 ? 22)
+writeFree :: IO ()
+writeFree = writeGlobalT counter x where x free
+''')
+    self.assertEqual(curry.eval(module.writeComputed).one(), 42)
+    with self.assertRaises(curry.NondetError):
+      curry.eval(module.writeChoice).one()
+    with self.assertRaises(curry.SuspensionError):
+      curry.eval(module.writeFree).one()
+    self.assertEqual(curry.eval(module.readCounter).one(), 42)
+
+  def test_global_variable_is_a_known_exception(self):
     module = curry.compile('''module GlobalVariable where
   data GVar a = GVarDef a | GVarValue () a
   prim_readGVar :: GVar a -> IO a
@@ -853,7 +1002,11 @@ goal = do
     prim_writeGVar counter 42
     prim_readGVar counter
 ''')
-    self.assertEqual(curry.eval(module.goal).one(), 42)
+    for action, name in ((module.goal, 'prim_writeGVar'),
+                         (module.prim_readGVar(module.counter), 'prim_readGVar')):
+      with self.subTest(primitive=name), self.assertRaisesRegex(
+          curry.EvaluationError, 'GlobalVariable.' + name + ': not implemented'):
+        curry.eval(action).one()
 
   def test_random_seed_clock(self):
     curry.path.insert(0, str(SOURCE))

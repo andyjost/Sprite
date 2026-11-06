@@ -5,6 +5,12 @@ Release Notes
 Unreleased
 ==========
 
+- Implement ``Data.Global`` temporary globals with interpreter-owned storage,
+  copied reads and initialization in the caller's encapsulated search (one
+  ground value is stored, no value fails, multiple values raise an error naming
+  the key), and record ``global-variables`` as a known exception because it was
+  written for PAKCS 2.x and PAKCS 3.10.0 has no implementation or reference
+  semantics (#215).
 - Keep pure functions that call ``trace`` out of monadic choice rejection
   by stopping effect propagation at ``unsafePerformIO`` (#241).
 

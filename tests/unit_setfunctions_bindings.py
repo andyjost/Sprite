@@ -94,6 +94,33 @@ def run_child(testcase, *goals, **flags):
 
 
 class TestBoundArgument(cytest.TestCase):
+  @cytest.with_flags(interpret='all', jit='off', rotation='steps:65536',
+                    checker=True)
+  def test_suspended_argument_keeps_alternative_and_resumes(self):
+    from curry import inspect
+    from curry.backends.cxx import curryrtbindings as native
+    module = curry.compile('''
+import Control.SetFunctions
+nearby :: Int -> Int
+nearby x = (x+1) ? (x+2)
+goal :: Int -> [Int]
+goal x = sortValues (set1 nearby x) ? [99]
+''')
+    x = curry.term(curry.free('x', type='Int'))._node
+    rts = native.RuntimeState(cytest.raw.interp(), cytest.raw.expr(module.goal, x))
+    try:
+      self.assertEqual(str(next(rts.generate_values())), '[99]')
+      self.assertEqual(rts.queue_size, 1)
+      with self.assertRaises(curry.SuspensionError):
+        next(rts.generate_values())
+      self.assertEqual(rts.queue_size, 1)
+      vid = inspect.fwd_chain_target(x).successors[0]
+      native.checker_debug_bind(rts, vid, cytest.raw.expr(17))
+      self.assertEqual([str(value) for value in rts.generate_values()], ['[18, 19]'])
+      self.assertEqual(rts.queue_size, 0)
+    finally:
+      rts.close()
+
   @classmethod
   def setUpClass(cls):
     # Compile the module here; the children load it from the cache.

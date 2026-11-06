@@ -1,6 +1,11 @@
 #include "curryrt/curryrt.hpp"
 #include "curryrt/currylib/prelude.hpp"
+#include "curryrt/currylib/setfunctions.hpp"
 #include "curryrt/module.hpp"
+#include "curryrt/exceptions.hpp"
+#include "curryrt/graph/copy.hpp"
+#include "curryrt/graph/walk.hpp"
+#include "curryrt/inspect.hpp"
 #include <algorithm>
 #include <chrono>
 #include <cstdlib>
@@ -25,6 +30,128 @@ namespace
     if(name.empty()) return nullptr;
     auto info = Module::find_symbol(rts->istate.modules, module, name);
     return info && info->tag >= T_CTOR && !is_partial(*info) ? info : nullptr;
+  }
+
+  tag_type global_value_step(RuntimeState *, Configuration *);
+  InfoTable const global_value(T_FUNC, 1, sizeof(Node1), F_STATIC_OBJECT,
+      "globalValue", "p", global_value_step, nullptr);
+
+  tag_type global_value_step(RuntimeState *, Configuration * C)
+  {
+    Cursor root = C->cursor();
+    Residuals unbound;
+    auto visitor = visit_unique(root[0].target);
+    while(Node * node = visitor.next())
+      if(inspect::isa_freevar(node) && !has_generator(node))
+        unbound.insert(obj_id(node));
+    if(!unbound.empty())
+    {
+      // Normalization can resume after just one residual is bound. Keep
+      // this groundness continuation after every normalization, so each
+      // wakeup applies the new bindings and checks the remaining variables
+      // before the capsule can yield a value.
+      root->forward_to(Node::create(&applynf_Info,
+          Node::create_partial(&global_value), root[0]));
+      for(auto vid: unbound)
+        C->add_residual(vid);
+      return E_RESIDUAL;
+    }
+    root->forward_to(root[0]);
+    return T_FWD;
+  }
+
+  tag_type global_step(RuntimeState *, Configuration *);
+  InfoTable const global_init(T_FUNC, 2, sizeof(Node2), F_STATIC_OBJECT,
+      "initializeGlobal", "pp", global_step, nullptr);
+
+  tag_type global_step(RuntimeState * rts, Configuration * C)
+  {
+    Cursor root = C->cursor();
+    std::string op = root->info->name;
+    try
+    {
+      auto & store = rts->istate.globals;
+      auto ctor = package_constructor(rts, "Data.Global", "GlobalT");
+      if(!ctor)
+        throw std::runtime_error("Illegal global entity occurred (maybe overloaded?)");
+      if(op == "prim_globalT" || op == "initializeGlobal")
+      {
+        auto key = extract_string(root[0].target);
+        if(op == "initializeGlobal" || !store.count(key))
+        {
+          if(op == "prim_globalT")
+          {
+            // The native capsule runs on the caller's runtime and reads its
+            // bindings and decisions. Keep its stream in the graph so that
+            // rotations and collections can suspend and resume initialization.
+            GcClamp clamp;
+            Node * goal = Node::create(&applynf_Info,
+                Node::create_partial(&global_value), root[1]);
+            root->forward_to(Node::create(&global_init, root[0],
+                Node::create(&set0_Info, goal)));
+            return T_FWD;
+          }
+          Variable values = root[1];
+          auto tag = rts->hnf(C, &values);
+          if(tag < T_CTOR) return tag;
+          Variable stream = values[0];
+          tag = rts->hnf(C, &stream);
+          if(tag < T_CTOR) return tag;
+          if(stream.target->info == &Nil_Info) return root->make_failure();
+          Variable tail = stream[1];
+          tag = rts->hnf(C, &tail);
+          if(tag < T_CTOR) return tag;
+          if(tail.target->info != &Nil_Info)
+            throw std::runtime_error("Data.Global: global " + key
+                + " has more than one initial value");
+          // Only publish after exhaustion proves uniqueness. The stream
+          // owns the first value until then; failed searches leave no entry.
+          // An initialization already in progress must check its own stream
+          // even if another configuration has published this key. Preserve
+          // that entry when this stream has exactly one value.
+          GcClamp clamp;
+          if(!store.count(key))
+          {
+            Node * value = stream[0].rvalue();
+            store.emplace(key, copy_graph(value, SKIPFWD).arg.node);
+          }
+        }
+        root->forward_to(Node::create(ctor, root[0]));
+      }
+      else
+      {
+        Variable handle = root[0];
+        auto tag = rts->hnf(C, &handle);
+        if(tag < T_CTOR) return tag;
+        if(!ctor || handle.target->info != ctor)
+          throw std::runtime_error("Illegal global entity occurred (maybe overloaded?)");
+        auto key = extract_string(handle.target->successor_node(0));
+        auto found = store.find(key);
+        if(found == store.end())
+          throw std::runtime_error("Internal error in Data.Global: global value "
+              + key + " not initialized!");
+        // The Curry write wrapper has already forced ground normal form.
+        // Copy on both boundaries, as Prolog assert and clause lookup do.
+        GcClamp clamp;
+        if(op == "prim_readGlobalT")
+          root->forward_to(io(copy_graph(found->second, SKIPFWD).arg.node));
+        else
+        {
+          found->second = copy_graph(root[1].target, SKIPFWD).arg.node;
+          root->forward_to(io(unit()));
+        }
+      }
+      return T_FWD;
+    }
+    catch(EvaluationError const &) { throw; }
+    catch(ForkError const &) { throw; }
+    catch(ReentrancyError const &) { throw; }
+    catch(StepLimitReached const &) { throw; }
+    catch(std::exception const & error)
+    {
+      C->set_error(nullptr, error.what(), ErrorKind::evaluation);
+      return E_ERROR;
+    }
   }
 
   tag_type step(RuntimeState * rts, Configuration * C)
@@ -566,6 +693,15 @@ namespace
         "prim_readsUnqualifiedTerm", "pp", readshow_step, nullptr);
     Module::register_primitive("ReadShowTerm.prim_showTerm", &show);
     Module::register_primitive("ReadShowTerm.prim_readsUnqualifiedTerm", &reads);
+    static InfoTable const global(T_FUNC, 2, sizeof(Node2), F_STATIC_OBJECT,
+        "prim_globalT", "pp", global_step, nullptr);
+    static InfoTable const read_global(T_FUNC, 1, sizeof(Node1), F_STATIC_OBJECT | F_MONADIC,
+        "prim_readGlobalT", "p", global_step, nullptr);
+    static InfoTable const write_global(T_FUNC, 2, sizeof(Node2), F_STATIC_OBJECT | F_MONADIC,
+        "prim_writeGlobalT", "pp", global_step, nullptr);
+    Module::register_primitive("Data.Global.prim_globalT", &global);
+    Module::register_primitive("Data.Global.prim_readGlobalT", &read_global);
+    Module::register_primitive("Data.Global.prim_writeGlobalT", &write_global);
     return 0;
   }
   int const registered = register_packages();

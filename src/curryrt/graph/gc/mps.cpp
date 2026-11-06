@@ -45,7 +45,8 @@
 // node it points into (MPS_KEY_INTERIOR is the default of AMC).  (3) An
 // ambiguous root over the nodes Python holds (gc_add_root): such a node
 // never moves, so its address stays its identity.  (4) An exact root over
-// the free-variable tables of the interpreter states.  The table is strong
+// the free-variable tables and named globals of the interpreter states.
+// The free-variable table is strong
 // here, unlike under gc/wdgc.cpp: MPS scans every root at the flip of a
 // trace and admits the ambiguous and the exact rank there (trace.c,
 // .root.rank), so a root of the weak rank, which would splat a dead entry,
@@ -429,8 +430,12 @@ namespace curryrt
     MPS_SCAN_BEGIN(ss)
     {
       for(InterpreterState * istate: g_istates)
+      {
         for(auto & pair: istate->vtable)
           CURRYRT_FIX_EXACT(pair.second);
+        for(auto & pair: istate->globals)
+          CURRYRT_FIX_EXACT(pair.second);
+      }
     }
     MPS_SCAN_END(ss);
     return MPS_RES_OK;

@@ -536,6 +536,9 @@ namespace curryrt
     auto const start = gc_clock::now();
     for(auto const & pair: g_roots)
       stack.push_back(pair.first);
+    for(InterpreterState * istate: g_istates)
+      for(auto const & pair: istate->globals)
+        stack.push_back(pair.second);
     // In a nested evaluation, every node of an older block allocated before
     // the evaluation began is a root.  See the comment at the top of this
     // file and the header of gc/blockheap.cpp.
