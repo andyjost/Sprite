@@ -52,7 +52,7 @@ from ...toolchain import (
     plans, _filenames, _findcurry, _loadcurry, _makecurry, _productcache
   , _system, _productlock, _interfaces
   )
-import functools, hashlib, itertools, json, logging, os, re, sys, tempfile, threading, time
+import functools, hashlib, itertools, json, logging, os, re, shutil, sys, tempfile, threading, time
 
 logger = logging.getLogger(__name__)
 _warning_lock = threading.Lock()
@@ -457,6 +457,7 @@ def registered_names(source):
 def input_record(interp, source):
   from ...toolchain._frontend import ROUTE_VERSION
   from ...toolchain._curry2icurry import receipt_source
+  from .materialize import primitive_wrapper_names
   generation = _findcurry.generation_for_source(source, interp) if source else None
   try:
     if generation is not None:
@@ -467,6 +468,7 @@ def input_record(interp, source):
   except (OSError, ValueError, AttributeError):
     recorded = None
   return dict(source=recorded, registry=registered_names(source),
+      wrappers=primitive_wrapper_names(source, interp, generation),
       route=ROUTE_VERSION, budget=interp.flags['inline_budget'])
 
 def source_record(filename):
@@ -489,8 +491,11 @@ def input_current(record, filename, interp=None, registry=None):
     return False
   from ...toolchain._frontend import ROUTE_VERSION
   from . import image
+  from .materialize import primitive_wrapper_names
   digest = image.digest(source)
+  # Source-free generated inputs may omit empty wrapper authorization.
   return record.get('registry') == (registered_names(source) if registry is None else registry) \
+      and record.get('wrappers', [] if digest is None else None) == primitive_wrapper_names(source, interp) \
       and record.get('route') == ROUTE_VERSION \
       and (digest is None or record.get('source') == digest)
 
@@ -856,7 +861,7 @@ class Cpp2So(object):
     return 'the ABI stamp'
 
   @_findcurry.with_resolution
-  def stamp_is_current(self, sofile, currypath=None, registry=None):
+  def stamp_is_current(self, sofile, currypath=None, check_source=True, registry=None):
     '''
     Tells whether the ABI stamp of ``sofile`` holds a digest this step
     accepts and names this installation.  The paths are compared as real
@@ -864,12 +869,14 @@ class Cpp2So(object):
     prefix a package manager wrote) names it all the same. Without headers,
     only the runtime digest comparison is skipped; import provenance stays
     mandatory, including the new stamp format.
+    An explicit object load can skip source freshness while still checking
+    the ABI and dependency provenance of that compiled artifact.
     '''
     _findcurry.verify_loaded_product(sofile, self.interp)
     _findcurry.verify_loaded_product(self.stampfile(sofile), self.interp)
     accepted = self.accepted_digests()
     digest, path, recorded, record = self._read_stamp_records(sofile)
-    if not input_current(record, sofile, self.interp, registry):
+    if check_source and not input_current(record, sofile, self.interp, registry):
       return False
     if (accepted and digest not in accepted) or path is None:
       _productlock.log(logger, logging.DEBUG, 'ABI stamp %s: digest=%r accepted=%r installation=%r',
@@ -1311,8 +1318,20 @@ class Cpp2So(object):
     selected = _destination.select(file_in, products)
     if selected != file_in:
       # Regenerate C++ from the selected translation before compiling it.
-      file_in = ICurry2Cpp(self.interp)(
-          _filenames.icurryfilename(selected), currypath, **ignored)
+      icyfile = _filenames.icurryfilename(selected)
+      if os.path.isfile(icyfile):
+        file_in = ICurry2Cpp(self.interp)(icyfile, currypath, **ignored)
+      else:
+        # A source-free generated input carries its own import receipt.
+        # Validate it below before compiling into the private destination.
+        try:
+          _filenames.curryfilename(selected)
+        except ValueError:
+          selected = os.path.join(os.path.dirname(selected), '.curry',
+              config.intermediate_subdir(), os.path.basename(selected))
+          os.makedirs(os.path.dirname(selected), exist_ok=True)
+        shutil.copyfile(file_in, selected)
+        file_in = selected
     # The imports of a program given as a file are searched on its path;
     # those of a module given by name on the path of the interpreter.
     imports = _findcurry.imports_path(currypath, **ignored)
@@ -1477,6 +1496,7 @@ class Cpp2So(object):
     its chain (see _productcache.product_key), or None when the module has
     no text to digest.
     '''
+    from .materialize import primitive_wrapper_names
     curryfile = _filenames.curryfilename(filename)
     path = _findcurry.import_path(self.interp, currypath)
     currypath = self.interp.path if path is None else path
@@ -1486,6 +1506,7 @@ class Cpp2So(object):
       names.add('Prelude')
     return _productcache.product_key(
         curryfile, currypath, (self.product_facts(curryfile, registry) if facts is None else facts) + [
+            'wrappers ' + json.dumps(primitive_wrapper_names(curryfile, self.interp)),
             _interfaces.encode(_interfaces.object_snapshot(
                 names,
                 _interfaces.search_path(curryfile, currypath)))]

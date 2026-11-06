@@ -251,6 +251,12 @@ with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') 
 ''')
 
   def test_llvm_cached_reload_during_resolution(self):
+    self._llvm_cached_reload_during_resolution(False)
+
+  def test_llvm_cached_reload_after_refused_publication(self):
+    self._llvm_cached_reload_during_resolution(True)
+
+  def _llvm_cached_reload_during_resolution(self, blocked):
     try:
       import llvmlite
     except ImportError:
@@ -258,6 +264,7 @@ with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') 
     self.run_child(r'''
 import logging, os, shutil, sys, tempfile
 from pathlib import Path
+from unittest import mock
 os.environ['SPRITE_JIT_THRESHOLD'] = '1000000000'
 from curry.interpreter import Interpreter, session
 from curry.backends.cxx import curryrtbindings as rt, llvmjit
@@ -265,15 +272,43 @@ flags = {'interpret': 'all', 'jit': 'hot', 'jit_backend': 'llvm', 'inline_budget
 with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') as work:
     os.environ['SPRITE_JIT_CACHE'] = str(Path(work) / 'cache')
     source = Path(work) / 'ReloadCached.curry'
+    refused = []
+    seeds = []
+    pinned = None
     for value in (17, 29):
         source.write_text('module ReloadCached where\nf :: Int -> Int\nf n = %d\n' % value)
         fill = Interpreter(flags=flags)
         fill.path.insert(0, work)
         m = fill.import_('ReloadCached')
-        llvmjit.compile(m.f.info, 'ReloadCached.f')
         context = llvmjit._jit.modules[rt.icurry_address(m.f.info)]
-        Path(context.private).parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(context.local, context.private)
+        replace = os.replace
+        def replace_unpinned(src, dst):
+            if BLOCKED and pinned is not None and dst == pinned.path:
+                assert not pinned.stream.closed
+                refused.append(dst)
+                raise PermissionError('open destination')
+            return replace(src, dst)
+        with mock.patch.object(os, 'replace', side_effect=replace_unpinned):
+            llvmjit.compile(m.f.info, 'ReloadCached.f')
+        # A refused local replacement publishes privately. Save that actual
+        # publication before the next fill can prune older private keys.
+        assert context.index is not None, 'cache was not published'
+        seed = Path(work) / ('%d.jit' % value)
+        shutil.copy2(context.index.path, seed)
+        seeds.append((seed, context.private, context.key))
+        if pinned is None:
+            pinned = context.index
+    if BLOCKED:
+        assert len(refused) == 1, refused
+        assert context.index.path == context.private
+    for seed, private, key in seeds:
+        Path(private).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(seed, private)
+        objects = llvmjit._read_cache(private, key)
+        try:
+            assert {records[0][0] for records, _ in objects} == {'ReloadCached.f'}
+        finally:
+            objects.close()
     source.write_text('module ReloadCached where\nf :: Int -> Int\nf n = 17\n')
     first = Interpreter(flags=flags)
     first.path.insert(0, work)
@@ -282,24 +317,33 @@ with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') 
     old = llvmjit._jit.modules[rt.icurry_address(info)]
     assert 'ReloadCached.f' in old.cached and not old.resolved
     seen = []
+    callback_errors = []
     class Reload(logging.Handler):
         def emit(self, record):
             if seen or 'resolved ReloadCached.f' not in record.getMessage():
                 return
             seen.append(record.getMessage())
-            assert not llvmjit._lock.locked()
-            session.reload(first, m, text='f :: Int -> Int\nf n = 29\n')
-            assert rt.icurry_address(m.f.info) == rt.icurry_address(info)
-            new = llvmjit._jit.modules[rt.icurry_address(info)]
-            assert new is not old and 'ReloadCached.f' in new.cached
+            try:
+                assert not llvmjit._lock.locked()
+                session.reload(first, m, text='f :: Int -> Int\nf n = 29\n')
+                assert rt.icurry_address(m.f.info) == rt.icurry_address(info)
+                new = llvmjit._jit.modules[rt.icurry_address(info)]
+                assert new is not old and 'ReloadCached.f' in new.cached
+            except Exception as exc:
+                # The native resolver treats callback exceptions as misses.
+                # Report fixture failures outside that exception boundary.
+                callback_errors.append(exc)
     handler = Reload()
     llvmjit.logger.addHandler(handler)
     llvmjit.logger.setLevel(logging.INFO)
     before = llvmjit.statistics().copy()
     try:
-        assert first.eval(m.f(0)).one() == 29, 'old cached address was installed'
+        value = first.eval(m.f(0)).one()
     finally:
         llvmjit.logger.removeHandler(handler)
+    if callback_errors:
+        raise callback_errors[0]
+    assert value == 29, 'old cached address was installed'
     assert len(seen) == 1
     new = llvmjit._jit.modules[rt.icurry_address(info)]
     assert 'ReloadCached.f' in new.resolved, 'replacement trampoline was overwritten'
@@ -308,7 +352,7 @@ with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') 
     assert after['linked'] == before['linked'] + 2, (before, after)
     assert after['functions'] == before['functions'], (before, after)
     assert first.eval(m.f(0)).one() == 29
-''')
+'''.replace('BLOCKED', repr(blocked)))
 
   def test_llvm_direct_compile_refused_install_counts(self):
     try:

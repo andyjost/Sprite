@@ -12,6 +12,15 @@ Unreleased
   startup settings, support ``:add`` imports, and implement
   the CPM clock and UTC conversion used for random seeds, binary files,
   and command pipes, including a bidirectional command handle.
+- Preserve module path order, saved dependency provenance and ICurry import
+  validation; rebuild stale installed and read-only user products privately,
+  retain local CPM sources without packages, and validate private rebuild
+  provenance under the loaded-module boundary. Saved objects retain their
+  signed bytes with dependency side records; direct rewrites, external
+  translation keep their resolution scope. Relative paths in front-end options
+  are no longer supported because the front end runs in an empty directory
+  to preserve module path order; use absolute paths or preprocessors on PATH.
+  The front end reports relative paths it cannot find.
 - Stop selecting Microsoft ``cl`` from PATH on Windows; it is not
   supported. Use clang-cl (the Visual Studio component "C++ Clang tools
   for Windows").

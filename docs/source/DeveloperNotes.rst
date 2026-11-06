@@ -502,15 +502,69 @@ fingerprints use the loaded declarations and recorded digests, including
 the object digest for a source-free object.
 
 Editing or rebuilding a loaded module's files without reload or reset is
-outside the module rules; behavior in that process is undefined. The next
-reload, reset or process reads the changed files. Three guarantees still
-hold: the installation is never written, inlining uses the loaded bodies,
-and tools that need product files verify their digests against the load
-record. Inspection and saved-program reconstruction refuse changed products
+outside the module rules; behavior in that process is undefined. This is
+the loaded-module boundary. The next reload, reset or process reads the
+changed files. Three guarantees still
+hold: importers and runtime paths never write the installation, except
+for the documented LLVM cache slot beside its attached image; inlining uses
+the loaded bodies; and tools that need product files verify their digests
+against the load record. Inspection and saved-program reconstruction
+refuse changed products
 with an error naming the module and asking for reload. Background compilation
 skips a module with changed inputs, logs one INFO message and leaves it
-interpreted. Only compile jobs create files in the background compiler's
-temporary root.
+interpreted. Compile jobs and importer private rebuilds create files in the
+background compiler's temporary root.
+
+A writable development installation also accepts explicit ``sprite-make``
+refreshes when all prerequisite products are in place, and its precompiled
+header goes in the include directory. These are deliberate writers.
+Importers rebuild stale installed products privately, even in a writable
+installation. Read-only user product directories also rebuild privately.
+
+Named imports keep Curry path order throughout translation and execution.
+Only an explicit source-file operation puts the program's source root first;
+parallel make children inherit that effective path and the resolved input.
+The external translator receives a view containing only its selected target,
+and the front end runs in an empty directory to preserve module path order.
+Relative paths in front-end options are unsupported; use absolute paths or
+name preprocessors on PATH. The front end reports relative paths it cannot
+find.
+Batch tools share loaded imports until a target needs products replaced by
+a preceding target, then reset before reading them.
+A local CPM project's sources are present even without installed packages.
+
+Saved objects keep dependency fingerprints in a JSON ``.imports`` record
+beside the object; saving preserves the linked and signed bytes. Saved
+executables carry both the object and its record in their payload. Loading
+checks them before opening the object, rebuilds from the first source on
+the effective path when available, and refuses incompatible source-free
+artifacts. A saved executable checks externally resolved dependencies in
+the same way.
+ICurry import receipts are validated even without source, and when supplied
+explicitly. Stale source-free translations are refused.
+
+Image publication replaces a complete file by rename, including a path that
+was previously attached. An attached process keeps its mapped generation;
+a later tool read still checks the recorded digest. Private rebuild inputs
+are authorized by the copier only when the origin is the installed source
+itself or an already authorized copy. Byte-identical user sources do not
+acquire library identity. Authorization records retain the installed origin
+and check both the copied and installed bytes in the import or build job's
+scope. A child receives that authorization in its job description. Loaded private
+generations retain their input provenance for subsequent saves and compile
+jobs. Adjacent files and a directory's spelling do not authorize an outside reserved module.
+The internal ``_SPRITE_LOADER_INPUTS`` environment variable carries this
+provenance; deliberately setting it by hand is outside the module rules, which
+refuse accidental path overrides.
+
+The installation builder invokes ``sprite-make --stage-library`` for its
+library passes. This explicit operation sets a scoped publication context,
+including imports performed by the compiler. Parallel compile jobs capture
+it and pass the option to their children; leaving the operation clears it.
+The optional stage JIT fill enters the same context explicitly. Environment
+variables grant no stage authorization: the former ``SPRITE_STAGE_LIBRARY``
+setting is ignored. Runtime imports, the REPL and saved programs keep private
+library destinations, as do compiler imports without the stage option.
 
 Each interpreter owns the registry of tables made at run time, including
 interpreted images and LLVM code. Static builtin tables and loaded compiled
@@ -525,7 +579,7 @@ their bytecode call counters; already compiled LLVM steps keep their code.
 The module image
 ================
 
-Format 12 (2026-11-01)
+Format 15 (2026-11-05)
 ----------------------
 
 A module image, ``M.img``, lives beside ``M.icy``. The translator writes it
@@ -539,7 +593,11 @@ are little-endian; strings are UTF-8 with a 32-bit byte count. The prefix
 contains an eight-byte magic, a 32-bit format version and the length of a
 header. The header records the ICurry-text SHA-256, route version, inline
 budget, and each direct import's image SHA-256. The header also records
-sorted registered primitive names. No field records a machine path.
+sorted registered primitive names and the effectively authorized library
+wrapper names. Changing a source between an installed-source hard link and
+an ordinary copy invalidates its image even when its bytes are identical.
+Generated C++ input receipts and ABI stamps record the same wrapper names;
+the compiled-product cache key includes them too. No field records a machine path.
 Sections contain imports and aliases, ordered data types and constructors,
 function declarations, bytecode and constants and translation metadata.
 Strings are length-delimited and record arrays begin with a 32-bit count.
@@ -1144,7 +1202,7 @@ own source, with their source definitions and arities checked. These bind
 directly so strict application cannot normalize shared terms before the
 configuration-sensitive observation. A shadowing user module keeps its bodies.
 Native record version 3 rejects older objects even on explicit load; generated
-code uses format 28 and images use version 12. ICurry uses
+code uses format 31 and images use version 15. ICurry uses
 ``Prelude.(?)`` as a compiler intrinsic to lower nondeterministic rules. All twelve
 ``System.Directory`` externals use ``std::filesystem``; modification times are
 ``Data.Time.CTime`` values in POSIX seconds. Directory listings include ``.``

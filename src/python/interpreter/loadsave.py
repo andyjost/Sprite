@@ -1,5 +1,6 @@
 from .. import config, exceptions, icurry, inspect, toolchain, utility
 from ..typecheck import defaulting, goals
+from ..toolchain import _findcurry
 from ..utility.binding import binding
 from ..utility.strings import ensure_str
 from ..objects import handle
@@ -46,6 +47,7 @@ def load(interp, filename, **kwds):
       )
   return cymodule
 
+@_findcurry.with_loader_inputs
 def save(interp, cymodule, filename=None, goal=None, **kwds):
   '''
   Saves a Curry module.
@@ -217,3 +219,73 @@ def _standing_in(interp, cymodule, imodule):
     else:
       with binding(pkg.icurry, h.name, imodule):
         yield
+
+
+SAVED_IMPORTS_SUFFIX = '.imports'
+
+
+def _saved_record(filename):
+  import json
+  def fingerprint(value):
+    return isinstance(value, str) and len(value) == 64 \
+        and all(char in '0123456789abcdef' for char in value)
+  try:
+    with open(filename + SAVED_IMPORTS_SUFFIX, encoding='ascii') as stream:
+      record = json.load(stream)
+    if not isinstance(record, dict) or record.get('version') != 1 \
+        or not isinstance(record.get('imports'), dict) \
+        or not fingerprint(record.get('identity')) \
+        or any(not isinstance(name, str) or not name or not fingerprint(value)
+               for name, value in record['imports'].items()):
+      raise ValueError('invalid saved dependency record')
+    return record
+  except FileNotFoundError:
+    return None
+  except ValueError as error:
+    raise exceptions.LoadError('invalid saved dependency record') from error
+
+
+def _saved_snapshot(interp, names):
+  from ..toolchain import _findcurry, _interfaces
+  with _findcurry.resolving(interp):
+    result = _interfaces.object_snapshot(names, interp.path)
+    for name in names:
+      generation = _findcurry.loaded_generation(name)
+      if generation is not None and generation.object:
+        path = _findcurry.verify_product(generation, generation.object)
+        _findcurry.verify_product(generation, path + SAVED_IMPORTS_SUFFIX)
+        record = _saved_record(path)
+        if record is not None:
+          result[name] = record['identity']
+    return result
+
+
+def record_saved_imports(interp, module, filename):
+  """Keep dependency provenance beside the unmodified linked object."""
+  import json
+  from ..backends.cxx.toolchain import Cpp2So
+  names = Cpp2So._read_stamp_records(filename)[2]
+  if names is None:
+    names = handle.getHandle(module).icurry.imports
+  record = dict(version=1, imports=_saved_snapshot(interp, names),
+      identity=_saved_snapshot(interp, [module.__name__])[module.__name__])
+  from .. import cache
+  cache.write_file(filename + SAVED_IMPORTS_SUFFIX, json.dumps(record, sort_keys=True) + '\n')
+
+
+def verify_saved_imports(interp, filename):
+  """Refuse incompatible saved code before its initializers can run."""
+  try:
+    record = _saved_record(filename)
+    if record is None:
+      # Ordinary build products carry an ABI/input/import stamp instead.
+      # Saved objects have no such stamp and must ship their side record.
+      from ..backends.cxx.toolchain import Cpp2So
+      if Cpp2So(interp).stamp_is_current(filename, check_source=False):
+        return
+      raise exceptions.LoadError('missing saved dependency record')
+    if record['imports'] != _saved_snapshot(interp, record['imports']):
+      raise exceptions.LoadError('saved object dependencies changed; save it again')
+  except exceptions.LoadError as error:
+    error.saved_dependencies_changed = True
+    raise

@@ -108,6 +108,14 @@ class TestFrontendWarnings(cytest.TestCase):
       _frontend.report_warnings('', '/m')
     self.assertEqual(warnings_of(log), [])
 
+  def test_windows_tool_diagnostic(self):
+    from curry.tools.utility import message_text
+    for path in (r'C:\work\OverlapMake.curry', 'C:/work/OverlapMake.curry',
+                 r'\\server\share\OverlapMake.curry'):
+      with self.subTest(path=path):
+        self.assertEqual(message_text(path + ':6:1 Warning:\n' + MESSAGE),
+            'OverlapMake.curry:6:1 Warning:\n' + MESSAGE)
+
   def test_import_warns_once(self):
     '''
     curry.import_ reports the warning on overlapping rules once, with the

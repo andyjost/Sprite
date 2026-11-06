@@ -1,5 +1,7 @@
 """Publication destinations shared by installed-module product writers."""
 import os
+from contextlib import contextmanager
+from contextvars import ContextVar
 from . import _filenames, _findcurry
 from .. import config
 
@@ -24,30 +26,50 @@ def writable(filename):
   return os.access(directory, os.W_OK) and bool(os.stat(directory).st_mode & 0o222)
 
 
+_importing = ContextVar('product_importing', default=False)
+_staging = ContextVar('stage_library', default=False)
+
+
+@contextmanager
+def stage_library(enabled=True):
+  """Authorize installation publication for one explicit stage operation."""
+  token = _staging.set(enabled)
+  try:
+    yield
+  finally:
+    _staging.reset(token)
+
+
+@contextmanager
+def publication(importing):
+  # The stage builds the installation, including dependencies imported by
+  # its compiler. Runtime importers retain their private destinations.
+  token = _importing.set(importing and not staging())
+  try:
+    yield
+  finally:
+    _importing.reset(token)
+
+
+def staging():
+  """Only an explicit stage operation and its compiler jobs may stage."""
+  return _staging.get()
+
+
 def needs_private(filename, products):
   filename = canonical(filename)
-  return _findcurry._installed_library_file(filename) and (
-      not writable(_filenames.icurryfilename(filename)
-          if filename.endswith('.curry') else filename) or any(path is not None and
+  product = _filenames.icurryfilename(filename) if filename.endswith('.curry') else filename
+  return not writable(product) or (_findcurry._installed_library_file(filename) and (
+      _importing.get() or any(path is not None and
           not _findcurry._installed_library_file(canonical(path))
-          for path in products))
+          for path in products)))
 
 
 def select(filename, products=(), force=False):
   """Return a source generation; later writers inherit its destination."""
   filename = canonical(filename)
-  from ..backends.cxx import tiered, image, curryrtbindings as curryrt
+  from ..backends.cxx import tiered
   source = _filenames.sourcefilename(filename)
-  private = tiered._state.tmpdir
-  if private and os.path.realpath(source).startswith(os.path.realpath(private) + os.sep):
-    name = _filenames.module_name(source)
-    mapped = curryrt.SharedCurryModule.find_sofilename(name)
-    objectfile = _filenames.replacesuffix(source, config.module_object_suffix())
-    if os.path.realpath(image.filename(source)) in image._attached_paths or \
-        (mapped is not None and os.path.realpath(mapped) == os.path.realpath(objectfile)):
-      # Every writer follows a new source destination, including interfaces
-      # and ABI stamps; an attached private generation is never replaced.
-      force = True
   if not force and not needs_private(filename, products):
     return filename
   from ..icurry.types import IModule
@@ -61,10 +83,18 @@ def select(filename, products=(), force=False):
   return _filenames.replacesuffix(copy, os.path.splitext(filename)[1])
 
 
-def interfaces(source, currypath, dependencies=None):
-  """Resolve interface prerequisites, including their interface imports."""
+def interfaces(source, currypath, dependencies=None, source_imports=False):
+  """Resolve interface prerequisites, including their interface imports.
+
+  Front-end input discovery prefers current source headers with source_imports.
+  """
   from . import _interfaces
   from ..utility import curryname
+  def source_names(path):
+    from ..cache import SourceInfo
+    source = _filenames.sourcefilename(path)
+    with open(source, 'rb') as stream:
+      return SourceInfo(source, stream.read()).imports
   search = _interfaces.search_path(canonical(source),
       curryname.makeCurryPath(currypath))
   pending = [canonical(source)]
@@ -77,14 +107,11 @@ def interfaces(source, currypath, dependencies=None):
     seen.add(path)
     icy = _filenames.icurryfilename(path)
     try:
-      names = _interfaces.imports(icy)
+      names = source_names(path) if source_imports else _interfaces.imports(icy)
     except (OSError, ValueError):
       try:
-        with open(_filenames.sourcefilename(path), encoding='utf-8') as stream:
-          tokens = list(_filenames._header_tokens(stream.read()))
-        names = [tokens[i + 1] for i, token in enumerate(tokens[:-1])
-                 if token == 'import']
-      except OSError:
+        names = _interfaces.imports(icy) if source_imports else source_names(path)
+      except (OSError, ValueError):
         names = []
     for name in names:
       generation = _findcurry.loaded_generation(name)
