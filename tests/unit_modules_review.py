@@ -542,6 +542,7 @@ generatedBranches = (if x then (0,p) else (1,p)) ? (2,p)
       assert result.returncode == 0, result.stdout + result.stderr
     ''')
 
+  @cytest.skipUnlessObjectsLoad('loads a saved executable with external dependencies')
   def test_01_executable_external_dependency(self):
     for directory, value in [('old', 1), ('new', 2)]:
       self.source(directory, 'Leaf', 'answer :: Int\nanswer = %d' % value)
@@ -583,6 +584,8 @@ generatedBranches = (if x then (0,p) else (1,p)) ? (2,p)
       directory = os.path.join(root, 'library')
       os.environ['CURRYPATH'] = directory
       curry.config.currypath(reset=True)
+      # Image ordering needs no native objects, including installed dependencies.
+      curry.reset(interpret='all', jit='off')
       with installed_library(directory):
         make.main('sprite-make', ['--image', 'Main', 'Leaf'])
       for name in ('Main', 'Leaf'):
