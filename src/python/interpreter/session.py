@@ -179,8 +179,10 @@ def reload(interp, module, *, text=None):
     os.makedirs(os.path.dirname(filename), exist_ok=True)
     with open(filename, 'w', encoding='utf-8') as stream:
       stream.write(replacement)
-    plan = plans.makeplan(flags=plans.MAKE_ICURRY)
-    toolchain.makecurry(plan, filename, currypath, is_sourcefile=True)
+    with interp._private_modules():
+      interp.modules.pop(module.__name__, None)
+      plan = plans.makeplan(interp, flags=plans.MAKE_ICURRY)
+      toolchain.makecurry(plan, filename, currypath, is_sourcefile=True)
   wait(interp)
   from ..utility.locking import native_metadata
   return native_metadata(_replace_module)(interp, module, source, text, imports)
@@ -239,7 +241,7 @@ def _replace_module(interp, module, source, text, imports):
   return module
 
 
-def save(interp, module, path, *, main=None):
+def save(interp, module, path, *, main=None, program_arguments=False):
   check_module(module)
   path = os.fspath(path)
   backend = interp.flags['backend']
@@ -268,11 +270,15 @@ def save(interp, module, path, *, main=None):
         cpp = os.path.join(directory, current.__name__ + '.cpp')
         interp.save(current, cpp, module_main=False, interfaces=True)
         product = SavedCpp2So(interp)(cpp, interp.path)
+        from .loadsave import record_saved_imports
+        record_saved_imports(interp, current, product)
         objects[current.__name__] = product
         return product
 
       if main is None:
-        shutil.copyfile(compile_module(module), path)
+        product = compile_module(module)
+        shutil.copyfile(product, path)
+        shutil.copyfile(product + '.imports', path + '.imports')
       else:
         # Keep imports before their users: the dynamic linker needs their
         # SONAMEs mapped before it opens an object that refers to them.
@@ -295,7 +301,9 @@ def save(interp, module, path, *, main=None):
           product = compile_module(current)
           with open(product, 'rb') as stream:
             data = base64.b64encode(stream.read()).decode('ascii')
-          products.append((os.path.basename(product), data))
+          with open(product + '.imports', 'rb') as stream:
+            receipt = base64.b64encode(stream.read()).decode('ascii')
+          products.append((os.path.basename(product), data, receipt))
         # A library module can itself be the requested main module.
         visited.discard(module.__name__)
         collect(module)
@@ -305,14 +313,16 @@ import curry
 from curry.interpreter.session import _load_saved
 curry.reset(backend=%r)
 with tempfile.TemporaryDirectory(prefix='sprite-program-') as work:
-  for filename, data in %r:
+  for filename, data, receipt in %r:
     path = os.path.join(work, filename)
     with open(path, 'wb') as stream:
       stream.write(base64.b64decode(data))
+    with open(path + '.imports', 'wb') as stream:
+      stream.write(base64.b64decode(receipt))
     module = _load_saved(curry._interpreter_, path)
   from curry.__main__ import moduleMain
-  moduleMain(__file__, module.__name__, goal=%r, goalscheme=%r)
-''' % (sys.executable, backend, products, goal, scheme)
+  moduleMain(__file__, module.__name__, goal=%r, goalscheme=%r, program_arguments=%r)
+''' % (sys.executable, backend, products, goal, scheme, program_arguments)
         if sys.platform == 'win32':
           _save_windows_program(interp, path, program, work)
         else:

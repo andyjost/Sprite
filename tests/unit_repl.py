@@ -6,6 +6,8 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import runpy
+from unittest import mock
 
 
 class TestREPLArguments(cytest.TestCase):
@@ -139,6 +141,34 @@ assert curry.eval(E.getArgs).one() == []
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout,
             'other main\n' if expression else 'one\n-q\ntwo words\n')
+        arguments = ['--keep', '--verbose=4', '-t', '-g', 'main', 'two words']
+        result = subprocess.run([str(program), *arguments],
+            text=True, capture_output=True, timeout=120)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, 'other main\n' if expression else
+                         '\n'.join(arguments) + '\n')
+
+  def test_load_local_basename_with_explicit_package_path(self):
+    with tempfile.TemporaryDirectory() as directory:
+      root = Path(directory)
+      dependencies = root / 'dependencies'
+      dependencies.mkdir()
+      (root / 'Nested').mkdir()
+      (root / 'LocalDependency.curry').write_text(
+          'module LocalDependency where\nvalue :: Int\nvalue = 42\n')
+      (root / 'Nested/Consumer.curry').write_text(
+          'module Nested.Consumer where\nimport qualified LocalDependency\n'
+          'value :: Int\nvalue = LocalDependency.value\n')
+      (root / 'LocalDriver.curry').write_text(
+          'module LocalDriver where\nimport qualified Nested.Consumer\n'
+          'value :: Int\nvalue = Nested.Consumer.value\n')
+      result = subprocess.run([sys.executable, '-m', 'curry.tools.repl',
+          '--nocypm', ':set', 'path', str(dependencies),
+          ':load', 'LocalDriver', ':eval', 'value', ':quit'], cwd=root,
+          env=dict(os.environ, CURRYPATH=str(dependencies)),
+          text=True, capture_output=True, timeout=120)
+      self.assertEqual((result.returncode, result.stdout, result.stderr),
+                       (0, '42\n', ''))
 
   def test_entrypoints(self):
     commands = [[config.installed_path('bin', 'sprite')],
@@ -148,6 +178,114 @@ assert curry.eval(E.getArgs).one() == []
           text=True, capture_output=True, timeout=120)
       self.assertEqual((result.returncode, result.stdout, result.stderr),
           (0, 'True\n', ''))
+
+  @cytest.posix_only('executes external shebang commands')
+  def test_private_cpm_launcher_selects_sprite_and_avoids_itself(self):
+    with tempfile.TemporaryDirectory() as directory:
+      root = Path(directory) / 'real'
+      root.mkdir()
+      alias = Path(directory) / 'alias'
+      alias.symlink_to(root, target_is_directory=True)
+      root = alias
+      for name in ('curry/bin', 'tools', 'fallback', 'python/curry'):
+        (root / name).mkdir(parents=True, exist_ok=True)
+      launcher = root / 'curry/bin/cypm'
+      shutil.copyfile(config.installed_path('curry', 'bin', 'cypm'), launcher)
+      launcher.chmod(0o755)
+      (root / 'curry/bin/curry').touch()
+      (root / 'python/curry/__init__.py').write_text('')
+      (root / 'python/curry/config.py').write_text(
+          'from pathlib import Path\n'
+          'def installed_path(*parts):\n'
+          '  return str(Path(__file__).resolve().parents[2].joinpath(*parts))\n')
+      (root / 'tools/pakcs').write_text('configured tool\n')
+      for name in ('tools', 'fallback'):
+        tool = root / name / 'cypm'
+        tool.write_text('#!' + sys.executable + '\nimport sys\n'
+                        'print(' + repr(name) + ')\nprint("\\n".join(sys.argv[1:]))\n')
+        tool.chmod(0o755)
+      for selected in ('tools', 'fallback'):
+        result = subprocess.run([str(launcher), 'test'], text=True,
+            capture_output=True, timeout=120,
+            env=dict(os.environ, PATH=os.pathsep.join([
+                str(launcher.parent), str(root / 'fallback'), os.environ['PATH']])))
+        self.assertEqual((result.returncode, result.stderr), (0, ''))
+        output = result.stdout.splitlines()
+        self.assertEqual(len(output), 4)
+        self.assertEqual((output[0], output[1], output[3]), (selected, '-d', 'test'))
+        key, separator, compiler = output[2].partition('=')
+        self.assertEqual((key, separator), ('CURRYBIN', '='))
+        self.assertTrue(os.path.samefile(compiler, root / 'curry/bin/curry'))
+        if selected == 'tools':
+          (root / 'tools/cypm').unlink()
+
+  def test_private_cpm_launcher_selection_without_executing_scripts(self):
+    with tempfile.TemporaryDirectory() as directory:
+      root = Path(directory)
+      if os.name != 'nt':
+        (root / 'alias').symlink_to('.', target_is_directory=True)
+        root = root / 'alias'
+      for name in ('curry/bin', 'tools', 'fallback'):
+        (root / name).mkdir(parents=True)
+      launcher = root / 'curry/bin/cypm'
+      shutil.copyfile(config.installed_path('curry', 'bin', 'cypm'), launcher)
+      (root / 'tools/pakcs').touch()
+      for name in ('tools', 'fallback'):
+        (root / name / 'cypm').touch()
+      for selected in ('tools', 'fallback'):
+        for definition in ([], ['-d', 'CURRYBIN=chosen-compiler'],
+                           ['--define', 'CURRYBIN=chosen-compiler'],
+                           ['--define=CURRYBIN=chosen-compiler'],
+                           ['--d', 'CURRYBIN=chosen-compiler'],
+                           ['--d=CURRYBIN=chosen-compiler'],
+                           ['-dCURRYBIN=chosen-compiler']):
+          with self.subTest(selected=selected, definition=definition), \
+               mock.patch.object(config, 'installed_path', side_effect=lambda *p: str(root.joinpath(*p))), \
+               mock.patch.object(os, 'get_exec_path', return_value=[str(root / 'curry/bin'), str(root / 'fallback')]), \
+               mock.patch.object(os, 'access', return_value=True), \
+               mock.patch.object(os, 'execv', side_effect=RuntimeError('selected')) as execute, \
+               mock.patch.dict(os.environ), mock.patch.object(sys, 'path', sys.path[:]), \
+               mock.patch.object(sys, 'argv', [str(launcher), *definition, 'test']):
+            os.environ.pop('SPRITE_CPM_FORWARDED', None)
+            with self.assertRaisesRegex(RuntimeError, 'selected'):
+              runpy.run_path(str(launcher), run_name='__main__')
+            command, arguments = execute.call_args.args
+            self.assertEqual(Path(command).resolve(), (root / selected / 'cypm').resolve())
+            if definition:
+              self.assertEqual(arguments[1:], [*definition, 'test'])
+            else:
+              self.assertEqual(arguments[1], '-d')
+              key, value = arguments[2].split('=', 1)
+              self.assertEqual(key, 'CURRYBIN')
+              self.assertEqual(Path(value).resolve(), (root / 'curry/bin/curry').resolve())
+              self.assertEqual(arguments[3:], ['test'])
+            self.assertEqual(os.environ['SPRITE_CPM_FORWARDED'], '1')
+        if selected == 'tools':
+          (root / 'tools/cypm').unlink()
+
+  @cytest.posix_only('executes two external shebang launchers')
+  def test_two_private_cpm_launchers_refuse_forwarding_loop(self):
+    with tempfile.TemporaryDirectory() as directory:
+      root = Path(directory)
+      launchers = []
+      for name in ('first', 'second'):
+        prefix = root / name
+        (prefix / 'curry/bin').mkdir(parents=True)
+        (prefix / 'python/curry').mkdir(parents=True)
+        (prefix / 'python/curry/__init__.py').write_text('')
+        (prefix / 'python/curry/config.py').write_text(
+            'def installed_path(*parts): return "missing-pakcs"\n')
+        launcher = prefix / 'curry/bin/cypm'
+        shutil.copyfile(config.installed_path('curry', 'bin', 'cypm'), launcher)
+        launcher.chmod(0o755)
+        launchers.append(launcher)
+      environment = dict(os.environ, PATH=os.pathsep.join(
+          [str(p.parent) for p in launchers] + [os.environ['PATH']]))
+      environment.pop('SPRITE_CPM_FORWARDED', None)
+      result = subprocess.run([sys.executable, str(launchers[0]), 'test'],
+          env=environment, text=True, capture_output=True, timeout=10)
+      self.assertNotEqual(result.returncode, 0)
+      self.assertIn('Stock CPM is missing', result.stderr)
 
   def test_search_path_and_runtime_settings(self):
     with tempfile.TemporaryDirectory(prefix='repl path ') as directory:
@@ -171,3 +309,25 @@ assert curry.eval(E.getArgs).one() == []
           ':quit', '--numeric-version']), text=True, capture_output=True, timeout=120)
       self.assertEqual((result.returncode, result.stdout, result.stderr),
           (0, ':quit\n--numeric-version\n', ''))
+
+  def test_empty_runtime_arguments_clear_previous_values(self):
+    result = self.run_sprite(':load', 'System.Environment',
+        ':set', 'args', 'previous', ':eval', 'getArgs',
+        ':set', 'args', ':eval', 'getArgs', ':quit')
+    self.assertEqual((result.returncode, result.stdout, result.stderr),
+        (0, '["previous"]\n[]\n', ''))
+
+  def test_startup_settings_read_commands_and_add_import_from_stdin(self):
+    with tempfile.TemporaryDirectory() as directory:
+      root = Path(directory)
+      (root / 'LocalModel.curry').write_text(
+          'module LocalModel where\nvalue :: Int\nvalue = 42\n')
+      (root / 'ModelWriter.curry').write_text(
+          'module ModelWriter where\nwriteModel :: String -> Int -> IO ()\n'
+          'writeModel path value = writeFile path (show value)\n')
+      result = subprocess.run([sys.executable, '-m', 'curry.tools.repl',
+          '--nocypm', ':set', 'v0'], cwd=root, text=True, capture_output=True,
+          input=':load LocalModel\n:add ModelWriter\n:set jit off\n'
+                ':eval writeModel "result.txt" value\n:quit\n', timeout=120)
+      self.assertEqual(result.returncode, 0, result.stderr)
+      self.assertEqual((root / 'result.txt').read_text(), '42')

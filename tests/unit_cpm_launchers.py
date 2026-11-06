@@ -478,6 +478,45 @@ class TestPrivateLaunchers(cytest.TestCase):
         self.assertIn('no Curry front end found', result.stderr)
     self.assertEqual(before, {p: (p.stat().st_mtime_ns, p.read_bytes()) for p in before})
 
+  @cytest.posix_only('uses an executable front-end probe')
+  def test_recompiled_installed_source_invalidates_stock_analyses(self):
+    if config.curry_frontend() is None:
+      self.skipTest('ICurry recompilation needs the front end')
+    import hashlib
+    with tempfile.TemporaryDirectory() as directory:
+      root = Path(directory)
+      prefix = root / 'prefix'
+      shutil.copytree(config.prefix(), prefix, symlinks=True)
+      library = prefix / 'curry/lib'
+      source = library / 'Data/Char.curry'
+      analysis = library / '.curry' / config.analysis_subdir() / 'Data/Char'
+      before = {suffix: analysis.with_suffix(suffix).read_bytes()
+                for suffix in ('.fcy', '.acy')}
+      source.write_bytes(source.read_bytes() + b'\nhomeReceiptProbe :: Int\nhomeReceiptProbe = 42\n')
+      env = dict(os.environ, SPRITE_HOME=str(prefix),
+                 PYTHONPATH=str(prefix / 'python'), SPRITE_CACHE_FILE='',
+                 SPRITE_INTERPRETER_FLAGS='backend:cxx,interpret:all,jit:off')
+      compile_source = ('from curry.toolchain._curry2icurry import curry2icurry; '
+                        'import sys; curry2icurry(sys.argv[1], [sys.argv[2]], use_cache=False)')
+      rebuild = subprocess.run([sys.executable, '-c', compile_source,
+          str(source), str(library)], cwd=root, env=env,
+          capture_output=True, text=True, timeout=180)
+      self.assertEqual(rebuild.returncode, 0, rebuild.stdout + rebuild.stderr)
+      receipt = source.parent / '.curry' / config.intermediate_subdir() / 'Char.icy.source'
+      self.assertEqual(receipt.read_text().strip(), hashlib.sha256(source.read_bytes()).hexdigest())
+      self.assertEqual(before, {suffix: analysis.with_suffix(suffix).read_bytes()
+                                for suffix in before})
+      probe = root / 'frontend'
+      probe.write_text('#!' + sys.executable + '\nprint("configured frontend reached")\n')
+      probe.chmod(0o755)
+      env['SPRITE_FRONTEND'] = str(probe)
+      result = subprocess.run([sys.executable,
+          str(prefix / 'curry/bin/sprite-frontend'), '--flat', '--acy',
+          '-i', str(library), '-o', '.curry/' + config.analysis_subdir(),
+          'Data.Char'], cwd=root, env=env, capture_output=True, text=True, timeout=60)
+      self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+      self.assertIn('configured frontend reached', result.stdout)
+
   def test_stage_uses_configured_python(self):
     alternate = shutil.which('python3', path=os.defpath)
     if alternate is None or Path(alternate).resolve() == Path(sys.executable).resolve():

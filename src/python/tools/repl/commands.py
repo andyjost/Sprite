@@ -23,7 +23,17 @@ def load(repl, arg):
   Loads the module that the file name or module name ``arg`` names, as
   :load does.  Sets ``repl.module`` and ``repl.loaded``.
   '''
-  repl.module = curry.import_(arg)
+  # :load accepts a local source basename even when CPM's path contains
+  # only package source directories. Import it through the file API.
+  source = arg if arg.endswith('.curry') else arg + '.curry'
+  target = os.path.abspath(source) if os.path.isfile(source) else arg
+  if os.path.isfile(source):
+    # Named transitive imports also need the local program's search root.
+    dirname = os.path.dirname(target)
+    if dirname not in curry.path:
+      curry.path.insert(0, dirname)
+  repl.module = curry.import_(target)
+  repl.added = []
   curry.program_name = curry.info(repl.module).name
   repl.loaded = arg
   repl.loaded_name = repl.module.__name__
@@ -43,9 +53,18 @@ def cmdReload(repl):
   curry.reload(repl.module)
 
 
+def cmdAdd(repl):
+  """Add a module to the expression scope, retaining the loaded program."""
+  if len(repl.args) != 1:
+    raise ValueError(':add expects one module')
+  module = curry.import_(repl.args[0])
+  if module not in repl.added:
+    repl.added.append(module)
+
+
 def imports(repl):
   '''The modules in scope at the prompt: the loaded module.'''
-  return [] if repl.module is None else [repl.module]
+  return ([] if repl.module is None else [repl.module]) + repl.added
 
 def cmdEval(repl):
   '''
@@ -93,7 +112,7 @@ def cmdSet(repl):
     return
   if args and args[0] in ('parser', 'rts', 'path', 'args'):
     name = args.pop(0)
-    if not args:
+    if not args and name != 'args':
       raise ValueError('Missing value for :set ' + name)
     value = ' '.join(args)
     if name == 'path':
@@ -173,7 +192,8 @@ def cmdSave(repl):
         imports=imports(repl))
     goal = 'spriteSavedMain'
   filename = repl.loaded_name
-  curry.save(module, filename, main=goal)
+  from ...interpreter.session import save
+  save(curry._interpreter_, module, filename, main=goal, program_arguments=True)
   os.chmod(filename, os.stat(filename).st_mode | 0o111)
 
 
@@ -184,6 +204,7 @@ def cmdQuit(repl):
 
 COMMANDS = {
     ':load' : cmdLoad
+  , ':add' : cmdAdd
   , ':reload' : cmdReload
   , ':eval' : cmdEval
   , ':type' : cmdType

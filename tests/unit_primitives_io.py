@@ -325,6 +325,12 @@ class TestPrimitivesIO(cytest.TestCase):
                    str(source), '/Fo' + str(Path(tmp) / 'OldDirectory.obj'),
                    '/link', '/OUT:' + target]
       self.run_child(command, check=True, capture_output=True, text=True)
+      # This synthetic object has no imports. Supply its dependency record
+      # so the load reaches the legacy record-version check.
+      import hashlib, json
+      Path(target + '.imports').write_text(json.dumps(dict(
+          version=1, imports={}, identity=hashlib.sha256(Path(target).read_bytes()).hexdigest())) + '\n',
+          encoding='ascii')
       # Format 20 used record version 2. Rejection precedes any slot binding.
       # A fresh process has no previously mapped module with this name.
       script = """

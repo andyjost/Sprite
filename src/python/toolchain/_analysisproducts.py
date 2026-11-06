@@ -62,7 +62,7 @@ def shipped_request(arguments):
     # Stock readers use the top of the module hierarchy as the product root.
     if relative.with_suffix('') != path:
       return False
-    receipt = found.parent / '.curry' / config.intermediate_subdir() / (found.stem + '.icy.source')
+    receipt = library / outdir / relative.with_suffix('.source')
     if not receipt.is_file() or receipt.read_text().strip() != \
         hashlib.sha256(found.read_bytes()).hexdigest():
       return False

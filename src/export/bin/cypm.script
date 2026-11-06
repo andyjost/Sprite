@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
-"""Private CPM entry point in the Curry home."""
+"""Private CPM entry point for tools using the Curry installation prefix."""
 from pathlib import Path
 import os
 import sys
 
-prefix = Path(__file__).resolve().parents[2]
+launcher = Path(__file__).resolve()
+prefix = launcher.parents[2]
 python = prefix / 'tools/python'
 if python.is_file() and python.resolve() != Path(sys.executable).resolve():
-  os.execv(str(python.resolve()), [str(python.resolve()), str(Path(__file__).resolve()), *sys.argv[1:]])
-if (prefix / 'sysconfig').is_dir():
-  sys.path.insert(0, str(prefix / 'python' if (prefix / 'python').is_dir()
-                         else prefix.parent.parent))
+  os.execv(str(python.resolve()), [str(python.resolve()), str(launcher), *sys.argv[1:]])
+sys.path.insert(0, str(prefix / 'python' if (prefix / 'python').is_dir()
+                       else prefix.parent.parent))
 from curry import config
 
 arguments = sys.argv[1:]
@@ -22,17 +22,21 @@ for index, argument in enumerate(arguments):
     definitions.append(argument.split('=', 1)[1])
   elif argument.startswith('-d'):
     definitions.append(argument[2:])
-# CPM keeps the first definition. An explicit caller selection takes priority.
+# CPM keeps the first definition of a key. Preserve the caller's compiler.
 defaults = ([] if any(value.startswith('CURRYBIN=') for value in definitions)
             else ['-d', 'CURRYBIN=' + str(prefix / 'curry/bin/curry')])
-if os.environ.get('SPRITE_CPM_FORWARDED'):
-  sys.exit('stock CPM is missing; put a stock cypm executable on PATH')
 
-candidates = [Path(config.installed_path('tools', 'pakcs')).resolve().parent / 'cypm']
-candidates.extend(Path(p) / 'cypm' for p in os.get_exec_path())
+if os.environ.get('SPRITE_CPM_FORWARDED'):
+  sys.exit('Stock CPM is missing; install stock CPM beside configured PAKCS or on PATH')
+
+candidates = []
+pakcs = Path(config.installed_path('tools', 'pakcs'))
+if pakcs.is_file():
+  candidates.append(pakcs.resolve().with_name('cypm'))
+candidates += [Path(directory) / 'cypm' for directory in os.get_exec_path()]
 for candidate in candidates:
-  if candidate.is_file() and os.access(candidate, os.X_OK) \
-      and candidate.resolve() != Path(__file__).resolve():
+  if candidate.is_file() and candidate.resolve() != launcher and os.access(candidate, os.X_OK):
+    command = str(candidate.resolve())
     os.environ['SPRITE_CPM_FORWARDED'] = '1'
-    os.execv(str(candidate), [str(candidate), *defaults, *arguments])
-sys.exit('no CPM executable found; put cypm on PATH')
+    os.execv(command, [command, *defaults, *arguments])
+sys.exit('cypm is unavailable; install CPM and add its executable to PATH')
