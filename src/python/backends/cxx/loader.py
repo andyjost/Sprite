@@ -225,6 +225,22 @@ def _load_module_once(interp, sofile, from_plan, fresh, _saved_payload):
   currypath = _program_path(interp, sofile)
   for modulename in needed:
     module = interp.import_(modulename, currypath=currypath)
+  from ...interpreter.loadsave import verify_saved_imports
+  try:
+    verify_saved_imports(interp, sofile)
+  except exceptions.LoadError as error:
+    if getattr(error, 'saved_dependencies_changed', False) and name is not None \
+        and (name not in interp.modules or isinstance(interp.modules[name], CurryPackage)):
+      from ...toolchain import plans
+      plan = plans.makeplan(interp, plans.MAKE_ALL)
+      search = interp.path if currypath is None else currypath
+      candidate = next(_findcurry._modulefiles(plan, name, search), None)
+      if candidate is not None and not os.path.isdir(candidate) \
+          and os.path.isfile(_filenames.sourcefilename(candidate)):
+        return interp.import_(name, currypath=search)
+    raise
+  for modulename in needed:
+    module = interp.modules[modulename]
     if getHandle(module).sofilename is None:
       raise exceptions.LoadError(
           'cannot load %r: its import %s runs without a compiled object'

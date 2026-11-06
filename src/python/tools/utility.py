@@ -1,5 +1,5 @@
 from .. import config
-import contextlib, logging, os, re, signal, sys, traceback, warnings
+import contextlib, logging, ntpath, os, re, signal, sys, traceback, warnings
 
 logger = logging.getLogger(__name__)
 
@@ -7,8 +7,10 @@ __all__ = ['carp', 'handle_program_errors', 'make_exception', 'unrst']
 
 def message_text(message):
   '''Keep filenames in tool diagnostics, without absolute directories.'''
+  message = re.sub(r'''(?<![\w:/\\])(?:[A-Za-z]:[\\/]|\\\\)[^\s'"<>:;,()]+''',
+      lambda match: ntpath.basename(match[0]), str(message))
   return re.sub(r'''(?<![\w:/])/(?:[^\s'"<>:;,()]+/)*[^\s'"<>:;,()]+''',
-      lambda match: os.path.basename(match[0]), str(message))
+      lambda match: os.path.basename(match[0]), message)
 
 
 @contextlib.contextmanager

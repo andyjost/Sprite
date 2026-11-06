@@ -75,9 +75,12 @@ __all__ = ['compile', 'write_module', 'FORMAT_VERSION']
 # Format 28: only external declarations select registered primitives, with
 # the library's named wrapper exceptions; the native record version is 3
 # (the primitives branch used 21 to 25 for these steps, never published).
-# Format 29: ELF definitions bind locally so loading another generation
-# cannot run its table constructors over an earlier object's exported data.
-FORMAT_VERSION = 29
+# Format 29: verified private library copies keep native wrapper semantics.
+# Master also used 29 for local ELF binding, preventing another generation's
+# table constructors from overwriting an earlier object's exported data.
+# Format 30: installed-origin provenance and explicit stage authorization.
+# Format 31: effective wrapper authorization in translation input receipts.
+FORMAT_VERSION = 31
 
 # The runtime headers every generated file includes, as vEmitHeader writes
 # them: one directive per name.  The toolchain digests the include closure
