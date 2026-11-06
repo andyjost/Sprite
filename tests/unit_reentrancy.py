@@ -3,7 +3,7 @@ import cytest # from ./lib; must be first
 import unittest
 
 CHILD = '''
-import cytest, curry, logging, os, signal, tempfile, threading
+import cytest, curry, logging, os, signal, sys, tempfile, threading
 from curry.backends.cxx.curryrtbindings import _curryrtbindings as native
 from curry.backends.cxx import llvmjit, curryrtbindings
 from curry.toolchain import _productlock
@@ -260,7 +260,7 @@ print('ok')
         self.child('source = %r\n' % source + '''
 from curry import cache
 from curry.toolchain import _curry2icurry
-with tempfile.TemporaryDirectory() as directory:
+with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') as directory:
   path = os.path.join(directory, 'ReentrantLog.curry')
   with open(path, 'w') as stream:
     stream.write('module ReentrantLog where\\nf :: Int\\nf = 7\\n')
