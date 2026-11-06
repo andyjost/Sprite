@@ -306,7 +306,7 @@ def _reap_commands():
           _command_processes.discard(process)
       except Exception:
         # Keep this child pending without preventing cleanup of the others.
-        pass
+        logger.exception('Command %s retirement failed; will retry', process.pid)
 
 
 def _retire_command(token):
@@ -614,6 +614,15 @@ def _signal_command(process, kill=False):
       _os.killpg(process.pid, signal.SIGKILL if kill else signal.SIGTERM)
     except ProcessLookupError:
       pass
+    except PermissionError:
+      # XNU reports EPERM for a group containing only zombies. Confirm the
+      # leader's exit without reaping it before allowing retirement. A live
+      # descendant with different credentials can also cause EPERM, so keep
+      # that uncertainty visible even though the dead leader can be reaped.
+      if not _command_exited(process):
+        raise
+      logger.warning('Cannot signal command group %s: leader exited; '
+                     'live descendants may remain', process.pid, exc_info=True)
 
 
 def _discard_command_stream(stream):
@@ -639,12 +648,15 @@ def _shutdown_native():
   for process in processes:
     try:
       try: _signal_command(process)
-      except Exception: pass
+      except Exception:
+        logger.exception('Command %s termination failed', process.pid)
       try: _command_exited(process, timeout=1)
-      except Exception: pass
+      except Exception:
+        logger.exception('Command %s exit observation failed', process.pid)
       # WNOWAIT keeps the exited leader's id reserved through this signal.
       try: _signal_command(process, kill=True)
-      except Exception: pass
+      except Exception:
+        logger.exception('Command %s final group kill failed', process.pid)
       if process.returncode is None:
         process.wait(timeout=1)
       if sys.platform == 'win32':
@@ -655,7 +667,7 @@ def _shutdown_native():
         _command_pending.discard(process)
     except Exception:
       # A failed child must not prevent bounded cleanup of later children.
-      pass
+      logger.exception('Command %s shutdown failed', process.pid)
   for stream in list(_command_streams.values()):
     try: _discard_command_stream(stream)
     except Exception: pass

@@ -37,7 +37,7 @@ namespace
     {
       if(op == "getClockTime")
       {
-        auto ctor = package_constructor("Data.Time", "CTime");
+        auto ctor = package_constructor(rts, "Data.Time", "CTime");
         if(!ctor) throw std::runtime_error("Data.Time.CTime is not loaded");
         auto now = std::chrono::system_clock::now().time_since_epoch();
         auto seconds = std::chrono::duration_cast<std::chrono::seconds>(now).count();
@@ -128,13 +128,13 @@ namespace
     return node;
   }
 
-  tag_type utc_step(RuntimeState *, Configuration * C)
+  tag_type utc_step(RuntimeState * rts, Configuration * C)
   {
     Cursor root = C->cursor();
     try
     {
       auto clock = data_node(root[0].target);
-      if(clock->info != package_constructor("Data.Time", "CTime"))
+      if(clock->info != package_constructor(rts, "Data.Time", "CTime"))
         throw std::runtime_error("Data.Time: expected CTime");
       auto seconds = std::stoll(integer_string(data_node(clock->successor_node(0))));
       auto days = seconds / 86400;
@@ -153,7 +153,7 @@ namespace
       auto day = day_of_year - (153 * march_month + 2) / 5 + 1;
       auto month = march_month + (march_month < 10 ? 3 : -9);
       year += month <= 2;
-      auto ctor = package_constructor("Data.Time", "CalendarTime");
+      auto ctor = package_constructor(rts, "Data.Time", "CalendarTime");
       if(!ctor) throw std::runtime_error("Data.Time.CalendarTime is not loaded");
       root->forward_to(Node::create(ctor, int_(year), int_(month), int_(day),
           int_(daytime / 3600), int_((daytime / 60) % 60), int_(daytime % 60), int_(0)));

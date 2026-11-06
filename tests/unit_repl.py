@@ -182,12 +182,17 @@ assert curry.eval(E.getArgs).one() == []
   @cytest.posix_only('executes external shebang commands')
   def test_private_cpm_launcher_selects_sprite_and_avoids_itself(self):
     with tempfile.TemporaryDirectory() as directory:
-      root = Path(directory)
+      root = Path(directory) / 'real'
+      root.mkdir()
+      alias = Path(directory) / 'alias'
+      alias.symlink_to(root, target_is_directory=True)
+      root = alias
       for name in ('bin', 'tools', 'fallback', 'python/curry'):
         (root / name).mkdir(parents=True, exist_ok=True)
       launcher = root / 'bin/cypm'
       shutil.copyfile(config.installed_path('bin', 'cypm'), launcher)
       launcher.chmod(0o755)
+      (root / 'bin/curry').touch()
       (root / 'python/curry/__init__.py').write_text('')
       (root / 'python/curry/config.py').write_text(
           'from pathlib import Path\n'
@@ -204,8 +209,13 @@ assert curry.eval(E.getArgs).one() == []
             capture_output=True, timeout=120,
             env=dict(os.environ, PATH=os.pathsep.join([
                 str(launcher.parent), str(root / 'fallback'), os.environ['PATH']])))
-        self.assertEqual((result.returncode, result.stdout, result.stderr),
-            (0, selected + '\n-d\nCURRYBIN=' + str(root / 'bin/curry') + '\ntest\n', ''))
+        self.assertEqual((result.returncode, result.stderr), (0, ''))
+        output = result.stdout.splitlines()
+        self.assertEqual(len(output), 4)
+        self.assertEqual((output[0], output[1], output[3]), (selected, '-d', 'test'))
+        key, separator, compiler = output[2].partition('=')
+        self.assertEqual((key, separator), ('CURRYBIN', '='))
+        self.assertTrue(os.path.samefile(compiler, root / 'bin/curry'))
         if selected == 'tools':
           (root / 'tools/cypm').unlink()
 

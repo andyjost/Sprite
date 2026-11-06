@@ -138,7 +138,7 @@ namespace
           h.release();
         }
         if(duplex) return finish(C, nodes[0]);
-        auto tuple = Module::find_symbol("Prelude", "(,,)");
+        auto tuple = Module::find_symbol(rts->istate.modules, "Prelude", "(,,)");
         if(!tuple) throw std::runtime_error("Prelude tuple constructor is not loaded");
         return finish(C, Node::create(tuple, nodes[0], nodes[1], nodes[2]));
       }

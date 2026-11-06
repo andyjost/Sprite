@@ -117,6 +117,92 @@ run command = do
             bindings._standard_stream(token, 'release', '', 0)
           process.wait(timeout=5)
 
+  @unittest.skipUnless(all(hasattr(os, name) for name in
+                           ('waitid', 'P_PID', 'WEXITED', 'WNOWAIT')),
+                       'requires a non-reaping wait')
+  @cytest.posix_only('checks POSIX zombie group signalling')
+  def test_exited_command_group_permission_error(self):
+    from curry.backends.cxx import curryrtbindings as b
+    from unittest import mock
+    import errno
+    import signal
+    for pending in (True, False):
+      with self.subTest(pending=pending), subprocess.Popen(
+          [sys.executable, '-c', 'pass'], start_new_session=True) as process:
+        try:
+          os.waitid(os.P_PID, process.pid, os.WEXITED | os.WNOWAIT)
+        except OSError as error:
+          if error.errno in (errno.EINVAL, errno.ENOSYS, errno.ENOTSUP):
+            self.skipTest('non-reaping wait is unsupported')
+          raise
+        signal_errors = []
+        original_signal = b._signal_command
+        def signal_command(child, kill=False):
+          try:
+            original_signal(child, kill=kill)
+          except PermissionError as error:
+            if kill: signal_errors.append(error)
+            raise
+        def killpg(pgid, sig):
+          self.assertEqual(pgid, process.pid)
+          self.assertIsNone(process.returncode)
+          # The leader must still be waitable when either signal is sent.
+          self.assertEqual(os.waitid(os.P_PID, pgid,
+              os.WEXITED | os.WNOWAIT | os.WNOHANG).si_pid, pgid)
+          raise PermissionError(errno.EPERM, 'group has only zombies')
+        with mock.patch.object(b, '_command_processes', {process}), \
+             mock.patch.object(b, '_command_pending', {process}), \
+             mock.patch.object(b, '_command_streams', {}), \
+             mock.patch.object(b, '_signal_command', side_effect=signal_command), \
+             mock.patch.object(os, 'killpg', side_effect=killpg) as group_signal, \
+             mock.patch.object(b, 'shutdown_handles'), \
+             mock.patch.object(b._curryrtbindings, '_heap_drain'), \
+             self.assertLogs(b.logger, level='WARNING') as logs:
+          (b._reap_commands if pending else b._shutdown_native)()
+          self.assertNotIn(process, b._command_pending)
+          self.assertNotIn(process, b._command_processes)
+          self.assertEqual(signal_errors, [])
+          group_signal.assert_any_call(process.pid, signal.SIGKILL)
+          self.assertEqual(process.returncode, 0)
+          with self.assertRaises(ChildProcessError):
+            os.waitpid(process.pid, os.WNOHANG)
+        self.assertTrue(any('live descendants may remain' in line for line in logs.output))
+
+  @cytest.posix_only('checks POSIX signal permission errors')
+  def test_live_command_group_permission_error_is_not_ignored(self):
+    from curry.backends.cxx import curryrtbindings as b
+    from unittest import mock
+    import errno
+    process = mock.Mock(pid=42, returncode=None)
+    for kill in (False, True):
+      with self.subTest(kill=kill), \
+           mock.patch.object(os, 'killpg', side_effect=PermissionError(errno.EPERM, 'denied')), \
+           mock.patch.object(b, '_command_exited', return_value=False), \
+           self.assertRaises(PermissionError):
+        b._signal_command(process, kill=kill)
+
+  def test_pending_command_error_is_logged_and_retried(self):
+    from curry.backends.cxx import curryrtbindings as b
+    from unittest import mock
+    broken, healthy = mock.Mock(pid=41), mock.Mock(pid=42)
+    def signal_command(process, kill=False):
+      if process is broken: raise RuntimeError('cannot signal child')
+    with mock.patch.object(b, '_command_processes', {broken, healthy}), \
+         mock.patch.object(b, '_command_pending', {broken, healthy}), \
+         mock.patch.object(b, '_command_exited', return_value=True), \
+         mock.patch.object(b, '_signal_command', side_effect=signal_command), \
+         mock.patch.object(b.logger, 'exception') as diagnostic:
+      b._reap_commands()
+      diagnostic.assert_called_once_with('Command %s retirement failed; will retry', 41)
+      self.assertEqual(b._command_pending, {broken})
+      self.assertEqual(b._command_processes, {broken})
+      healthy.wait.assert_called_once_with(timeout=1)
+      broken.wait.assert_not_called()
+      with mock.patch.object(b, '_signal_command'):
+        b._reap_commands()
+      self.assertFalse(b._command_pending)
+      self.assertFalse(b._command_processes)
+
   def test_windows_pending_command_releases_owned_handles_after_exit(self):
     from curry.backends.cxx import curryrtbindings as b
     from unittest import mock
