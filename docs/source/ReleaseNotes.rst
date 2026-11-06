@@ -10,6 +10,11 @@ Unreleased
   and raise the public ``ForkError`` in children forked while Sprite is busy;
   a callback fork on the large-stack worker attempts a bounded error report
   and exits the child.
+- Answer compiler version probes using only the installed Curry library,
+  ignoring the caller's Curry path and CPM project sources.
+- Implement the CPM ``Debug.Profile`` process information and collection
+  primitives; collector on/off operations are supported as no-ops (#240).
+
 - Make ``Distribution.installDir`` a Curry home at ``<root>/curry`` (#214):
   move library sources and products to ``curry/lib`` and the private tool
   launchers to ``curry/bin``; ship FlatCurry and AbstractCurry library analyses

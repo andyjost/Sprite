@@ -51,6 +51,39 @@ assert curry.eval(E.getArgs).one() == []
         (name, version, base)):
       self.assertEqual(self.run_sprite(option).stdout, expected + '\n')
 
+  def test_version_probes_ignore_caller_paths(self):
+    with tempfile.TemporaryDirectory() as directory:
+      root = Path(directory)
+      clean, override, project, current = (root / name for name in
+          ('clean', 'override', 'project', 'current'))
+      source = project / 'src'
+      for path in (clean, override, source, current):
+        path.mkdir(parents=True)
+      for path in (override, source, current):
+        (path / 'Prelude.curry').write_text('module Prelude where\n')
+      (project / 'package.json').write_text(
+          '{"name":"probe-fixture","version":"1.0.0","sourceDirs":["src"]}\n')
+      env = dict(os.environ, CURRYPATH='', SPRITE_CPM_PATH='1')
+      commands = ([sys.executable, '-m', 'curry.tools.repl'],
+          [sys.executable, config.installed_path('curry', 'bin', 'curry')])
+      for command in commands:
+        for option in ('--compiler-name', '--numeric-version', '--base-version'):
+          baseline = subprocess.run([*command, option], cwd=clean, env=env,
+              text=True, capture_output=True, timeout=120)
+          self.assertEqual(baseline.returncode, 0, baseline.stderr)
+          for label, cwd, currypath in (
+              ('CURRYPATH', clean, str(override)),
+              ('CPM', project, ''),
+              ('current directory', current, ''),
+              ('CURRYPATH and CPM', project, str(override))):
+            with self.subTest(command=command[-1], option=option, path=label):
+              result = subprocess.run([*command, option], cwd=cwd,
+                  env=dict(env, CURRYPATH=currypath), text=True,
+                  capture_output=True, timeout=120)
+              self.assertEqual(result.returncode, 0, result.stderr)
+              self.assertEqual(result.stdout, baseline.stdout)
+              self.assertEqual(result.stderr, baseline.stderr)
+
   def test_version_probes_with_startup_options(self):
     for args in [('--nocypm', '--compiler-name'),
         ('--compiler-name', '--noreadline', '--numeric-version', '-q',
