@@ -506,6 +506,61 @@ class TestStaleness(PreRewriteCase):
                 [mock.call(_frontend.flatcurryfile(source), 'rb')] * checks)
           self.assertLess(cost, 50.0, '%s check costs %.3f ms' % (name, cost))
 
+  def test_receipt_and_interface_cost(self):
+    '''
+    Count all opens and SHA-256 hashes of a current product importing
+    Prelude. Within one load, the first check reads the receipt and hashes
+    the source and four products once; later checks reuse that completion.
+    Every check still reads the source header twice, the FlatCurry text,
+    the ICurry import header and record, and both imported interfaces,
+    hashing the interface pair once. This catches repeated receipt work
+    without a wall-clock bound; a new load must check the receipt anew.
+    '''
+    source = self.write('ReceiptCost', guard('ReceiptCost'))
+    icy = self.convert(source)
+    self.assertEqual(_interfaces.imports(icy), ['Prelude'])
+    search = _interfaces.search_path(icy, [self.tmpdir])
+    imported = _interfaces.interface_file('Prelude', search)
+    self.assertIsNotNone(imported)
+    self.assertTrue(imported.endswith('.fint'))
+    fcy = _frontend.flatcurryfile(source)
+    products = [source, icy, icy + '.imports'] + [
+        cache.interface_filename(icy, suffix) for suffix in cache.INTERFACE_SUFFIXES
+      ]
+    first_reads = [mock.call(icy + '.source', encoding='ascii')] + [
+        mock.call(path, 'rb') for path in products
+      ]
+    repeated_reads = [
+        mock.call(source, encoding='utf-8'), mock.call(fcy, 'rb')
+      , mock.call(icy + '.imports', encoding='utf-8')
+      , mock.call(icy, encoding='utf-8'), mock.call(source, encoding='utf-8')
+      ] + [mock.call(imported[:-5] + suffix, 'rb')
+           for suffix in cache.INTERFACE_SUFFIXES]
+
+    @_curry2icurry.with_completion_checks
+    def load():
+      with mock.patch(
+          'builtins.open', wraps=open
+        ) as reads, mock.patch.object(
+          _curry2icurry, 'source_digest', wraps=_curry2icurry.source_digest
+        ) as receipts, mock.patch.object(
+          _interfaces.hashlib, 'sha256', wraps=_interfaces.hashlib.sha256
+        ) as hashes:
+        for count in range(1, 21):
+          with self.subTest(check=count):
+            self.assertFalse(_curry2icurry.icurry_is_stale(icy, [self.tmpdir]))
+            self.assertEqual(receipts.call_count, 5,
+                             'receipt hashes, including memo hits')
+            self.assertEqual(receipts.call_args_list,
+                             [mock.call(path) for path in products],
+                             'receipt hashes, including memo hits')
+            self.assertEqual(hashes.call_count, 5 + count,
+                             'five receipt hashes, one interface hash per check')
+            self.assertEqual(reads.call_args_list,
+                             first_reads + repeated_reads * count, 'file opens')
+    load()
+    load()
+
 
 class TestCacheKey(PreRewriteCase):
   '''The version of the route in the key of the ICurry cache.'''
