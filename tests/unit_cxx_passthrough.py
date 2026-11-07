@@ -253,7 +253,11 @@ class TestStepFunctions(cytest.TestCase):
     base = os.path.join(
         self.BENCHMARKS, '.curry', config.intermediate_subdir(), name
       )
-    self.assertTrue(os.path.exists(base + '.so'), base)
+    self.assertTrue(
+        os.path.exists(base + '.so')
+      , ('the object of %s is missing or stale; run the prepare pass '
+         '(./run_tests --prepare)') % name
+      )
     return base
 
   def references(self, sofile):
