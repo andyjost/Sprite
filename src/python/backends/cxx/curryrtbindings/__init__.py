@@ -267,19 +267,23 @@ def _wait_command(process, timeout=0):
   import time
   deadline = time.monotonic() + timeout
   while True:
-    # Share Popen's waiter serialization, acquiring it before masking signals.
+    # Share Popen's waiter serialization without blocking past the deadline,
+    # acquiring it after the fork check and before masking signals.
     _curryrtbindings._fork_check()
-    with process._waitpid_lock:
-      if process.returncode is not None:
-        return process.returncode
+    if process._waitpid_lock.acquire(False):
       try:
-        pid, status = _command_call(process, _os.waitpid, process.pid, _os.WNOHANG)
-      except ChildProcessError:
-        process.returncode = 0
-        return 0
-      if pid:
-        process.returncode = _os.waitstatus_to_exitcode(status)
-        return process.returncode
+        if process.returncode is not None:
+          return process.returncode
+        try:
+          pid, status = _command_call(process, _os.waitpid, process.pid, _os.WNOHANG)
+        except ChildProcessError:
+          process.returncode = 0
+          return 0
+        if pid:
+          process.returncode = _os.waitstatus_to_exitcode(status)
+          return process.returncode
+      finally:
+        process._waitpid_lock.release()
     remaining = deadline - time.monotonic()
     if remaining <= 0:
       raise subprocess.TimeoutExpired(process.args, timeout)
@@ -339,8 +343,14 @@ def _command_exited(process, timeout=0):
                                _os.WEXITED | _os.WNOWAIT | _os.WNOHANG)
       except ChildProcessError:
         # Another waiter already reaped it: record that before any signal.
-        _wait_command(process)
-        return True
+        process._command_reaped = True
+        # Give its status publication at least one second, even for a poll.
+        import subprocess
+        try:
+          _wait_command(process, timeout=max(1, deadline - time.monotonic()))
+        except subprocess.TimeoutExpired:
+          return False
+        return process.returncode is not None
       except OSError as error:
         if error.errno not in (errno.EINVAL, errno.ENOSYS, errno.ENOTSUP):
           raise
@@ -709,7 +719,8 @@ def _signal_command(process, kill=False):
   else:
     # Sprite owns this group only until its leader is reaped. Descendants
     # leaving the group/session themselves are outside command containment.
-    if process.returncode is not None: return
+    if process.returncode is not None or vars(process).get('_command_reaped', False):
+      return
     import signal
     try:
       _command_call(process, _os.killpg, process.pid, signal.SIGKILL if kill else signal.SIGTERM)

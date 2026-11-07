@@ -306,24 +306,176 @@ finally:
 assert elapsed < 2.5, 'full-pipe operation timed out'
 """)
 
+  def test_timed_command_wait_with_blocking_popen_waiter(self):
+    for timeout in (0, .1):
+      with self.subTest(timeout=timeout):
+        self.run_case('timeout = %r\n' % timeout + r"""
+import subprocess
+from unittest import mock
+process = subprocess.Popen([sys.executable, '-c',
+    'import sys; sys.stdin.read(); raise SystemExit(37)'], stdin=subprocess.PIPE)
+process._command_creator_pid = os.getpid()
+entered, finished = threading.Event(), threading.Event()
+results, errors = [], []
+original = process._try_wait
+def observed_wait(flags):
+  if flags == 0:
+    assert process._waitpid_lock.locked(), 'ordinary waiter did not hold lock'
+    entered.set()
+  return original(flags)
+def waiter():
+  try:
+    results.append(process.wait())
+  except BaseException as error:
+    errors.append(error)
+def end_command():
+  # Bound the failure too: master's blocking lock waits until this closes stdin.
+  # Keep the command alive throughout the separate three-second handshake.
+  if not finished.wait(30):
+    process.stdin.close()
+ordinary = threading.Thread(target=waiter)
+watchdog = threading.Thread(target=end_command)
+try:
+  with mock.patch.object(process, '_try_wait', observed_wait):
+    watchdog.start()
+    ordinary.start()
+    assert entered.wait(3), 'ordinary waiter did not reach blocking waitpid'
+    started = time.monotonic()
+    timed_out = False
+    try:
+      rt._wait_command(process, timeout=timeout)
+    except subprocess.TimeoutExpired as error:
+      timed_out = True
+      assert error.cmd == process.args and error.timeout == timeout
+    elapsed = time.monotonic() - started
+    assert timed_out, ('timed wait blocked until watchdog ended command', elapsed)
+    assert timeout <= elapsed < timeout + .5, ('timed wait missed deadline', elapsed)
+finally:
+  finished.set()
+  if watchdog.ident is not None:
+    watchdog.join(3)
+  process.stdin.close()
+  if ordinary.ident is not None:
+    ordinary.join(3)
+    if ordinary.is_alive():
+      process.kill()
+      ordinary.join(3)
+  process.wait(timeout=3)
+assert not watchdog.is_alive() and not ordinary.is_alive(), 'waiter timed out'
+assert not errors, errors
+assert results == [37] and process.returncode == 37, (results, process.returncode)
+assert rt._wait_command(process, timeout=1) == 37
+""", timeout=45)
+
+  @unittest.skipUnless(all(hasattr(os, name) for name in
+                           ('waitid', 'P_PID', 'WEXITED', 'WNOWAIT', 'WNOHANG')),
+                       'requires a non-reaping wait')
+  def test_command_exited_waits_for_reaped_status_publication(self):
+    # Publication must outlast the handshake; timeout cases test the floor too.
+    for timeout, publish in ((10, True), (0, False), (.1, False), (1.2, False)):
+      with self.subTest(timeout=timeout, publish=publish):
+        self.run_case('timeout, publish = %r, %r\n' % (timeout, publish) + r"""
+import subprocess
+from unittest import mock
+process = subprocess.Popen([sys.executable, '-c', 'raise SystemExit(37)'])
+process._command_creator_pid = os.getpid()
+entered, resume, attempted = threading.Event(), threading.Event(), threading.Event()
+results, observed, errors = [], [], []
+original_try_wait = process._try_wait
+original_wait_command = rt._wait_command
+def paused(flags):
+  result = original_try_wait(flags)
+  if result[0]:
+    assert process._waitpid_lock.locked(), 'ordinary waiter did not hold lock'
+    entered.set()
+    assert resume.wait(30), 'status publication was not released'
+  return result
+def attempted_wait(*args, **kwargs):
+  attempted.set()
+  return original_wait_command(*args, **kwargs)
+def waiter():
+  try:
+    results.append(process.wait(timeout=3))
+  except BaseException as error:
+    errors.append(error)
+def observe():
+  try:
+    started = time.monotonic()
+    exited = rt._command_exited(process, timeout=timeout)
+    observed.append((exited, time.monotonic() - started))
+  except BaseException as error:
+    errors.append(error)
+ordinary = threading.Thread(target=waiter)
+observer = threading.Thread(target=observe)
+try:
+  with mock.patch.object(process, '_try_wait', paused), \
+       mock.patch.object(rt, '_wait_command', attempted_wait):
+    ordinary.start()
+    assert entered.wait(3), 'ordinary waiter did not reap command'
+    assert process.returncode is None, 'status was published before observation'
+    observer.start()
+    assert attempted.wait(3), 'observer did not wait for status publication'
+    if publish:
+      resume.set()
+    observer.join(max(1, timeout) + 3)
+    assert not observer.is_alive(), 'exit observation exceeded its bound'
+    assert not errors, errors
+    assert len(observed) == 1 and observed[0][0] is publish, observed
+    if not publish:
+      assert process.returncode is None, 'status published during timeout case'
+      assert max(1, timeout) <= observed[0][1] < max(1, timeout) + .5, observed
+      # Shutdown still attempts its final signal after a False observation.
+      with mock.patch.object(rt, '_command_call') as command_call:
+        rt._signal_command(process, kill=True)
+        command_call.assert_not_called()
+finally:
+  resume.set()
+  for thread in (ordinary, observer):
+    if thread.ident is not None:
+      thread.join(3)
+  if ordinary.is_alive():
+    process.kill()
+    ordinary.join(3)
+  process.wait(timeout=3)
+assert not ordinary.is_alive() and not observer.is_alive(), 'waiter timed out'
+assert not errors, errors
+assert results == [37] and process.returncode == 37, (results, process.returncode)
+assert rt._command_exited(process, timeout=0) is True
+""", timeout=30)
+
   def test_concurrent_command_waiters_preserve_exit_status(self):
     self.run_case(r"""
 import subprocess
 from unittest import mock
 process = subprocess.Popen([sys.executable, '-c', 'raise SystemExit(37)'])
 process._command_creator_pid = os.getpid()
-entered, resume = threading.Event(), threading.Event()
+entered, resume, attempted = threading.Event(), threading.Event(), threading.Event()
 results, errors = [], []
+class ObservedLock:
+  def __init__(self, lock):
+    self.lock = lock
+  def acquire(self, *args, **kwargs):
+    if threading.current_thread() is second:
+      attempted.set()
+    return self.lock.acquire(*args, **kwargs)
+  def release(self):
+    self.lock.release()
+  def __enter__(self):
+    self.acquire()
+    return self
+  def __exit__(self, *args):
+    self.release()
+process._waitpid_lock = ObservedLock(process._waitpid_lock)
 original = rt._command_call
 def paused(process, operation, *args, **kwargs):
   result = original(process, operation, *args, **kwargs)
   if operation is os.waitpid and result[0]:
     entered.set()
-    assert resume.wait(3), 'status publication was not released'
+    assert resume.wait(30), 'status publication was not released'
   return result
 def waiter():
   try:
-    results.append(rt._wait_command(process, timeout=3))
+    results.append(rt._wait_command(process, timeout=10))
   except BaseException as error:
     errors.append(error)
 first = threading.Thread(target=waiter)
@@ -333,8 +485,8 @@ try:
     first.start()
     assert entered.wait(3), 'first waiter did not reap command'
     second.start()
-    # With Popen's waiter lock held, this waiter cannot overwrite the status.
-    second.join(.1)
+    # Keep the reaped status unpublished until the second waiter tries the lock.
+    assert attempted.wait(3), 'second waiter did not attempt waiter lock'
     resume.set()
     first.join(3)
     second.join(3)
@@ -343,6 +495,9 @@ try:
   assert results == [37, 37] and process.returncode == 37, (results, process.returncode)
 finally:
   resume.set()
+  for thread in (first, second):
+    if thread.ident is not None:
+      thread.join(3)
   if process.returncode is None:
     process.kill()
   process.wait(timeout=3)
