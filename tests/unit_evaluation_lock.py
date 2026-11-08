@@ -23,25 +23,42 @@ class TestEvaluationLock(cytest.TestCase):
 
   def test_two_threads_keep_independent_queues_and_counts(self):
     self.child('''
-serial = evaluator(100000)
+owned = threading.Event()
+release = threading.Event()
+def counted(hold=False):
+  def values():
+    if hold:
+      owned.set()
+      assert release.wait(10)
+    yield from range(100000)
+  return Evaluator(cytest.raw.interp(),
+      cytest.raw.expr(M.lengthInts, values(), typed=True))
+serial = counted()
 assert run(serial) == [100000]
 expected = serial.rts.steps_total
 from curry.backends.cxx.curryrtbindings import _curryrtbindings as native
 before = native._heap_status()
-runs = [evaluator(100000), evaluator(100000)]
-barrier = threading.Barrier(3)
+runs = [counted(hold=True), counted()]
 values = [None, None]
 errors = []
 def evaluate(i):
   try:
-    barrier.wait()
     values[i] = run(runs[i])
   except BaseException as error:
     errors.append(error)
 threads = [threading.Thread(target=evaluate, args=(i,)) for i in range(2)]
-for thread in threads: thread.start()
-barrier.wait()
-for thread in threads: thread.join()
+threads[0].start()
+assert owned.wait(10)
+waits = native._test_heap_waits()
+threads[1].start()
+try:
+  deadline = time.monotonic() + 10
+  while native._test_heap_waits() == waits:
+    assert time.monotonic() < deadline, 'second evaluation never waited'
+    release.wait(.001)
+finally:
+  release.set()
+  for thread in threads: thread.join()
 assert not errors, errors
 assert values == [[100000], [100000]], values
 assert [ev.rts.steps_total for ev in runs] == [expected, expected]
@@ -52,19 +69,36 @@ print('ok')
 
   def test_python_timer_advances_during_native_search(self):
     self.child('''
+from curry.backends.cxx.curryrtbindings import _curryrtbindings as native
+# Force the native large-stack route and hold its startup until sampled.
+curry.reset(backend='cxx', interpret='off', stack_limit=65536)
+M = curry.import_('StackGuard')
 ev = evaluator(2000000)
-stop = threading.Event()
-ticks = []
+sampled = threading.Event()
+errors = []
 def timer():
-  while not stop.wait(0.001): ticks.append(time.monotonic())
+  try:
+    deadline = time.monotonic() + 10
+    while not native._test_worker_startup_paused():
+      assert time.monotonic() < deadline, 'native search never started'
+      sampled.wait(.001)
+    sampled.set()
+  except BaseException as error:
+    errors.append(error)
+  finally:
+    native._test_resume_worker_startup()
+native._test_pause_worker_startup()
 thread = threading.Thread(target=timer)
 thread.start()
 try:
+  deep = Evaluator(cytest.raw.interp(), cytest.raw.expr(M.deep, 3000, typed=True))
+  assert run(deep) == [3000]
   assert run(ev) == [2000000]
+  assert sampled.wait(10), 'timer did not sample the native search'
 finally:
-  stop.set()
+  native._test_resume_worker_startup()
   thread.join()
-assert len(ticks) >= 10, len(ticks)
+assert not errors, errors
 print('ok')
 ''')
 

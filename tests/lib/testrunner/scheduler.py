@@ -274,9 +274,9 @@ class Scheduler:
         except KeyboardInterrupt:
           continue
     finally:
-      self._restore_handlers(saved)
       watchdog.stop()
       watchdog.join()
+      self._restore_handlers(saved)
       self.wall = time.monotonic() - start
     return self.done
 

@@ -489,21 +489,16 @@ class TestScheduler(SchedulerTests):
       child.stdout.close()
 
   def test_width_two_runs_two_at_once(self):
-    # The serial run first: the saving of the parallel run is measured
-    # against it, so a slow start of Python on a loaded machine (an Intel
-    # macOS runner took 2.3 s for the two jobs at width two) does not fail
-    # the test; two one-second jobs side by side still save most of a second.
-    jobs = [
-        self.pyjob('t%d.py' % i, 'import time; time.sleep(1)') for i in range(2)
-      ]
-    serial = self.run_jobs(jobs, width=1)
-    self.assertGreater(serial.wall, 1.9)
-    self.assertTrue(all(job.ok for job in jobs))
-    jobs = [
-        self.pyjob('s%d.py' % i, 'import time; time.sleep(1)') for i in range(2)
-      ]
+    # Neither child can finish until both have announced their presence.
+    markers = [os.path.join(self.logdir, str(i)) for i in range(2)]
+    jobs = [self.pyjob('t%d.py' % i, """
+import pathlib, time
+markers = %r
+pathlib.Path(markers[%d]).touch()
+while not all(pathlib.Path(p).exists() for p in markers):
+  time.sleep(.01)
+""" % (markers, i), timeout=10) for i in range(2)]
     parallel = self.run_jobs(jobs, width=2)
-    self.assertLess(parallel.wall, serial.wall - 0.5)
     self.assertTrue(all(job.ok for job in jobs))
 
   def test_budget_serializes_two_big_files(self):
@@ -519,19 +514,22 @@ class TestScheduler(SchedulerTests):
     running = self.pyjob('long.py', 'import time; time.sleep(60)')
     waiting = self.pyjob('wait.py', 'pass')
     before = {sig: signal.getsignal(sig) for sig in INTERRUPT_SIGNALS}
-    # Two interrupts: the second lands during the final reap and changes
-    # nothing.
-    timers = [
-        threading.Timer(delay, os.kill, args=(os.getpid(), signal.SIGINT))
-        for delay in (0.5, 0.7)
-      ]
-    for timer in timers:
-      timer.start()
-    try:
+    from testrunner.scheduler import Watchdog
+    original_join = Watchdog.join
+    original_admit = Scheduler.admit
+    sent = []
+    def admit(sched):
+      original_admit(sched)
+      if sched.running and not sent:
+        sent.append(True)
+        os.kill(os.getpid(), signal.SIGINT)
+    def join(watchdog):
+      # Deliver synchronously inside cleanup, before the actual join.
+      os.kill(os.getpid(), signal.SIGINT)
+      original_join(watchdog)
+    with mock.patch.object(Scheduler, 'admit', admit), \
+         mock.patch.object(Watchdog, 'join', join):
       sched = self.run_jobs([running, waiting], width=1)
-    finally:
-      for timer in timers:
-        timer.cancel()
     self.assertTrue(sched.interrupted)
     self.assertEqual(sched.interrupt_requested, signal.SIGINT)
     self.assertEqual(running.status, 'killed: interrupted')
