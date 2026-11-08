@@ -71,6 +71,7 @@ namespace curryrt { inline namespace
   template<typename Action>
   static tag_type _applyspecial(
       RuntimeState * rts, Configuration * C, Action const & action
+    , bool const & private_result=false
     )
   {
     Cursor _0 = C->cursor();
@@ -101,41 +102,89 @@ namespace curryrt { inline namespace
     Node * replacement = Node::create(
         &apply_Info, _1.rvalue(), _2.rvalue()
       );
+    if(private_result)
+    {
+      // Groundness can depend on C's bindings and narrowing decisions in
+      // a capture. A sibling may still be waiting on this shared redex.
+      // Publish the application only in C, preserving that sibling's check.
+      *C->root = C->scan.copy_spine(C->root, replacement);
+      return E_RESTART;
+    }
     _0->forward_to(replacement);
     return T_FWD;
   }
 
   static ValueSet const FREE_IN_CONFIGURATION{nullptr, 0, 'v'};
 
-  // Do not inspect the function's captured arguments, or descend into a
-  // free variable's shared generator: neither belongs to the demanded value.
-  static bool wait_for_ground(RuntimeState * rts, Configuration * C, Cursor root)
+  // Inspect only the demanded argument, including its partial captures and
+  // effective bindings and chosen generator instances. Never enter an
+  // undecided variable's shared generator. Applications left by normalization
+  // are inspected structurally, without evaluating them.
+  static bool wait_for_ground(
+      RuntimeState * rts, Configuration * C, Cursor root, bool & depends_on_config
+    )
   {
     GcClamp clamp;
     std::unordered_set<Node *> seen;
+    std::vector<Node *> pending{root};
     bool ground = true;
-    for(auto visitor = walk(root); visitor; ++visitor)
+    while(!pending.empty())
     {
-      Cursor cur = visitor.cursor();
-      if(cur.kind != 'p' || !seen.insert(cur).second)
-        continue;
-      if(inspect::isa_freevar(cur))
+      Node * node = pending.back();
+      pending.pop_back();
+      for(auto visitor = walk(node); visitor; ++visitor)
       {
-        if(rts->is_free_in_configuration(C, cur))
+        Cursor cur = visitor.cursor();
+        if(cur.kind != 'p' || !seen.insert(cur).second)
+          continue;
+        if(inspect::isa_freevar(cur))
         {
-          C->add_residual(obj_id(cur), BOUND);
-          ground = false;
+          // Use the same representative and enclosing-configuration lookup
+          // as is_free_in_configuration (the bound-wait readiness check).
+          xid_type const gid = C->grp_id(obj_id(cur));
+          if(Node * binding = rts->get_binding(C, gid))
+          {
+            depends_on_config = true;
+            pending.push_back(binding);
+          }
+          else if(rts->is_narrowed(C, gid))
+          {
+            depends_on_config = true;
+            // As in replace_freevar: a decided variable denotes its
+            // generator instance, whose constructor fields may still be free.
+            pending.push_back(rts->get_generator(C, gid));
+          }
+          else
+          {
+            C->add_residual(obj_id(cur), BOUND);
+            ground = false;
+          }
         }
+        else if(cur->info->tag == T_CHOICE)
+        {
+          ChoiceNode * choice = NodeU{cur}.choice;
+          ChoiceState const side = rts->read_fp(C, choice->cid);
+          if(side == LEFT || side == RIGHT)
+          {
+            depends_on_config = true;
+            pending.push_back(side == LEFT ? choice->lhs : choice->rhs);
+          }
+          else
+            visitor.extend();
+        }
+        else
+          visitor.extend();
       }
-      else
-        visitor.extend();
     }
     return ground;
   }
 
   static tag_type applynormal_step(RuntimeState * rts, Configuration * C, bool ground)
   {
-    auto normalize = [ground](
+    // The action sets this only when the ground check reads C. A ground
+    // argument with no such dependency can use the shared in-place rewrite.
+    bool depends_on_config = false;
+    auto normalize = [ground, &depends_on_config](
         RuntimeState * rts, Configuration * C, Variable * var, bool monadic
       ) -> tag_type
     {
@@ -171,11 +220,12 @@ namespace curryrt { inline namespace
       // Check only a completed normal form, before _applyspecial forwards
       // it to apply. Each wake normalizes again, since a binding can bring
       // more free variables into the argument.
-      if(tag >= T_CTOR && ground && !wait_for_ground(rts, C, var->target))
+      if(tag >= T_CTOR && ground
+          && !wait_for_ground(rts, C, var->target, depends_on_config))
         return E_RESIDUAL;
       return tag;
     };
-    return _applyspecial(rts, C, normalize);
+    return _applyspecial(rts, C, normalize, depends_on_config);
   }
 
   static tag_type applynf_step(RuntimeState * rts, Configuration * C)

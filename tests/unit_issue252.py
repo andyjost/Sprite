@@ -1,6 +1,8 @@
 """Rigid waits must not borrow a sibling's narrowing decision (#252, #253)."""
 import cytest # from ./lib; must be first
 import curry
+import os
+from unittest import mock
 
 
 SOURCE = '''module BoundWait where
@@ -39,6 +41,14 @@ inner :: Bool -> Int
 inner x = head (sortValues (set1 inside x))
 newvars :: [Bool] -> Bool -> Int
 newvars x y = (const 0 $## x) ? narrow y
+capture :: [Bool] -> Bool -> Int
+capture x y = x `seq` (const 0 $## (const x :: Bool -> [Bool]))
+captureChain :: [Bool] -> Bool -> Bool -> Int
+captureChain x z y = capture x y
+captureList :: [Bool] -> Bool -> [Bool] -> Int
+captureList x y ys = capture x y
+captureNarrow :: [Bool] -> Int
+captureNarrow x = narrowList x `seq` (const 0 $## (const x :: Bool -> [Bool]))
 forkWait :: Bool -> Int
 forkWait x = (((ensureNotFree x == True) & (True ? failed)) &> 0) ? narrow x
 demand :: Bool -> Bool
@@ -63,6 +73,14 @@ def check_wait(goal, types=('Bool',), siblings=('2', '1'),
   module = curry.compile(SOURCE)
   variables = [curry.term(curry.free('v%d' % i, type=t))._node
                for i, t in enumerate(types)]
+  # A Python free marker starts as Prelude.unknown applied to a dictionary.
+  # Materialize every marker, including unused parameters, before reading
+  # IDs or injecting bindings. Captures keep unevaluated applications lazy.
+  for variable in variables:
+    list(cytest.raw.values(variable))
+  del variable
+  variables = [inspect.fwd_chain_target(v) for v in variables]
+  assert all(inspect.isa_freevar(v) for v in variables)
   rts = native.RuntimeState(cytest.raw.interp(),
                            cytest.raw.expr(getattr(module, goal), *variables))
   try:
@@ -85,10 +103,31 @@ def check_wait(goal, types=('Bool',), siblings=('2', '1'),
       native.gc_collect()
       native.gc_verify()
     for position, (index, value) in enumerate(bindings):
-      if isinstance(value, tuple) and value[0] == 'list':
-        value = [variables[value[1]]]
-      native.checker_debug_bind(rts, vids[index], cytest.raw.expr(value))
-      native.checker_debug_update_binding(rts, vids[index])
+      if isinstance(index, tuple):
+        # Bind a field of the cons chosen by Curry's own list narrowing.
+        generator = variables[index[0]].successors[1]
+        cons, = [n for n in generator.successors[1:] if inspect.isa_cons(n)]
+        field = inspect.fwd_chain_target(cons.successors[index[1]])
+        assert inspect.isa_freevar(field)
+        vid = field.successors[0]
+      else:
+        vid = vids[index]
+      if isinstance(value, tuple) and value[0] in ('narrow_cons', 'narrow_nil'):
+        from curry.common import LEFT, RIGHT
+        cons = cytest.raw.expr(cytest.raw.cons(
+            variables[value[1]], variables[value[2]]))
+        generator = native.make_node(
+            native.Choice, vid, cytest.raw.expr([]), cons)
+        native.checker_debug_attach_generator(rts, variables[index], generator)
+        side = RIGHT if value[0] == 'narrow_cons' else LEFT
+        native.checker_debug_set_fp(rts, vid, int(side))
+      else:
+        if isinstance(value, tuple) and value[0] == 'list':
+          value = [variables[value[1]]]
+        elif isinstance(value, tuple) and value[0] == 'var':
+          value = variables[value[1]]
+        native.checker_debug_bind(rts, vid, cytest.raw.expr(value))
+        native.checker_debug_update_binding(rts, vid)
       if position + 1 < len(bindings):
         try:
           next(rts.generate_values())
@@ -159,12 +198,89 @@ class TestBoundWait(cytest.TestCase):
   def test_wait_survives_fork(self):
     self.child("check_wait('forkWait')")
 
+  def test_capture_binding_introduces_free_variable(self):
+    self.child("check_wait('capture', types=('[Bool]', 'Bool'), siblings=(), "
+               "bindings=((0, ('list', 1)), (1, True)))")
+
+  def test_capture_binding_through_two_variables(self):
+    self.child("check_wait('captureChain', types=('[Bool]', 'Bool', 'Bool'), "
+               "siblings=(), bindings=((0, ('list', 1)), "
+               "(1, ('var', 2)), (2, True)))")
+
+  def test_capture_narrowed_constructor_keeps_free_arguments(self):
+    self.child("check_wait('captureList', types=('[Bool]', 'Bool', '[Bool]'), "
+               "siblings=(), bindings=((0, ('narrow_cons', 1, 2)), "
+               "(1, True), (2, [])))")
+
+  def test_capture_narrowed_constructor_ignores_other_branch(self):
+    self.child("check_wait('captureList', types=('[Bool]', 'Bool', '[Bool]'), "
+               "siblings=(), bindings=((0, ('narrow_nil', 1, 2)),))")
+
+  def test_capture_after_curry_narrowing(self):
+    self.child("check_wait('captureNarrow', types=('[Bool]',), siblings=('0',), "
+               "bindings=(((0, 0), True), ((0, 1), [])))")
+
   def test_no_spin(self):
     self.child("check_wait('gnf')\nprint('suspended and resumed')")
 
   @cytest.skipUnlessGcBackend('wdgc', 'requires the default collector build')
   def test_default_collector_wait(self):
     self.child("check_wait('capsule', collect=True)")
+
+  @cytest.skipUnlessGcBackend('wdgc', 'requires the default collector build')
+  def test_publication_steps_and_collections(self):
+    # In-place publications reach the ordinary completed-step safepoint.
+    # Stress collection must preserve values and counters for every case.
+    code = '''
+import cytest, curry
+from curry.backends.cxx import curryrtbindings as native
+curry.reset(interpret='all', jit='off', rotation='steps:65536')
+m = curry.compile("""module Publication where
+import Control.SetFunctions
+root :: Int
+root = id $## 41
+nested :: Int
+nested = 1 + (id $## 41)
+bound :: Int
+bound = 1 + (id $## ((x =:= 41) &> x)) where x free
+capsule :: Int
+capsule = head (sortValues (set0 nested))
+literal :: String
+literal = show (41 :: Int)
+private :: Int
+private = narrow x `seq` (const 42 $## (const x :: Bool -> Bool))
+  where x free
+narrow :: Bool -> Int
+narrow True = 1
+narrow False = 2
+""")
+for name, expected in [('root', 41), ('nested', 42),
+                       ('bound', 42), ('capsule', 42), ('literal', '41'),
+                       ('private', 42)]:
+  goal = getattr(m, name)
+  before = curry.stats()
+  values = list(curry.eval(goal))
+  after = curry.stats()
+  assert values == [expected] * (2 if name == 'private' else 1), (name, values)
+  steps = after['steps'] - before['steps']
+  forks = after['forks'] - before['forks']
+  collections = after['collections'] - before['collections']
+  assert steps > 0, (name, steps)
+  # Binding substitution and private publication return E_RESTART. Master
+  # counts each enclosing step but skips check_interrupts for those returns;
+  # collecting before they unwind would change the pinned step counts.
+  # Keep the collection-per-step assertion on the in-place cases only.
+  if native.gc_stress() and name not in ('bound', 'private'):
+    assert collections >= steps, (name, collections, steps)
+  print(name, values, steps, forks)
+'''
+    results = []
+    for stress in ('0', '1'):
+      with mock.patch.dict(os.environ, {'SPRITE_GC_STRESS': stress}):
+        proc = cytest.run_in_subprocess(code, timeout=60)
+      self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+      results.append(proc.stdout)
+    self.assertEqual(*results)
 
   @cytest.skipUnlessGcBackend('mps', 'requires an MPS build')
   def test_mps_collector_wait(self):

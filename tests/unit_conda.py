@@ -443,8 +443,8 @@ class TestCondaRecipe(cytest.TestCase):
 
   def test_overlay_in_a_shallow_clone(self):
     '''
-    make overlay in a shallow clone extracts the products, prunes nothing
-    and warns: the history ends before the commit that packed the archive,
+    make overlay in a shallow clone extracts the products, checks source
+    receipts and warns: history ends before the commit that packed the archive,
     and the warning names fetch-depth 0.  The build files of this tree are
     copied into the clone, so the test sees the Makefile of the working
     tree.  One run: the copies of the interfaces take most of its time.
@@ -479,7 +479,11 @@ class TestCondaRecipe(cytest.TestCase):
       self.assertIn('fetch-depth 0', result.stdout)
       # No member is listed, and the products are in place.
       self.assertNotRegex(result.stdout, r'(?m)^tests/')
-      self.assertLess(len(result.stdout.split('\n')), 20)
+      # The cap guards against a member listing, not overlay-prune's report
+      # of each stale product it removes after checking source receipts.
+      lines = [line for line in result.stdout.split('\n')
+               if not line.startswith('rm ')]
+      self.assertLess(len(lines), 20)
       product = os.path.join(
           clone, 'tests', 'data', 'curry', 'smap', '.curry', config.frontend_subdir()
         , 'poker_four_of_a_kind.fcy'
