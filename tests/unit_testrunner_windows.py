@@ -308,6 +308,21 @@ class TestWindowsRunner(unittest.TestCase):
         if failure != 'AssignProcessToJobObject':
           kernel.AssignProcessToJobObject.assert_not_called()
 
+  def test_constructor_exceptions_close_once(self):
+    import ctypes as c
+    for operation in ('SetInformationJobObject', 'AssignProcessToJobObject'):
+      for error in (RuntimeError('configuration failed'), KeyboardInterrupt()):
+        with self.subTest(operation=operation, error=type(error).__name__):
+          kernel, handle = self.kernel_stub()
+          getattr(kernel, operation).side_effect = error
+          with mock.patch.object(c, 'WinDLL', return_value=kernel, create=True):
+            with self.assertRaises(type(error)) as caught:
+              procs.WindowsJob(types.SimpleNamespace(_handle=2**40 + 99))
+          self.assertIs(caught.exception, error)
+          kernel.CloseHandle.assert_called_once_with(handle)
+          if operation == 'SetInformationJobObject':
+            kernel.AssignProcessToJobObject.assert_not_called()
+
   def test_suspended_assign_resume_and_refusal(self):
     import ctypes as c
     for refused in (False, True):
