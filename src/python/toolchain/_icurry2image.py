@@ -41,7 +41,7 @@ class ICurry2Image:
       # A foreign image budget must not prune that later product and cause
       # an implicit import to replace it. Image attachment still checks the
       # budget and builds a private image when interpreted code is needed.
-      keys = ('source', 'route', 'registry')
+      keys = ('source', 'route', 'registry', 'refusals')
       if self.check_budget:
         keys += ('budget',)
       if any(header.get(key) != facts[key] for key in keys):
