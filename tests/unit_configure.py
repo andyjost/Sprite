@@ -33,6 +33,9 @@ class TestCMake(cytest.TestCase):
     '''Configures a build directory; ``frontend=False`` leaves the choice to CMake.'''
     args = [cmake_executable(), '-S', ROOT, '-B', self.build if build is None else build,
             '-G', 'Ninja', '-DPython_EXECUTABLE=' + sys.executable, '-DWITH_PAKCS=']
+    if sys.platform == 'win32':
+      args += ['-DCMAKE_C_COMPILER=clang-cl',
+               '-DCMAKE_CXX_COMPILER=' + config.cxx_tool()]
     if frontend:
       args.append('-DWITH_CURRY_FRONTEND=' + os.path.realpath(self.frontend))
     return run(*args, *options, env=env)

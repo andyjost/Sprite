@@ -1411,9 +1411,14 @@ class TestCli(unittest.TestCase):
     env = {'A': '1'}
     job = cli.test_job('unit_a.py', 'cxx', '/sprite', manifest, 60, '/logs', env)
     self.assertEqual(
-        job.argv[-5:]
-      , ['unittest', 'discover', '-v', testrunner.TESTDIR, 'unit_a.py']
+        job.argv[-4:]
+      , ['discover', '-v', testrunner.TESTDIR, 'unit_a.py']
       )
+    if sys.platform == 'win32':
+      self.assertEqual(job.argv[-6:-4], ['-c',
+          'from testrunner.cli import windows_unittest; windows_unittest(60)'])
+    else:
+      self.assertEqual(job.argv[-6:-4], ['-m', 'unittest'])
     self.assertIn(sys.executable if sys.platform == 'win32' else '/sprite/bin/python', job.argv)
     self.assertEqual(job.cap, 2000 * MIB)
     self.assertEqual(job.hint, 7)
@@ -1718,18 +1723,18 @@ class TestPrepare(unittest.TestCase):
     plain = job('cxx', None)
     self.assertEqual(plain.missing(), ['data/curry/a.curry'])
     self.assertEqual(
-        plain.product('data/curry/a.curry'), os.path.join(products, 'a' + suffix)
+        os.path.normpath(plain.product('data/curry/a.curry')), os.path.join(products, 'a' + suffix)
       )
     for flags in 'backend:cxx,interpret:new', 'interpret:all':
       new = job('cxx', flags)
       self.assertEqual(new.flags, flags)
       self.assertEqual(new.missing(), ['data/curry/b.curry'], flags)
       self.assertEqual(
-          new.products('data/curry/a.curry')
+          list(map(os.path.normpath, new.products('data/curry/a.curry')))
         , [os.path.join(products, 'a.img')]
         )
       self.assertEqual(
-          new.product('data/curry/a.curry'), os.path.join(products, 'a.img')
+          os.path.normpath(new.product('data/curry/a.curry')), os.path.join(products, 'a.img')
         )
     # The environment that cli.main gives the job carries the flags of the
     # run; the former runtime is not concerned.

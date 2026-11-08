@@ -503,22 +503,29 @@ assert getattr(curry._interpreter_.modules[parent], local) is module
 
   @cytest.skipUnlessObjectsLoad('curry.load opens a compiled object')
   def test_loaded_object_keeps_its_typed_interface(self):
-    module = curry.compile('f :: Int -> Int\nf x = x + 1', name='SavedTyped')
     with tempfile.TemporaryDirectory() as work:
-      suffix = config.module_object_suffix()
-      product = os.path.join(work, 'SavedTyped' + suffix)
-      curry.save(module, product)
-      curry.reset()
-      loaded = curry.load(product)
-      self.assertEqual(curry.eval(loaded.f(41)).one(), 42)
-      self.assertEqual(curry.typeof(loaded.f), 'Int -> Int')
-      backend = curry._interpreter_.backend
-      with mock.patch.object(type(backend), 'load_module',
-                             side_effect=AssertionError('backend called')), \
-           mock.patch('builtins.open', side_effect=AssertionError('object read')):
-        self.assertIs(curry.load(product), loaded)
-      from curry.lib import SavedTyped
-      self.assertIs(SavedTyped, loaded)
+      # Compiled modules live until process exit; clean up after that exit.
+      child = cytest.run_in_subprocess(
+          'from unit_loadsave import TestPublicObjects; '
+          'TestPublicObjects()._test_loaded_object_keeps_its_typed_interface(%r)' % work, timeout=120)
+      self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
+
+  def _test_loaded_object_keeps_its_typed_interface(self, work):
+    module = curry.compile('f :: Int -> Int\nf x = x + 1', name='SavedTyped')
+    suffix = config.module_object_suffix()
+    product = os.path.join(work, 'SavedTyped' + suffix)
+    curry.save(module, product)
+    curry.reset()
+    loaded = curry.load(product)
+    self.assertEqual(curry.eval(loaded.f(41)).one(), 42)
+    self.assertEqual(curry.typeof(loaded.f), 'Int -> Int')
+    backend = curry._interpreter_.backend
+    with mock.patch.object(type(backend), 'load_module',
+                           side_effect=AssertionError('backend called')), \
+         mock.patch('builtins.open', side_effect=AssertionError('object read')):
+      self.assertIs(curry.load(product), loaded)
+    from curry.lib import SavedTyped
+    self.assertIs(SavedTyped, loaded)
 
   @cytest.skipUnlessObjectsLoad('a saved program loads its object')
   def test_saved_constrained_program_prints_the_defaulted_goal(self):

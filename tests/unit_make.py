@@ -135,7 +135,7 @@ class TestMake(cytest.TestCase):
     '''Test the sprite-make program.'''
     makeprg = os.path.join(os.environ['SPRITE_HOME'], 'bin', 'sprite-make')
     def sprite_make(*args):
-      return ensure_str(subprocess.check_output((makeprg,) + args))
+      return ensure_str(subprocess.check_output(tuple(cytest.tool_command([makeprg])) + args))
 
     self.assertEqual(sprite_make('--subdir'), SUBDIR)
     self.assertEqual(sprite_make('-S'), SUBDIR)
@@ -288,9 +288,9 @@ class TestJobs(cytest.TestCase):
         make.main('sprite-make', ['--image', '--jobs', '0', 'Prelude'])
     self.assertEqual(cm.exception.code, 1)
     self.assertIn('--jobs should be a count or auto', stderr.getvalue())
-    man = ensure_str(subprocess.check_output([
+    man = ensure_str(subprocess.check_output(cytest.tool_command([
         os.path.join(os.environ['SPRITE_HOME'], 'bin', 'sprite-make'), '--man'
-      ]))
+      ])))
     self.assertIn('--jobs', man)
     # The order covers the files this program writes; the interface files
     # of the front end are named as the exception.

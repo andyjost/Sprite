@@ -248,6 +248,7 @@ class TestMeasure(unittest.TestCase):
           source.startswith('perf stat -e instructions:u ('), source
         )
 
+  @cytest.linux_only('perf and its shell signal-status protocol require Linux')
   def test_run_under_perf(self):
     '''
     A run under perf counts the instructions of the command and its
@@ -799,7 +800,7 @@ class TestSuites(unittest.TestCase):
 
   def test_environment(self):
     env = self.settings.environment('cxx', CURRYPATH='here')
-    self.assertEqual(env['SPRITE_HOME'], '/nonexistent/home')
+    self.assertEqual(env['SPRITE_HOME'], os.path.abspath('/nonexistent/home'))
     self.assertEqual(env['HARNESS_VAR'], '1')
     self.assertEqual(env['CURRYPATH'], 'here')
     self.assertEqual(env['PYTHONIOENCODING'], 'utf-8')
@@ -1065,7 +1066,10 @@ class TestSuites(unittest.TestCase):
     self.assertEqual(meta['rss_source'], measure.rss_source())
     self.assertNotIn('cpu', meta)
     self.assertNotIn('cpus', meta)
-    self.assertIsNone(meta['python'])
+    if sys.platform == 'win32':
+      self.assertEqual(meta['python'], sys.version.split()[0])
+    else:
+      self.assertIsNone(meta['python'])
     text = json.dumps(meta)
     self.assertNotIn(os.path.expanduser('~'), text)
     hostname = socket.gethostname()
@@ -1188,7 +1192,7 @@ class TestApplications(unittest.TestCase):
         ])
       self.assertEqual(cwd, APPDIR)
       self.assertTrue(os.path.isfile(suites.DEPENDENCY))
-      self.assertEqual(env['SPRITE_HOME'], '/nonexistent/home')
+      self.assertEqual(env['SPRITE_HOME'], os.path.abspath('/nonexistent/home'))
       self.assertEqual(
           env['SPRITE_INTERPRETER_FLAGS'], 'backend:cxx,interpret:off'
         )

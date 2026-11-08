@@ -1,7 +1,7 @@
 '''The tools own answer lines and exit statuses; Python keeps Results.'''
 import cytest # from ./lib; must be first
 from curry import config
-import curry, os, selectors, shutil, subprocess, sys, tempfile, unittest
+import curry, os, queue, shutil, subprocess, sys, tempfile, threading, unittest
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 TOOLS = os.path.join(ROOT, 'data', 'curry', 'flows', 'Tools.curry')
@@ -16,7 +16,7 @@ class TestToolsStatus(cytest.TestCase):
 
   def tool(self, tool, goal, source=TOOLS):
     if tool == 'exec':
-      command = [config.sprite_exec(), source, '-g', goal]
+      command = [*cytest.tool_command([config.sprite_exec()]), source, '-g', goal]
     else:
       command = [sys.executable, '-m', 'curry.tools.repl',
           ':load', source, ':eval', goal, ':quit']
@@ -31,7 +31,7 @@ class TestToolsStatus(cytest.TestCase):
         0, 'Prelude> ')
 
   def test_sprite_exec_starts_repl(self):
-    self.check(self.child([config.sprite_exec()], ':quit\n'), 0, 'Prelude> ')
+    self.check(self.child([*cytest.tool_command([config.sprite_exec()])], ':quit\n'), 0, 'Prelude> ')
 
   def test_python_module_runs_program(self):
     self.check(self.child([sys.executable, '-m', 'curry', TOOLS]), 0, '1\n2\n')
@@ -58,7 +58,7 @@ class TestToolsStatus(cytest.TestCase):
 
   def test_answers_precede_errors_on_a_merged_pipe(self):
     goal = '1 ? error "boom" :: Int'
-    for command in ([config.sprite_exec(), TOOLS, '-g', goal],
+    for command in ([*cytest.tool_command([config.sprite_exec()]), TOOLS, '-g', goal],
         [sys.executable, '-m', 'curry.tools.repl', ':load', TOOLS,
             ':eval', goal, ':quit']):
       with self.subTest(command=command[0]):
@@ -78,7 +78,7 @@ class TestToolsStatus(cytest.TestCase):
           self.check(self.child([program]), 0, output)
 
   def test_help_and_string_spacing(self):
-    for command in ([config.sprite_exec(), '--help'],
+    for command in ([*cytest.tool_command([config.sprite_exec()]), '--help'],
         [sys.executable, '-m', 'curry.tools.repl', '--help']):
       proc = self.child(command)
       self.assertEqual(proc.returncode, 0, proc.stderr)
@@ -150,15 +150,27 @@ class TestToolsStatus(cytest.TestCase):
       proc = subprocess.Popen([sys.executable, '-m', 'curry.tools.repl'],
           stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
       def prompt():
-        output = b''
-        with selectors.DefaultSelector() as selector:
-          selector.register(proc.stdout, selectors.EVENT_READ)
+        result = queue.Queue()
+        def read_prompt():
+          output = b''
           while not output.endswith(b'ReloadTool> '):
-            self.assertTrue(selector.select(TIMEOUT), 'prompt timed out')
-            part = os.read(proc.stdout.fileno(), 4096)
-            self.assertTrue(part, 'REPL ended before the prompt')
+            part = proc.stdout.read(1)
+            if not part:
+              break
             output += part
-        return output.decode()
+          result.put(output)
+        reader = threading.Thread(target=read_prompt)
+        reader.start()
+        try:
+          output = result.get(timeout=TIMEOUT)
+        except queue.Empty:
+          proc.kill()
+          proc.wait()
+          self.fail('prompt timed out')
+        finally:
+          reader.join()
+        self.assertTrue(output.endswith(b'ReloadTool> '), 'REPL ended before the prompt')
+        return output.decode().replace('\r\n', '\n')
       try:
         self.assertEqual(proc.stdout.read(len(b'Prelude> ')), b'Prelude> ')
         proc.stdin.write((':set interpret new\n:load ' + source + '\n').encode())
@@ -174,7 +186,7 @@ class TestToolsStatus(cytest.TestCase):
         write('value = )')
         out, err = proc.communicate(b':reload\n:eval value\n:quit\n', timeout=TIMEOUT)
         self.assertEqual(proc.returncode, 0, err.decode())
-        self.assertEqual(out.decode(), 'ReloadTool> 2\nReloadTool> ')
+        self.assertEqual(out.decode().replace('\r\n', '\n'), 'ReloadTool> 2\nReloadTool> ')
         diagnostics = err.decode().splitlines()
         self.assertEqual(len(diagnostics), 2, diagnostics)
         self.assertRegex(diagnostics[0], r'^ERROR: ReloadTool.curry:\d+:\d+.*Error:')
@@ -195,7 +207,7 @@ class TestToolsStatus(cytest.TestCase):
           self.assertNotIn(directory, proc.stderr)
           self.assertNotIn('Traceback', proc.stderr)
       make = config.installed_path('bin', 'sprite-make')
-      proc = self.child([make, '--icy', missing])
+      proc = self.child([*cytest.tool_command([make]), '--icy', missing])
       self.assertEqual(proc.returncode, 1)
       self.assertNotIn(directory, proc.stderr)
       self.assertNotIn('Traceback', proc.stderr)

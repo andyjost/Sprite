@@ -480,32 +480,39 @@ main = double (CxxInterp.fact 3)
 
   @cytest.hardreset
   def test_new_overrides_environment(self):
+    with tempfile.TemporaryDirectory(prefix='sprite-switch-') as work:
+      # Compiled modules live until process exit; clean up after that exit.
+      child = cytest.run_in_subprocess(
+          'from unit_cxx_interp import TestLoader; '
+          'TestLoader()._test_new_overrides_environment(%r)' % work, timeout=120)
+      self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
+
+  def _test_new_overrides_environment(self, work):
     # Use a fresh module so its first compiled load binds to tables made
     # by the interpreter, regardless of the shared test products (#177).
-    with tempfile.TemporaryDirectory(prefix='sprite-switch-') as work:
-      filename = os.path.join(work, 'InterpSwitch.curry')
-      with open(filename, 'w') as stream:
-        stream.write(
-            'module InterpSwitch where\nf :: Int -> Int\nf x = x + 1\n')
-      with mock.patch.dict(os.environ, {
-          'SPRITE_INTERPRETER_FLAGS': 'backend:cxx,interpret:all'
-          }):
-        for mode in ('all', 'off', 'all', 'new'):
-          curry.reset(interpret=mode, jit='off')
-          self.assertEqual(curry._interpreter_.flags['interpret'], mode)
-          # Drop the retired module before opening its object again: the
-          # library can outlive the runtime module that bound its tables.
-          gc.collect()
-          M = curry.import_(filename)
-          if mode == 'new':
-            self.assertIsNotNone(getHandle(M).icurry.metadata.get('cxx.shlib'))
-          self.assertEqual(curryrt.icurry_is_interpreted(M.f.info),
-              mode == 'all', mode)
-          if mode == 'new':
-            self.assertFalse(curryrt.icurry_is_interpreted(
-                curry.import_('Prelude').map.info))
-            self.assertEqual(list(curry.eval(M.f(41))), [42])
-          del M
+    filename = os.path.join(work, 'InterpSwitch.curry')
+    with open(filename, 'w') as stream:
+      stream.write(
+          'module InterpSwitch where\nf :: Int -> Int\nf x = x + 1\n')
+    with mock.patch.dict(os.environ, {
+        'SPRITE_INTERPRETER_FLAGS': 'backend:cxx,interpret:all'
+        }):
+      for mode in ('all', 'off', 'all', 'new'):
+        curry.reset(interpret=mode, jit='off')
+        self.assertEqual(curry._interpreter_.flags['interpret'], mode)
+        # Drop the retired module before opening its object again: the
+        # library can outlive the runtime module that bound its tables.
+        gc.collect()
+        M = curry.import_(filename)
+        if mode == 'new':
+          self.assertIsNotNone(getHandle(M).icurry.metadata.get('cxx.shlib'))
+        self.assertEqual(curryrt.icurry_is_interpreted(M.f.info),
+            mode == 'all', mode)
+        if mode == 'new':
+          self.assertFalse(curryrt.icurry_is_interpreted(
+              curry.import_('Prelude').map.info))
+          self.assertEqual(list(curry.eval(M.f(41))), [42])
+        del M
 
   @cytest.hardreset
   def test_new(self):
@@ -547,10 +554,13 @@ main = double (CxxInterp.fact 3)
       filename = os.path.join(work, 'NoObject.curry')
       with open(filename, 'w') as stream:
         stream.write('module NoObject where\nf :: Int -> Int\nf x = x + 1\n')
-      curry.reset(interpret='off', jit='off')
-      M = curry.import_(filename)
-      sofile = getHandle(M).sofilename
-      self.assertTrue(os.path.isfile(sofile[:-3] + '.cpp'))
+      child = cytest.run_in_subprocess(
+          "import curry; curry.reset(interpret='off', jit='off'); "
+          'curry.import_(%r)' % filename, timeout=120)
+      self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
+      sofile = os.path.join(work, '.curry', config.intermediate_subdir(),
+                            'NoObject' + config.module_object_suffix())
+      self.assertTrue(os.path.isfile(os.path.splitext(sofile)[0] + '.cpp'))
       curry.reset(interpret='new', jit='off')
       os.unlink(sofile)
       with mock.patch.object(config, 'cxx_tool', return_value=None):
@@ -709,9 +719,9 @@ class TestPrograms(cytest.TestCase):
     if stress:
       env['SPRITE_GC_STRESS'] = '1'
     cmd = cytest.limit_prefix(ADDRESS_SPACE, TIMEOUT) + [
-        config.installed_path('bin', 'sprite-exec'), '--stats', '-m', program
+        *cytest.tool_command([config.installed_path('bin', 'sprite-exec')]), '--stats', '-m', program
       ]
-    proc = subprocess.run(cmd, env=env, capture_output=True, text=True)
+    proc = subprocess.run(cmd, env=env, capture_output=True, text=True, timeout=TIMEOUT)
     self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
     self.last_stderr = proc.stderr
     # The line of statistics is the last line of the standard error: the
