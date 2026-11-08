@@ -257,7 +257,10 @@ class TestScheduler(SchedulerTests):
       self.assertIn('FAILED (failures=1, errors=1)', stream.read())
     text = report.summary(sched.jobs, sched.wall)
     self.assertIn('2 of 2 run, 1 failed', text)
-    self.assertRegex(text, r'bad\.py\s+cxx\s+3\s+2\s+[\d.]+ s\s+\d+\s+FAILED')
+    # A short Windows child may exit before an RSS sample is available.
+    peak = r'(?:\d+|-)' if sys.platform == 'win32' else r'\d+'
+    self.assertRegex(text,
+        r'bad\.py\s+cxx\s+3\s+2\s+[\d.]+ s\s+' + peak + r'\s+FAILED')
 
   def test_advisory_job(self):
     '''

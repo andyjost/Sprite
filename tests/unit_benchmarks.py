@@ -831,9 +831,10 @@ class TestSuites(unittest.TestCase):
       , os.environ.get('SPRITE_INTERPRETER_FLAGS')
       )
     self.assertEqual(
-        self.settings.sprite_exec, '/nonexistent/home/bin/sprite-exec'
+        self.settings.sprite_exec, os.path.abspath('/nonexistent/home/bin/sprite-exec')
       )
-    self.assertEqual(self.settings.python, '/nonexistent/home/bin/python')
+    self.assertEqual(self.settings.python, sys.executable if sys.platform == 'win32'
+        else '/nonexistent/home/bin/python')
 
   def test_throughput_items(self):
     items = self.build('throughput', ['Fib', 'Tak1'], ['cxx', 'pakcs'])

@@ -98,8 +98,7 @@ class TestStagedLibrary(cytest.TestCase):
   @unittest.skipIf(config.cxx_tool() is None, 'no C++ compiler is installed')
   def test_cxx_objects_are_staged(self):
     '''
-    Every system module has its object with the current ABI stamp, and the
-    precompiled header of the default flavor exists.
+    Every system module has its object with the current ABI stamp.
     '''
     from curry.backends.cxx import toolchain as cxx_toolchain
     # The stamp is the digest of the headers and of the installed flavor.
@@ -110,6 +109,12 @@ class TestStagedLibrary(cytest.TestCase):
       self.assertTrue(os.path.isfile(installed_file(name, '.cpp')), name)
       self.assertEqual(cxx_toolchain.Cpp2So.read_stamp(sofile), digest, sofile)
       self.assertTrue(cxx_toolchain.Cpp2So(cytest.raw.interp()).stamp_is_current(sofile), sofile)
+
+  @cytest.posix_only('clang-cl compiles without the GCC/Clang precompiled header')
+  @unittest.skipIf(config.cxx_tool() is None, 'no C++ compiler is installed')
+  def test_precompiled_header_is_staged(self):
+    '''The precompiled header of the default flavor exists and is current.'''
+    from curry.backends.cxx import toolchain as cxx_toolchain
     # The member name follows the compiler flags.  make stage does not pass
     # CXXFLAGS on, so a test run with CXXFLAGS set would look for another
     # member.

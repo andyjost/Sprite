@@ -96,6 +96,27 @@ class TestCMake(cytest.TestCase):
       self.assertNotEqual(result.returncode, 0, result.stdout)
       self.assertIn(message, result.stdout)
 
+  def test_default_precedes_platform_initialization(self):
+    '''A compiler platform's Debug default must not replace Sprite's Release.'''
+    override = Path(self.directory.name) / 'platform-default.cmake'
+    override.write_text('set(CMAKE_BUILD_TYPE_INIT Debug)\n')
+    for choice in ('default', 'cache', 'environment'):
+      with self.subTest(choice=choice):
+        env = dict(os.environ)
+        env.pop('CMAKE_BUILD_TYPE', None)
+        options = ['-DCMAKE_USER_MAKE_RULES_OVERRIDE=' + str(override)]
+        if choice == 'cache':
+          options.append('-DCMAKE_BUILD_TYPE=Debug')
+        elif choice == 'environment':
+          env['CMAKE_BUILD_TYPE'] = 'Debug'
+        result = self.configure(*options, env=env)
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertEqual(self.cache('CMAKE_BUILD_TYPE'),
+            'Release' if choice == 'default' else 'Debug')
+        self.assertEqual((self.build / 'stage/sysconfig/cxx_flavor').read_text().strip(),
+            'release' if choice == 'default' else 'debug')
+        shutil.rmtree(self.build)
+
   @cytest.posix_only('CMake probes POSIX shebang tool fixtures')
   def test_frontend_and_optional_route(self):
     result = self.configure('-DWITH_CURRY_FRONTEND=', '-DWITH_ICURRY=')
@@ -327,6 +348,7 @@ class TestCMake(cytest.TestCase):
     flagged = set()
     target = None
     for line in (self.build / 'build.ninja').read_text().splitlines():
+      line = line.replace('\\', '/')
       if line.startswith('build CMakeFiles/'):
         target = line.split('/', 2)[1]
       elif line.strip().startswith('FLAGS =') and '-fno-strict-aliasing' in line:
