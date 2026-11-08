@@ -29,14 +29,15 @@ While the scheduler runs in the main thread, SIGINT, SIGTERM, and SIGHUP
 only set a flag, and the run loop raises KeyboardInterrupt at its next
 turn.  So an interrupt never lands inside the start of a job, where a
 leader could be lost, and a second Ctrl-C during the final reap changes
-nothing.
+nothing.  The CLI keeps these handlers through the summary and manifest update.
 '''
 
 import os, signal, subprocess, sys, threading, time
+from contextlib import contextmanager
 from . import POLL_SECONDS, MIB, TOOL_CAP
 from . import procs, report
 
-__all__ = ['INTERRUPT_SIGNALS', 'Job', 'Scheduler', 'Watchdog', 'pick']
+__all__ = ['INTERRUPT_SIGNALS', 'Interrupts', 'Job', 'Scheduler', 'Watchdog', 'pick']
 
 # The signals that end a run as Ctrl-C does: the children are killed, the
 # partial summary is printed, and the exit status is 130.  SIGHUP is here
@@ -47,6 +48,53 @@ def interrupt_signals():
   return tuple(getattr(signal, name) for name in names if hasattr(signal, name))
 
 INTERRUPT_SIGNALS = interrupt_signals()
+
+class Interrupts:
+  """Shared interrupt flag and handler lifetime for one CLI invocation."""
+
+  def __init__(self):
+    self.requested = None
+    self.active = False
+
+  @contextmanager
+  def handling(self):
+    # Scheduler.run may be called alone or inside the CLI's longer scope.
+    if self.active:
+      yield self
+      return
+    saved = self._install_handlers()
+    self.active = True
+    try:
+      yield self
+    finally:
+      self._restore_handlers(saved)
+      self.active = False
+
+  def _install_handlers(self):
+    '''
+    Routes INTERRUPT_SIGNALS to a flag until the caller finishes reporting.
+    Only the main thread may set handlers; elsewhere the default handlers stay.
+    '''
+    if threading.current_thread() is not threading.main_thread():
+      return None
+    saved = {}
+    for signum in INTERRUPT_SIGNALS:
+      try:
+        saved[signum] = signal.signal(signum, self._on_signal)
+      except (OSError, ValueError):
+        pass
+    return saved
+
+  def _restore_handlers(self, saved):
+    for signum, handler in (saved or {}).items():
+      try:
+        signal.signal(signum, handler)
+      except (OSError, ValueError, TypeError):
+        pass
+
+  def _on_signal(self, signum, frame):
+    self.requested = signum
+
 
 class Job:
   '''One command with its limits and, after the run, its outcome.'''
@@ -223,11 +271,14 @@ class Scheduler:
     inherit_stdin:
         Let the jobs read the standard input of the runner.  Meant for a
         width of one, so a breakpoint in a test gets the terminal.
+    interrupts:
+        A shared Interrupts instance when the caller owns the handler lifetime.
   '''
 
   def __init__(
       self, jobs, budget, width, poll=POLL_SECONDS, tool_cap=TOOL_CAP
     , on_start=None, on_finish=None, echo=False, inherit_stdin=False
+    , interrupts=None
     ):
     self.pending = list(jobs)
     self.running = []
@@ -243,8 +294,16 @@ class Scheduler:
     self.lock = threading.RLock()
     self.interrupted = False
     # The signal that asked for the end of the run, or None.
-    self.interrupt_requested = None
+    self.interrupts = Interrupts() if interrupts is None else interrupts
     self.wall = None
+
+  @property
+  def interrupt_requested(self):
+    return self.interrupts.requested
+
+  @interrupt_requested.setter
+  def interrupt_requested(self, signum):
+    self.interrupts.requested = signum
 
   @property
   def jobs(self):
@@ -254,56 +313,32 @@ class Scheduler:
     '''Runs every job.  Returns the jobs in the order they finished.'''
     start = time.monotonic()
     watchdog = Watchdog(self, self.poll, self.tool_cap)
-    watchdog.start()
-    saved = self._install_handlers()
-    try:
-      while self.pending or self.running:
-        self._check_interrupt()
-        self.admit()
-        self._check_interrupt()
-        self.reap()
-        if self.pending or self.running:
-          time.sleep(self.poll)
-    except KeyboardInterrupt:
-      self.interrupted = True
-      self.kill_all('interrupted')
-      while True:
+    with self.interrupts.handling():
+      watchdog.start()
+      try:
+        while self.pending or self.running:
+          self._check_interrupt()
+          self.admit()
+          self._check_interrupt()
+          self.reap()
+          if self.pending or self.running:
+            time.sleep(self.poll)
+      except KeyboardInterrupt:
+        self.interrupted = True
+        self.kill_all('interrupted')
+        while True:
+          try:
+            self.reap(block=True)
+            break
+          except KeyboardInterrupt:
+            continue
+      finally:
         try:
-          self.reap(block=True)
-          break
-        except KeyboardInterrupt:
-          continue
-    finally:
-      watchdog.stop()
-      watchdog.join()
-      self._restore_handlers(saved)
-      self.wall = time.monotonic() - start
+          watchdog.stop()
+          watchdog.join()
+        finally:
+          self.wall = time.monotonic() - start
     return self.done
-
-  def _install_handlers(self):
-    '''
-    Routes INTERRUPT_SIGNALS to a flag while the run lasts.  Only the main
-    thread may set handlers; elsewhere the default handlers stay.
-    '''
-    if threading.current_thread() is not threading.main_thread():
-      return None
-    saved = {}
-    for signum in INTERRUPT_SIGNALS:
-      try:
-        saved[signum] = signal.signal(signum, self._on_signal)
-      except (OSError, ValueError):
-        pass
-    return saved
-
-  def _restore_handlers(self, saved):
-    for signum, handler in (saved or {}).items():
-      try:
-        signal.signal(signum, handler)
-      except (OSError, ValueError, TypeError):
-        pass
-
-  def _on_signal(self, signum, frame):
-    self.interrupt_requested = signum
 
   def _check_interrupt(self):
     if self.interrupt_requested is not None:

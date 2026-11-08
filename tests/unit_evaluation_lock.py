@@ -69,36 +69,68 @@ print('ok')
 
   def test_python_timer_advances_during_native_search(self):
     self.child('''
-from curry.backends.cxx.curryrtbindings import _curryrtbindings as native
-# Force the native large-stack route and hold its startup until sampled.
-curry.reset(backend='cxx', interpret='off', stack_limit=65536)
-M = curry.import_('StackGuard')
-ev = evaluator(2000000)
-sampled = threading.Event()
+import _thread, sys
+# The main thread owns the heap during this shallow, nonterminating search.
+# A signal handler on that same thread can safely read steps_total through
+# its recursive heap binding. The timer must never read it directly: that
+# would wait for the search to release the heap. No handler waits or yields.
+ev = Evaluator(cytest.raw.interp(), cytest.raw.expr(M.loop))
+# Longer than the child's 90-second bound: executing the short signal
+# callback must not itself schedule the timer and hide a retained GIL.
+# The intended handoffs (native search and Event.wait) release it explicitly.
+sys.setswitchinterval(120)
+samples = []
+cancel = threading.Event()
+def sample(signum, frame):
+  if cancel.is_set():
+    raise KeyboardInterrupt
+  samples.append(ev.rts.steps_total)
+saved = signal.signal(signal.SIGINT, sample)
+stop = threading.Event()
 errors = []
+observed = []
 def timer():
   try:
     deadline = time.monotonic() + 10
-    while not native._test_worker_startup_paused():
-      assert time.monotonic() < deadline, 'native search never started'
-      sampled.wait(.001)
-    sampled.set()
+    first = None
+    while not observed:
+      count = len(samples)
+      _thread.interrupt_main()
+      while len(samples) == count:
+        assert time.monotonic() < deadline, 'search did not answer the sample signal'
+        if stop.wait(.001):
+          raise AssertionError('search ended before sampling')
+      current = samples[-1]
+      if first is None and current > 0:
+        first = current
+      elif first is not None and current > first:
+        observed.extend((first, current))
+      assert time.monotonic() < deadline, 'native steps did not advance'
   except BaseException as error:
     errors.append(error)
   finally:
-    native._test_resume_worker_startup()
-native._test_pause_worker_startup()
+    # M.loop has no value and cannot finish on its own. Even a failed
+    # observer must stop it. The subprocess timeout bounds a GIL deadlock.
+    cancel.set()
+    _thread.interrupt_main()
 thread = threading.Thread(target=timer)
 thread.start()
 try:
-  deep = Evaluator(cytest.raw.interp(), cytest.raw.expr(M.deep, 3000, typed=True))
-  assert run(deep) == [3000]
-  assert run(ev) == [2000000]
-  assert sampled.wait(10), 'timer did not sample the native search'
+  try:
+    run(ev)
+  except KeyboardInterrupt:
+    pass
+  else:
+    raise AssertionError('the diverging search returned')
 finally:
-  native._test_resume_worker_startup()
-  thread.join()
+  stop.set()
+  thread.join(10)
+  signal.signal(signal.SIGINT, saved)
+assert not thread.is_alive(), 'timer did not stop'
 assert not errors, errors
+assert len(observed) == 2 and 0 < observed[0] < observed[1], observed
+assert not ev.rts._escalated, 'samples require main-thread heap ownership'
+assert run(evaluator(10)) == [10]
 print('ok')
 ''')
 
