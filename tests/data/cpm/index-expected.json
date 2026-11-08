@@ -789,13 +789,13 @@
       "version": "4.0.0",
       "measured_seconds": 26.9,
       "result": "exception",
-      "reason": "Requires the PAKCS foreign strong-encapsulation primitives Control.AllValues.allValues and oneValue.",
+      "reason": "Strong encapsulation is not supported by Sprite: its results depend on the evaluation order.",
       "shard": 6,
-      "failure_class": "missing external",
+      "failure_class": "unsupported feature",
       "failure_set": [
-        "test: class: missing external",
-        "test: diagnostic: i/o error: Control.AllValues.allValues: not implemented (no primitive in the runtime)",
-        "test: diagnostic: i/o error: Control.AllValues.oneValue: not implemented (no primitive in the runtime)",
+        "test: class: unsupported feature",
+        "test: diagnostic: i/o error: Control.AllValues.allValues: not supported by Sprite: strong encapsulation; its results depend on the evaluation order (see the page Feature Support of the documentation)",
+        "test: diagnostic: i/o error: Control.AllValues.oneValue: not supported by Sprite: strong encapsulation; its results depend on the evaluation order (see the page Feature Support of the documentation)",
         "test: diagnostic: testGetAllValues (module TestAllValues): EXECUTION FAILURE:",
         "test: diagnostic: testGetOneValue (module TestAllValues): EXECUTION FAILURE:",
         "test: diagnostic: testQueens1 (module TestAllValues): EXECUTION FAILURE:",
@@ -842,24 +842,24 @@
       "version": "3.2.0",
       "measured_seconds": 17.9,
       "result": "exception",
-      "reason": "Requires the PAKCS Prolog CLP(R) solver.",
+      "reason": "PAKCS constraint solvers are not supported by Sprite: they are bound to its Prolog back end.",
       "shard": 5,
-      "failure_class": "missing external",
+      "failure_class": "unsupported feature",
       "failure_set": [
-        "test: class: missing external",
-        "test: diagnostic: ERROR: CLP.R.prim_CLPR_i2f: not implemented (no primitive in the runtime)"
+        "test: class: unsupported feature",
+        "test: diagnostic: ERROR: CLP.R.prim_CLPR_i2f: not supported by Sprite: PAKCS constraint solvers; they are bound to the Prolog back end of PAKCS (see the page Feature Support of the documentation)"
       ]
     },
     "clpbool": {
       "version": "2.0.0",
       "measured_seconds": 22.1,
       "result": "exception",
-      "reason": "Requires the PAKCS Prolog CLP(B) solver.",
+      "reason": "PAKCS constraint solvers are not supported by Sprite: they are bound to its Prolog back end.",
       "shard": 6,
-      "failure_class": "missing external",
+      "failure_class": "unsupported feature",
       "failure_set": [
-        "test: class: missing external",
-        "test: diagnostic: ERROR: CLPB.prim_neg: not implemented (no primitive in the runtime)"
+        "test: class: unsupported feature",
+        "test: diagnostic: ERROR: CLPB.prim_neg: not supported by Sprite: PAKCS constraint solvers; they are bound to the Prolog back end of PAKCS (see the page Feature Support of the documentation)"
       ]
     },
     "combinatorial": {
@@ -1092,12 +1092,12 @@
       "version": "1.0.0",
       "measured_seconds": 22.0,
       "result": "exception",
-      "reason": "Written for PAKCS 2.x; PAKCS 3.10.0 has no implementation; no reference semantics.",
-      "failure_class": "missing external",
+      "reason": "Backtrackable global variables are not supported by Sprite: their values depend on the search order.",
+      "failure_class": "unsupported feature",
       "shard": 3,
       "failure_set": [
-        "test: class: missing external",
-        "test: diagnostic: i/o error: GlobalVariable.prim_writeGVar: not implemented (no primitive in the runtime)",
+        "test: class: unsupported feature",
+        "test: diagnostic: i/o error: GlobalVariable.prim_writeGVar: not supported by Sprite: backtrackable global variables; their values depend on the search order (see the page Feature Support of the documentation)",
         "test: diagnostic: testGlobalVariableTest1 (module TestGlobalVariable): EXECUTION FAILURE:",
         "test: diagnostic: testGlobalVariableTest2 (module TestGlobalVariable): EXECUTION FAILURE:"
       ]
@@ -1215,13 +1215,13 @@
       "version": "3.0.0",
       "measured_seconds": 27.4,
       "result": "exception",
-      "reason": "Requires the PAKCS foreign strong-encapsulation primitives of Control.Findall, including allValues and oneValue.",
+      "reason": "Strong encapsulation is not supported by Sprite: its results depend on the evaluation order.",
       "shard": 5,
-      "failure_class": "missing external",
+      "failure_class": "unsupported feature",
       "failure_set": [
-        "test: class: missing external",
-        "test: diagnostic: i/o error: Control.Findall.allValues: not implemented (no primitive in the runtime)",
-        "test: diagnostic: i/o error: Control.Findall.oneValue: not implemented (no primitive in the runtime)",
+        "test: class: unsupported feature",
+        "test: diagnostic: i/o error: Control.Findall.allValues: not supported by Sprite: strong encapsulation; its results depend on the evaluation order (see the page Feature Support of the documentation)",
+        "test: diagnostic: i/o error: Control.Findall.oneValue: not supported by Sprite: strong encapsulation; its results depend on the evaluation order (see the page Feature Support of the documentation)",
         "test: diagnostic: testGetAllSolutions (module TestAllSolutions): EXECUTION FAILURE:",
         "test: diagnostic: testGetOneValue (module TestAllSolutions): EXECUTION FAILURE:",
         "test: diagnostic: testQueens1 (module TestAllSolutions): EXECUTION FAILURE:",
@@ -1232,12 +1232,12 @@
       "version": "3.0.0",
       "measured_seconds": 28.0,
       "result": "exception",
-      "reason": "Requires the PAKCS foreign strong-encapsulation primitives Control.Search.SearchTree.Unsafe.allNormalForms and prim_lookupVarId, preserving unbound results.",
+      "reason": "Strong encapsulation is not supported by Sprite: its results depend on the evaluation order.",
       "shard": 0,
-      "failure_class": "missing external",
+      "failure_class": "unsupported feature",
       "failure_set": [
-        "test: class: missing external",
-        "test: diagnostic: ERROR: Control.Search.SearchTree.Unsafe.allNormalForms: not implemented (no primitive in the runtime)"
+        "test: class: unsupported feature",
+        "test: diagnostic: ERROR: Control.Search.SearchTree.Unsafe.allNormalForms: not supported by Sprite: strong encapsulation; its results depend on the evaluation order (see the page Feature Support of the documentation)"
       ]
     },
     "setfunctions": {
