@@ -328,8 +328,10 @@ def product_receipts(icyfile):
 
 
 def write_source_receipt(icyfile, digest):
-  cache.write_file(icyfile + '.source', json.dumps(dict(
-      version=1, source=digest, products=product_receipts(icyfile)), sort_keys=True))
+  record = dict(version=1, source=digest, products=product_receipts(icyfile))
+  if os.environ.get('SPRITE_FUNPAT_CONT') == '1':
+    record['funpat_cont'] = 1
+  cache.write_file(icyfile + '.source', json.dumps(record, sort_keys=True))
 
 
 def receipt_source(text):
@@ -410,6 +412,7 @@ def _source_matches(curryfile, icyfile, library):
       return receipt_source(text) == source_digest(curryfile)
     recorded = json.loads(text)
     return recorded['version'] == 1 \
+        and bool(recorded.get('funpat_cont', 0)) == (os.environ.get('SPRITE_FUNPAT_CONT') == '1') \
         and recorded['source'] == source_digest(curryfile) \
         and recorded['products'] == product_receipts(icyfile)
   except (OSError, ValueError, KeyError, TypeError):
@@ -516,6 +519,8 @@ class Curry2ICurryConverter(object):
     self.use_cache = bool(kwds.get('use_cache', True)) \
                          and cache.icurry_cache_enabled() and not _frontend.frontend_warnings()
     self.tool = config.curry2icurry_tool(kwds.get('curry2icurry'))
+    if os.environ.get('SPRITE_FUNPAT_CONT') == '1' and self.tool != 'frontend':
+      raise CompileError('SPRITE_FUNPAT_CONT requires the frontend route')
 
   @fork_work
   @_system.updateCheck

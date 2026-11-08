@@ -130,6 +130,9 @@ def translate(prog, interfaces, icurry_compat=True, rewrite=False):
   interfaces = list(interfaces)
   if rewrite:
     prog, _ = rewrite_prog(prog, interfaces=interfaces)
+  from . import funpat
+  if not icurry_compat and funpat.enabled():
+    prog, _ = funpat.transform_prog(prog)
   prog = elim_newtype(interfaces, prog)
   datadecls = []
   for p in [prog] + interfaces:

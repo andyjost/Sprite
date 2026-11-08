@@ -281,7 +281,11 @@ def route_version():
   ICurry text itself.
   '''
   from .toolchain import _frontend
-  return _frontend.ROUTE_VERSION
+  # Separate experimental translations, while allowing identical ICurry
+  # and image bodies to reuse AOT/JIT objects (including library pins).
+  # Changing the global route would rebuild Prelude in every process.
+  return _frontend.ROUTE_VERSION + (
+      10000 if os.environ.get('SPRITE_FUNPAT_CONT') == '1' else 0)
 
 def import_closure(curryfile, currypath=()):
   '''
