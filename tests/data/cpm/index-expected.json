@@ -789,7 +789,7 @@
       "version": "4.0.0",
       "measured_seconds": 26.9,
       "result": "exception",
-      "reason": "Requires the PAKCS foreign strong-encapsulation primitives Control.AllValues.allValues and oneValue.",
+      "reason": "Class 1: Requires the PAKCS foreign strong-encapsulation primitives Control.AllValues.allValues and oneValue.",
       "shard": 6,
       "failure_class": "missing external",
       "failure_set": [
@@ -812,7 +812,7 @@
       "version": "3.4.0",
       "measured_seconds": 17.4,
       "result": "exception",
-      "reason": "The package puts the Prelude and the other runtime-reserved modules on its source path; Sprite refuses a path copy of a reserved module (module rule 2).",
+      "reason": "Class 3: The package puts the Prelude and the other runtime-reserved modules on its source path; Sprite refuses a path copy of a reserved module (module rule 2).",
       "shard": 2,
       "failure_class": "Sprite error",
       "failure_set": [
@@ -842,7 +842,7 @@
       "version": "3.2.0",
       "measured_seconds": 17.9,
       "result": "exception",
-      "reason": "Requires the PAKCS Prolog CLP(R) solver.",
+      "reason": "Class 4: Requires the PAKCS Prolog CLP(R) solver.",
       "shard": 5,
       "failure_class": "missing external",
       "failure_set": [
@@ -854,7 +854,7 @@
       "version": "2.0.0",
       "measured_seconds": 22.1,
       "result": "exception",
-      "reason": "Requires the PAKCS Prolog CLP(B) solver.",
+      "reason": "Class 4: Requires the PAKCS Prolog CLP(B) solver.",
       "shard": 6,
       "failure_class": "missing external",
       "failure_set": [
@@ -878,7 +878,7 @@
       "version": "4.0.0",
       "measured_seconds": 232.8,
       "result": "exception",
-      "reason": "Requires the absent system solver z3; verification fails with PAKCS 3.10.0 too.",
+      "reason": "Class 5: Requires the absent system solver z3; verification fails with PAKCS 3.10.0 too.",
       "shard": 7,
       "failure_class": "test failure",
       "failure_set": [
@@ -958,7 +958,7 @@
       "version": "1.0.0",
       "measured_seconds": 17.7,
       "result": "exception",
-      "reason": "Requires PAKCS-only Prolog database primitives; its metadata also rejects PAKCS 3.10.0.",
+      "reason": "Class 5: Requires PAKCS-only Prolog database primitives; its metadata also rejects PAKCS 3.10.0.",
       "shard": 1,
       "failure_class": "front-end error",
       "failure_set": [
@@ -972,7 +972,7 @@
       "version": "3.0.0",
       "measured_seconds": 42.3,
       "result": "exception",
-      "reason": "Its tests require the absent system solver z3; the solver actions fail with PAKCS 3.10.0 too.",
+      "reason": "Class 5: Its tests require the absent system solver z3; the solver actions fail with PAKCS 3.10.0 too.",
       "shard": 5,
       "failure_class": "test failure",
       "failure_set": [
@@ -993,7 +993,7 @@
       "version": "1.0.0",
       "measured_seconds": 30.1,
       "result": "exception",
-      "reason": "Imports retired Char and List modules absent from base 3.4.0; PAKCS 3.10.0 fails too after bypassing package compiler metadata.",
+      "reason": "Class 5: Imports retired Char and List modules absent from base 3.4.0; PAKCS 3.10.0 fails too after bypassing package compiler metadata.",
       "shard": 6,
       "failure_class": "front-end error",
       "failure_set": [
@@ -1023,7 +1023,7 @@
       "version": "4.0.0",
       "measured_seconds": 341.3,
       "result": "exception",
-      "reason": "Requires the absent system solver z3; verification fails with PAKCS 3.10.0 too.",
+      "reason": "Class 5: Requires the absent system solver z3; verification fails with PAKCS 3.10.0 too.",
       "shard": 5,
       "failure_class": "test failure",
       "failure_set": [
@@ -1073,7 +1073,7 @@
       "measured_seconds": 63.2,
       "result": "exception",
       "issue": "#216",
-      "reason": "Sprite reports a choice that reaches an I/O step as an error, by design",
+      "reason": "Class 2: Sprite reports a choice that reaches an I/O step as an error, by design",
       "failure_class": "test failure",
       "shard": 7,
       "failure_set": [
@@ -1092,7 +1092,7 @@
       "version": "1.0.0",
       "measured_seconds": 22.0,
       "result": "exception",
-      "reason": "Written for PAKCS 2.x; PAKCS 3.10.0 has no implementation; no reference semantics.",
+      "reason": "Class 1: Written for PAKCS 2.x; PAKCS 3.10.0 has no implementation; no reference semantics.",
       "failure_class": "missing external",
       "shard": 3,
       "failure_set": [
@@ -1148,7 +1148,7 @@
       "version": "2.0.0",
       "measured_seconds": 423.8,
       "result": "exception",
-      "reason": "Requires the absent system solver z3; verification fails with PAKCS 3.10.0 too.",
+      "reason": "Class 5: Requires the absent system solver z3; verification fails with PAKCS 3.10.0 too.",
       "shard": 1,
       "failure_class": "test failure",
       "failure_set": [
@@ -1215,7 +1215,7 @@
       "version": "3.0.0",
       "measured_seconds": 27.4,
       "result": "exception",
-      "reason": "Requires the PAKCS foreign strong-encapsulation primitives of Control.Findall, including allValues and oneValue.",
+      "reason": "Class 1: Requires the PAKCS foreign strong-encapsulation primitives of Control.Findall, including allValues and oneValue.",
       "shard": 5,
       "failure_class": "missing external",
       "failure_set": [
@@ -1232,7 +1232,7 @@
       "version": "3.0.0",
       "measured_seconds": 28.0,
       "result": "exception",
-      "reason": "Requires the PAKCS foreign strong-encapsulation primitives Control.Search.SearchTree.Unsafe.allNormalForms and prim_lookupVarId, preserving unbound results.",
+      "reason": "Class 1: Requires the PAKCS foreign strong-encapsulation primitives Control.Search.SearchTree.Unsafe.allNormalForms and prim_lookupVarId, preserving unbound results.",
       "shard": 0,
       "failure_class": "missing external",
       "failure_set": [
@@ -1244,7 +1244,7 @@
       "version": "3.0.0",
       "measured_seconds": 28.8,
       "result": "exception",
-      "reason": "The package puts runtime-reserved Control.SetFunctions source on its path; Sprite refuses that path copy (module rule 2).",
+      "reason": "Class 3: The package puts runtime-reserved Control.SetFunctions source on its path; Sprite refuses that path copy (module rule 2).",
       "shard": 3,
       "failure_class": "Sprite error",
       "failure_set": [
@@ -1292,7 +1292,7 @@
       "version": "1.0.0",
       "measured_seconds": 36.2,
       "result": "exception",
-      "reason": "Imports retired modules including List and IOExts; PAKCS 3.10.0 fails too after bypassing package compiler metadata.",
+      "reason": "Class 5: Imports retired modules including List and IOExts; PAKCS 3.10.0 fails too after bypassing package compiler metadata.",
       "shard": 1,
       "failure_class": "front-end error",
       "failure_set": [
@@ -1332,7 +1332,7 @@
       "version": "1.1.0",
       "measured_seconds": 63.8,
       "result": "exception",
-      "reason": "Imports retired modules including Time; PAKCS 3.10.0 also rejects its required html-2.0.0 dependency after bypassing top-level compiler metadata.",
+      "reason": "Class 5: Imports retired modules including Time; PAKCS 3.10.0 also rejects its required html-2.0.0 dependency after bypassing top-level compiler metadata.",
       "shard": 6,
       "failure_class": "front-end error",
       "failure_set": [

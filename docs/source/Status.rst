@@ -99,6 +99,18 @@ Known limits
   (``set1``, ``sortValues``) to resolve it once, as
   :ref:`24: A makefile in Curry <example-24>` does. Issue #86 records the
   measurements.
+* A functional-pattern binding (``=:<=``) can lose call-time choice for a
+  shared application that reads the bound variable (`#251
+  <https://github.com/andyjost/Sprite/issues/251>`_). For example::
+
+      pick n = if n == 1 then 0 ? 1 else failed
+      let r = pick x in (x =:<= 1) &> (r,r)
+
+  Sprite gives four pairs. Call-time choice and PAKCS 3.10.0 give only
+  ``(0,0)`` and ``(1,1)``. The same mechanism makes currypp's contract check
+  of a seven-element sort recompute exponentially (#247).
+  0.9.0a3 ships with this known defect. The general fix comes after the
+  release (decision #269, 2026-11-08).
 * Under the C++ backend of the JIT, a module of the same name cannot be
   reloaded from another directory in one process. An edited source is not
   read again in one process. A program shorter than its compile ends
