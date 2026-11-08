@@ -61,8 +61,8 @@ namespace curryrt { inline namespace
         // their variables, so its other alternatives can still run and a
         // later binding can wake this configuration and its capsule.
         for(Configuration * suspended: *seteval->queue)
-          for(auto vid: suspended->residuals)
-            C->add_residual(vid);
+          for(auto const & [vid, kinds]: suspended->residuals)
+            C->add_residual(vid, kinds);
         return E_RESIDUAL;
       }
     }

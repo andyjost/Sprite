@@ -39,23 +39,6 @@ namespace
   tag_type global_value_step(RuntimeState *, Configuration * C)
   {
     Cursor root = C->cursor();
-    Residuals unbound;
-    auto visitor = visit_unique(root[0].target);
-    while(Node * node = visitor.next())
-      if(inspect::isa_freevar(node) && !has_generator(node))
-        unbound.insert(obj_id(node));
-    if(!unbound.empty())
-    {
-      // Normalization can resume after just one residual is bound. Keep
-      // this groundness continuation after every normalization, so each
-      // wakeup applies the new bindings and checks the remaining variables
-      // before the capsule can yield a value.
-      root->forward_to(Node::create(&applynf_Info,
-          Node::create_partial(&global_value), root[0]));
-      for(auto vid: unbound)
-        C->add_residual(vid);
-      return E_RESIDUAL;
-    }
     root->forward_to(root[0]);
     return T_FWD;
   }
@@ -85,7 +68,7 @@ namespace
             // bindings and decisions. Keep its stream in the graph so that
             // rotations and collections can suspend and resume initialization.
             GcClamp clamp;
-            Node * goal = Node::create(&applynf_Info,
+            Node * goal = Node::create(&applygnf_Info,
                 Node::create_partial(&global_value), root[1]);
             root->forward_to(Node::create(&global_init, root[0],
                 Node::create(&set0_Info, goal)));
