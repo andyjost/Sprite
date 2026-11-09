@@ -118,6 +118,7 @@ runs Curry in a browser.
    Reference/index
    Performance
    Status
+   FeatureSupport
    Installation/SoftwareCompatibility
    genindex
 
