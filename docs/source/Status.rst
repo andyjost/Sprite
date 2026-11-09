@@ -3,8 +3,8 @@ Status
 ======
 
 This page says what Sprite is today, in one place.
-See :doc:`FeatureSupport` for the CPM support rule, package results and
-examples of compatibility with PAKCS.
+See :doc:`FeatureSupport` for what runs unchanged, what produces different
+output, and what Sprite refuses when you port a program from PAKCS or KiCS2.
 
 The front end
 =============

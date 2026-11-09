@@ -1,5 +1,6 @@
 """The generated support tables cover the source records without omissions."""
 import cytest # from ./lib; must be first
+from collections import Counter
 import importlib.util
 import json
 from pathlib import Path
@@ -22,7 +23,20 @@ class TestFeatureSupport(cytest.TestCase):
       output = Path(work) / 'tables.inc'
       subprocess.run([sys.executable, str(GENERATOR), str(output)], check=True)
       text = output.read_text(encoding='ascii')
-    packages, externals = text.split('Refused externals\n=================')
+    counts, tables = text.split('.. end-counts')
+    packages, externals = tables.split('.. begin-refusals')
+    results = Counter(pin['result'] for pin in expected['packages'].values())
+    for result in ('pass', 'exception', 'open'):
+      self.assertIn('.. |cpm-%s-count| replace:: %d\n' %
+                    (result, results[result]), counts)
+    self.assertIn('.. |cpm-tested-count| replace:: %d\n' %
+                  len(expected['packages']), counts)
+    self.assertIn('.. |cpm-index-count| replace:: %d\n' %
+                  len(expected['index']['versions']), counts)
+    self.assertIn('.. |cpm-index-date| replace:: %s\n' %
+                  expected['index']['date'], counts)
+    self.assertIn('.. |cpm-index-sha256| replace:: ``%s``\n' %
+                  expected['index']['sha256'], counts)
     rows = re.findall(
         r'   \* - ``([^`]+)``\n     - ([^\n]+)\n     - ([^\n]+)\n     -(?: ([^\n]*))?',
         packages)
