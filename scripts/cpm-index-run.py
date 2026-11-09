@@ -55,6 +55,9 @@ def classify(output, code):
     if downloads and not re.search(r'Compiling|Executing all tests|Running CurryCheck', output.split(downloads[-1])[-1]):
       return 'network: ' + ' '.join(dict.fromkeys(downloads))
     return 'timeout'
+  if 'not supported by Sprite' in output:
+    return 'unsupported feature: ' + next(line.strip() for line in output.splitlines()
+                                          if 'not supported by Sprite' in line)
   if 'not implemented' in output:
     return 'missing external: ' + next(line.strip() for line in output.splitlines()
                                       if 'not implemented' in line)
@@ -163,7 +166,7 @@ def failure_set(stage, output, code=1, outcome=None):
   # Property headers and all error diagnostics, including every external.
   markers = ('FAILED', 'Falsified', 'falsified', ': FAILURE:',
              ': EXECUTION FAILURE:', 'Arguments exhausted after',
-             'not implemented', 'ERROR', 'CRITICAL',
+             'not implemented', 'not supported by Sprite', 'ERROR', 'CRITICAL',
              'error:', 'Expected module for', 'terminate called', 'what():',
              'Segmentation fault', 'Assertion', 'Aborted', 'std::bad_alloc',
              '*** Evaluation suspended!', 'not found', 'not found!')
