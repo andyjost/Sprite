@@ -96,6 +96,44 @@ class TestCMake(cytest.TestCase):
       self.assertNotEqual(result.returncode, 0, result.stdout)
       self.assertIn(message, result.stdout)
 
+  @cytest.posix_only('POSIX permits literal backslashes in path components')
+  def test_install_code_preserves_literal_paths(self):
+    '''The generated install hook must pass configured paths literally.'''
+    root = Path(self.directory.name)
+    python = root / 'python\\host tools' / 'python'
+    python.parent.mkdir()
+    python.symlink_to(sys.executable)
+    source = root / 'source\\hooks tools'
+    scripts = source / 'scripts'
+    scripts.mkdir(parents=True)
+    (scripts / 'install-package.py').write_text(
+        'import sys\nprint(repr(sys.argv[1:]))\n')
+    image = root / 'image\\files'
+    prefix = root / 'prefix'
+
+    # Generate the product's actual install hook in a minimal project. This
+    # isolates its second CMake parse from compiler and FindPython probes.
+    install_code = (ROOT / 'CMakeLists.txt').read_text().split(
+        '  install(CODE ', 1)[1].rsplit('\nendif()', 1)[0]
+    project = root / 'project'
+    project.mkdir()
+    (project / 'CMakeLists.txt').write_text(
+        'cmake_minimum_required(VERSION 3.24)\n'
+        'project(InstallPaths NONE)\n'
+        'function(add_install_hook)\n'
+        '  set(Python_EXECUTABLE [==[' + str(python) + ']==])\n'
+        '  set(CMAKE_SOURCE_DIR [==[' + str(source) + ']==])\n'
+        '  set(image [==[' + str(image) + ']==])\n'
+        '  install(CODE ' + install_code + '\n'
+        'endfunction()\nadd_install_hook()\n')
+    result = run(cmake_executable(), '-S', project, '-B', self.build, '-G', 'Ninja')
+    self.assertEqual(result.returncode, 0, result.stdout)
+    destdir = root / 'destdir'
+    result = run(cmake_executable(), '--install', self.build, '--prefix', prefix,
+                 env=dict(os.environ, DESTDIR=str(destdir)))
+    self.assertEqual(result.returncode, 0, result.stdout)
+    self.assertIn(repr([str(destdir) + str(prefix), str(image)]), result.stdout)
+
   def test_default_precedes_platform_initialization(self):
     '''A compiler platform's Debug default must not replace Sprite's Release.'''
     override = Path(self.directory.name) / 'platform-default.cmake'

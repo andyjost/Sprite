@@ -444,8 +444,10 @@ if(SKBUILD)
 else()
   install(DIRECTORY "${image}/" DESTINATION . USE_SOURCE_PERMISSIONS
     PATTERN "*.gch" EXCLUDE PATTERN "*.tiered" EXCLUDE PATTERN "*.old-*" EXCLUDE)
+  # These configured paths are parsed again by the install script. Bracket
+  # arguments preserve literal path text, including Windows backslashes.
   install(CODE "
-    execute_process(COMMAND \"${Python_EXECUTABLE}\" \"${CMAKE_SOURCE_DIR}/scripts/install-package.py\"
-      \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}\" \"${image}\" COMMAND_ERROR_IS_FATAL ANY)
+    execute_process(COMMAND [==[${Python_EXECUTABLE}]==] [==[${CMAKE_SOURCE_DIR}/scripts/install-package.py]==]
+      \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}\" [==[${image}]==] COMMAND_ERROR_IS_FATAL ANY)
   ")
 endif()
