@@ -23,25 +23,42 @@ class TestEvaluationLock(cytest.TestCase):
 
   def test_two_threads_keep_independent_queues_and_counts(self):
     self.child('''
-serial = evaluator(100000)
+owned = threading.Event()
+release = threading.Event()
+def counted(hold=False):
+  def values():
+    if hold:
+      owned.set()
+      assert release.wait(10)
+    yield from range(100000)
+  return Evaluator(cytest.raw.interp(),
+      cytest.raw.expr(M.lengthInts, values(), typed=True))
+serial = counted()
 assert run(serial) == [100000]
 expected = serial.rts.steps_total
 from curry.backends.cxx.curryrtbindings import _curryrtbindings as native
 before = native._heap_status()
-runs = [evaluator(100000), evaluator(100000)]
-barrier = threading.Barrier(3)
+runs = [counted(hold=True), counted()]
 values = [None, None]
 errors = []
 def evaluate(i):
   try:
-    barrier.wait()
     values[i] = run(runs[i])
   except BaseException as error:
     errors.append(error)
 threads = [threading.Thread(target=evaluate, args=(i,)) for i in range(2)]
-for thread in threads: thread.start()
-barrier.wait()
-for thread in threads: thread.join()
+threads[0].start()
+assert owned.wait(10)
+waits = native._test_heap_waits()
+threads[1].start()
+try:
+  deadline = time.monotonic() + 10
+  while native._test_heap_waits() == waits:
+    assert time.monotonic() < deadline, 'second evaluation never waited'
+    release.wait(.001)
+finally:
+  release.set()
+  for thread in threads: thread.join()
 assert not errors, errors
 assert values == [[100000], [100000]], values
 assert [ev.rts.steps_total for ev in runs] == [expected, expected]
@@ -52,19 +69,68 @@ print('ok')
 
   def test_python_timer_advances_during_native_search(self):
     self.child('''
-ev = evaluator(2000000)
+import _thread, sys
+# The main thread owns the heap during this shallow, nonterminating search.
+# A signal handler on that same thread can safely read steps_total through
+# its recursive heap binding. The timer must never read it directly: that
+# would wait for the search to release the heap. No handler waits or yields.
+ev = Evaluator(cytest.raw.interp(), cytest.raw.expr(M.loop))
+# Longer than the child's 90-second bound: executing the short signal
+# callback must not itself schedule the timer and hide a retained GIL.
+# The intended handoffs (native search and Event.wait) release it explicitly.
+sys.setswitchinterval(120)
+samples = []
+cancel = threading.Event()
+def sample(signum, frame):
+  if cancel.is_set():
+    raise KeyboardInterrupt
+  samples.append(ev.rts.steps_total)
+saved = signal.signal(signal.SIGINT, sample)
 stop = threading.Event()
-ticks = []
+errors = []
+observed = []
 def timer():
-  while not stop.wait(0.001): ticks.append(time.monotonic())
+  try:
+    deadline = time.monotonic() + 10
+    first = None
+    while not observed:
+      count = len(samples)
+      _thread.interrupt_main()
+      while len(samples) == count:
+        assert time.monotonic() < deadline, 'search did not answer the sample signal'
+        if stop.wait(.001):
+          raise AssertionError('search ended before sampling')
+      current = samples[-1]
+      if first is None and current > 0:
+        first = current
+      elif first is not None and current > first:
+        observed.extend((first, current))
+      assert time.monotonic() < deadline, 'native steps did not advance'
+  except BaseException as error:
+    errors.append(error)
+  finally:
+    # M.loop has no value and cannot finish on its own. Even a failed
+    # observer must stop it. The subprocess timeout bounds a GIL deadlock.
+    cancel.set()
+    _thread.interrupt_main()
 thread = threading.Thread(target=timer)
 thread.start()
 try:
-  assert run(ev) == [2000000]
+  try:
+    run(ev)
+  except KeyboardInterrupt:
+    pass
+  else:
+    raise AssertionError('the diverging search returned')
 finally:
   stop.set()
-  thread.join()
-assert len(ticks) >= 10, len(ticks)
+  thread.join(10)
+  signal.signal(signal.SIGINT, saved)
+assert not thread.is_alive(), 'timer did not stop'
+assert not errors, errors
+assert len(observed) == 2 and 0 < observed[0] < observed[1], observed
+assert not ev.rts._escalated, 'samples require main-thread heap ownership'
+assert run(evaluator(10)) == [10]
 print('ok')
 ''')
 

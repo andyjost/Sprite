@@ -139,9 +139,9 @@ assert curryrt.gc_freevar_count() == 0, curryrt.gc_freevar_count()
     In the stress mode of the collector a collection runs after every step,
     so a variable that no root names is dropped at once.  Narrowing, binding,
     and unification in sequence, a group whose root leaves the expression
-    (groupRoot, wakeInGroup, triple), a configuration that wakes on a
-    variable another one narrowed, and a functional pattern give the same
-    values, in the same order and with the same steps, as without the mode.
+    (groupRoot, boundWaitInGroup, triple), bound waits beside a narrowing
+    sibling, and a functional pattern give the same values and suspensions,
+    in the same order and with the same steps, as without the mode.
     triple needs the root of its group after the expression dropped it: a
     table that lost the root narrows x and z apart.
     '''
@@ -150,12 +150,50 @@ assert curryrt.gc_freevar_count() == 0, curryrt.gc_freevar_count()
 results = []
 for goal, args in [
     (M.narrowMany, (2000,)), (M.bindMany, (2000,)), (M.uniteMany, (300,))
-  , (M.groupRoot, ()), (M.wakeByNarrowing, ()), (M.wakeInGroup, ())
+  , (M.groupRoot, ()), (M.boundWaitWithNarrowing, ()), (M.boundWaitInGroup, ())
   , (M.triple, ()), (M.lasts, (15,))
   ]:
   before = curry.stats()['steps']
-  values = [repr(v) for v in cytest.raw.values(cytest.raw.expr(goal, *args, typed=True))]
-  results.append((goal.name, values, curry.stats()['steps'] - before))
+  values = []
+  suspended = False
+  try:
+    for v in cytest.raw.values(cytest.raw.expr(goal, *args, typed=True)):
+      values.append(repr(v))
+  except curry.SuspensionError:
+    suspended = True
+  results.append((goal.name, values, curry.stats()['steps'] - before, suspended))
+
+# Keep the native queue open across collection: only x remains in the
+# expression, and the bound residual must retain x and its group root y.
+gc.collect()
+curryrt.gc_collect()
+rts = curryrt.RuntimeState(cytest.raw.interp(), cytest.raw.expr(M.boundWaitInGroup))
+try:
+  values = []
+  try:
+    for v in rts.generate_values():
+      values.append(repr(v))
+  except curry.SuspensionError:
+    pass
+  else:
+    raise AssertionError('group exhausted instead of suspending')
+  assert values == ['<O>', '<I>'], values
+  assert rts.queue_size == 1, rts.queue_size
+  gc.collect()
+  curryrt.gc_collect()
+  assert curryrt.gc_freevar_count() == 2, curryrt.gc_freevar_count()
+  assert len(rts.vtable) == 2, rts.vtable
+  assert curryrt.gc_verify() is None
+  steps = rts.steps_total
+  try:
+    next(rts.generate_values())
+  except curry.SuspensionError:
+    pass
+  else:
+    raise AssertionError('collection released the bound wait')
+  assert rts.steps_total == steps, (steps, rts.steps_total)
+finally:
+  rts.close()
 gc.collect()
 curryrt.gc_collect()
 results.append(('freevars', curryrt.gc_freevar_count()))
@@ -173,9 +211,13 @@ print(results)
     self.assertEqual(results['bindMany'][0], ['<Int 2000>'])
     self.assertEqual(results['uniteMany'][0], ['<Int 300>'])
     self.assertRegex(results['groupRoot'][0][0], r'^<_Free \d+ <\(\)>>$')
-    bits = ['<O>', '<I>', '<O>', '<I>']
-    self.assertEqual(results['wakeByNarrowing'][0], bits)
-    self.assertEqual(results['wakeInGroup'][0], bits)
+    bits = ['<O>', '<I>']
+    self.assertEqual(results['boundWaitWithNarrowing'][0], bits)
+    self.assertEqual(results['boundWaitInGroup'][0], bits)
+    for name, values, steps, suspended in ast.literal_eval(plain.stdout)[:-1]:
+      self.assertEqual(
+          suspended, name in ('boundWaitWithNarrowing', 'boundWaitInGroup'), name
+        )
     self.assertEqual(
         sorted(results['triple'][0])
       , ['<(,) <Int %d> <Int %d>>' % (i, i) for i in (1, 2, 3)]
@@ -183,7 +225,7 @@ print(results)
     self.assertEqual(len(results['lasts'][0]), 1)
     self.assertEqual(results['freevars'], (0,))
     self.assertTrue(all(
-        steps > 0 for name, values, steps in ast.literal_eval(plain.stdout)[:-1]
+        steps > 0 for name, values, steps, suspended in ast.literal_eval(plain.stdout)[:-1]
       ))
 
 
@@ -299,10 +341,15 @@ class TestValues(cytest.TestCase):
         sorted(cytest.raw.interp().topython(v) for v in cytest.raw.values(M.triple))
       , [(1, 1), (2, 2), (3, 3)]
       )
-    self.assertEqual(
-        sorted(str(v) for v in cytest.raw.values(M.wakeByNarrowing))
-      , ['I', 'I', 'O', 'O']
-      )
+    for name in ('boundWaitWithNarrowing', 'boundWaitInGroup'):
+      with self.subTest(goal=name):
+        values = cytest.raw.values(getattr(M, name))
+        try:
+          self.assertEqual([str(next(values)), str(next(values))], ['O', 'I'])
+          with self.assertRaises(curry.SuspensionError):
+            next(values)
+        finally:
+          values.close()
     self.assertEqual(
         cytest.raw.interp().topython(next(cytest.raw.values(cytest.raw.expr(M.lasts, 10, typed=True)))), list(range(1, 11))
       )

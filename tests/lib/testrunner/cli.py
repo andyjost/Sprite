@@ -18,7 +18,7 @@ from . import (
   )
 from . import prepare, procs, report, selection
 from .manifest import Manifest
-from .scheduler import Job, Scheduler
+from .scheduler import Interrupts, Job, Scheduler
 
 __all__ = [
     'TOOLCHAIN_VARIABLES', 'backstop_prefix', 'budget_note', 'environment'
@@ -506,53 +506,62 @@ def main(argv=None):
       # named there too.
       out.write(report.tail(job.logfile) + '\n')
     out.flush()
-  interrupted = False
-  wall = 0.0
-  if prepare_jobs:
-    pre = Scheduler(prepare_jobs, budget, 1, on_finish=on_finish, echo=echo)
-    pre.run()
-    interrupted = pre.interrupted
-    wall += pre.wall
-    out.write(prepare.summary(prepare_jobs) + '\n')
-    pruned = prepare.prune_product_cache(sprite_home, envs[backends[0]])
-    if pruned and any(pruned):
-      out.write(
-          'prepare: product cache pruned: %d digest director%s of other '
-          'runtimes, %d temporary director%s\n' % (
-              pruned[0], 'y' if pruned[0] == 1 else 'ies'
-            , pruned[1], 'y' if pruned[1] == 1 else 'ies'
-            )
+  # Preparation needs the same protection: it can be interrupted too, and
+  # its result must survive the gap before the test pass and final report.
+  with Interrupts().handling() as interrupts:
+    interrupted = False
+    wall = 0.0
+    if prepare_jobs:
+      pre = Scheduler(
+          prepare_jobs, budget, 1, on_finish=on_finish, echo=echo
+        , interrupts=interrupts
         )
+      pre.run()
+      interrupted = pre.interrupted
+      wall += pre.wall
+      out.write(prepare.summary(prepare_jobs) + '\n')
+      pruned = prepare.prune_product_cache(sprite_home, envs[backends[0]])
+      if pruned and any(pruned):
+        out.write(
+            'prepare: product cache pruned: %d digest director%s of other '
+            'runtimes, %d temporary director%s\n' % (
+                pruned[0], 'y' if pruned[0] == 1 else 'ies'
+              , pruned[1], 'y' if pruned[1] == 1 else 'ies'
+              )
+          )
+      out.flush()
+    interrupted = interrupted or interrupts.requested is not None
+    if jobs and not interrupted:
+      sched = Scheduler(
+          jobs, budget, width, on_finish=on_finish, echo=echo
+        , inherit_stdin=echo, interrupts=interrupts
+        )
+      sched.run()
+      interrupted = sched.interrupted
+      wall += sched.wall
+      done = sched.jobs
+    else:
+      done = jobs
+    interrupted = interrupted or interrupts.requested is not None
+    out.write('\n' + report.summary(prepare_jobs + done, wall, interrupted) + '\n')
+    if args.update_manifest:
+      measured = [job for job in done if job.finished and job.peak is not None]
+      for job in measured:
+        manifest.update(job.filename, job.backend, job)
+      if measured:
+        manifest.save(args.manifest)
+        out.write('manifest: %d entr%s written to %s\n' % (
+            len(measured), 'y' if len(measured) == 1 else 'ies'
+          , report.relative(args.manifest)
+          ))
     out.flush()
-  if jobs and not interrupted:
-    sched = Scheduler(
-        jobs, budget, width, on_finish=on_finish, echo=echo
-      , inherit_stdin=echo
-      )
-    sched.run()
-    interrupted = sched.interrupted
-    wall += sched.wall
-    done = sched.jobs
-  else:
-    done = jobs
-  out.write('\n' + report.summary(prepare_jobs + done, wall, interrupted) + '\n')
-  if args.update_manifest:
-    measured = [job for job in done if job.finished and job.peak is not None]
-    for job in measured:
-      manifest.update(job.filename, job.backend, job)
-    if measured:
-      manifest.save(args.manifest)
-      out.write('manifest: %d entr%s written to %s\n' % (
-          len(measured), 'y' if len(measured) == 1 else 'ies'
-        , report.relative(args.manifest)
-        ))
-  out.flush()
-  # Under --prepare the pass is a warm-up: its jobs are advisory, so a
-  # directory that did not compile whole is a note in the table, not a
-  # failure (exit_status skips an advisory job), and the test that needs
-  # the module reports it.  Under --prepare-only the pass is the run: its
-  # jobs are not advisory (prepare_pass_jobs), and such a directory fails
-  # it.
-  if args.prepare_only:
-    return exit_status(prepare_jobs, interrupted)
-  return exit_status(prepare_jobs + done, interrupted)
+    # Under --prepare the pass is a warm-up: its jobs are advisory, so a
+    # directory that did not compile whole is a note in the table, not a
+    # failure (exit_status skips an advisory job), and the test that needs
+    # the module reports it.  Under --prepare-only the pass is the run: its
+    # jobs are not advisory (prepare_pass_jobs), and such a directory fails
+    # it.
+    interrupted = interrupted or interrupts.requested is not None
+    if args.prepare_only:
+      return exit_status(prepare_jobs, interrupted)
+    return exit_status(prepare_jobs + done, interrupted)

@@ -19,7 +19,31 @@ namespace curryrt
   using StrictConstraints = std::shared_ptr<UnionFind>;
   using BindingMap = std::unordered_map<xid_type, Node *>;
   using Bindings = std::shared_ptr<BindingMap>;
-  using Residuals = std::unordered_set<xid_type>;
+  enum WaitKind : unsigned char { DEMAND = 1, BOUND = 2 };
+
+  // Both reasons may be present for one variable. Removing an ordinary
+  // demand must not cancel a rigid wait recorded by another redex.
+  struct Residuals
+  {
+    std::unordered_map<xid_type, unsigned char> conditions;
+    bool empty() const { return conditions.empty(); }
+    auto begin() const { return conditions.begin(); }
+    auto end() const { return conditions.end(); }
+    void insert(xid_type vid, unsigned char kinds = DEMAND)
+      { conditions[vid] |= kinds; }
+    void erase(xid_type vid, unsigned char kinds = DEMAND)
+    {
+      auto p = conditions.find(vid);
+      if(p != conditions.end() && !(p->second &= ~kinds))
+        conditions.erase(p);
+    }
+    void swap(Residuals & other) { conditions.swap(other.conditions); }
+    void merge(Residuals const & other)
+    {
+      for(auto const & [vid, kinds]: other)
+        insert(vid, kinds);
+    }
+  };
 
   // A configuration belongs to the queues that hold it (see queue.hpp): one
   // queue, except after the escape of a choice from a set function, which
@@ -46,8 +70,9 @@ namespace curryrt
       , fingerprint(obj.fingerprint)
       , strict_constraints(obj.strict_constraints)
       , bindings(obj.bindings)
-      , residuals()
+      , residuals(obj.residuals)
       , escape_all(obj.escape_all)
+      , forced_rotate(obj.forced_rotate)
     { gc_configuration_created(); }
 
     ~Configuration() { gc_configuration_destroyed(); }
@@ -127,8 +152,8 @@ namespace curryrt
 
     // Records a free variable the configuration waits on, with its group,
     // and takes both back.  See RuntimeState::ready and hnf_or_free.
-    void add_residual(xid_type vid);
-    void remove_residual(xid_type vid);
+    void add_residual(xid_type vid, unsigned char kinds = DEMAND);
+    void remove_residual(xid_type vid, unsigned char kinds = DEMAND);
   };
 
   inline xid_type obj_id(Node * node) { return NodeU{node}.choice->cid; }

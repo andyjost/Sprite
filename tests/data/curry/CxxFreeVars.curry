@@ -59,16 +59,17 @@ both (x, y) = num x + num y
 groupRoot :: Bit
 groupRoot = let x, y free in (y =:= x) &> x
 
--- The first alternative waits on x (ensureNotFree residuates on a free
--- variable); the second narrows x.  The generator of x lives in its node,
--- so the first alternative wakes and narrows x the same way.
-wakeByNarrowing :: Bit
-wakeByNarrowing = let x free in ensureNotFree x ? same x
+-- The first alternative waits for x to be bound in its configuration.
+-- The second narrows x and gives O and I.  Its shared generator does not
+-- bind x for the first alternative, which stays suspended (#253).
+boundWaitWithNarrowing :: Bit
+boundWaitWithNarrowing = let x free in ensureNotFree x ? same x
 
 -- The same, with x in a group whose root y leaves the expression once the
--- constraint is consumed.  The residual names both.
-wakeInGroup :: Bit
-wakeInGroup = let x, y free in (y =:= x) &> (ensureNotFree x ? same x)
+-- constraint is consumed.  The bound residual names both ids and keeps
+-- both table entries alive; the sibling still gives only O and I.
+boundWaitInGroup :: Bit
+boundWaitInGroup = let x, y free in (y =:= x) &> (ensureNotFree x ? same x)
 
 data Tri = A | B | C
 
