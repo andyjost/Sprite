@@ -1,6 +1,6 @@
-===============
-Feature Support
-===============
+==================================
+Compatibility with PAKCS and KiCS2
+==================================
 
 This page is for readers who want to run a Curry program or CPM package
 from PAKCS or KiCS2 on Sprite. It explains what runs unchanged, what runs
@@ -21,7 +21,7 @@ Sprite raises a named error. PAKCS is evidence, not the definition.
 The developer notes state the :ref:`CPM support rule
 <DeveloperNotes:CPM support rule>` (#262).
 
-.. include:: FeatureSupportTables.inc
+.. include:: CompatibilityTables.inc
    :start-after: begin-counts
    :end-before: end-counts
 
@@ -37,7 +37,7 @@ state; later sections describe the limits that can affect a port.
 The pinned checks pass for |cpm-pass-count| CPM packages.
 A pass records the check for that package version, not every possible
 program that uses it. The :ref:`package table
-<FeatureSupport:CPM packages>` lists the results.
+<Compatibility:CPM packages>` lists the results.
 
 Weak encapsulation by set functions
 -----------------------------------
@@ -185,7 +185,7 @@ Sprite reports:
 
 .. code-block:: text
 
-    ERROR: Control.AllValues.allValues: not supported by Sprite: strong encapsulation; its results depend on the evaluation order (see the page Feature Support of the documentation)
+    ERROR: Control.AllValues.allValues: not supported by Sprite: strong encapsulation; its results depend on the evaluation order (see https://andyjost.github.io/Sprite/Compatibility.html)
 
 PAKCS 3.10.0 prints:
 
@@ -210,7 +210,7 @@ order (class 1). For example, a call to ``prim_writeGVar`` meets:
 
 .. code-block:: text
 
-    ERROR: GlobalVariable.prim_writeGVar: not supported by Sprite: backtrackable global variables; their values depend on the search order (see the page Feature Support of the documentation)
+    ERROR: GlobalVariable.prim_writeGVar: not supported by Sprite: backtrackable global variables; their values depend on the search order (see https://andyjost.github.io/Sprite/Compatibility.html)
 
 Use ``Data.Global`` for global state under the discipline above.
 
@@ -223,14 +223,14 @@ of PAKCS (class 4). For example, a call to ``CLP.R.prim_CLPR_i2f`` meets:
 
 .. code-block:: text
 
-    ERROR: CLP.R.prim_CLPR_i2f: not supported by Sprite: PAKCS constraint solvers; they are bound to the Prolog back end of PAKCS (see the page Feature Support of the documentation)
+    ERROR: CLP.R.prim_CLPR_i2f: not supported by Sprite: PAKCS constraint solvers; they are bound to the Prolog back end of PAKCS (see https://andyjost.github.io/Sprite/Compatibility.html)
 
 Refused modules and operations
 ------------------------------
 
 This table lists the refused modules and the scope of each refusal.
 
-.. include:: FeatureSupportTables.inc
+.. include:: CompatibilityTables.inc
    :start-after: begin-refusals
    :end-before: end-refusals
 
@@ -264,6 +264,6 @@ and DefaultRules times out (#242). :doc:`Status` lists known defects,
 such as the functional-pattern sharing defect
 `#251 <https://github.com/andyjost/Sprite/issues/251>`_.
 
-.. include:: FeatureSupportTables.inc
+.. include:: CompatibilityTables.inc
    :start-after: begin-packages
    :end-before: end-packages

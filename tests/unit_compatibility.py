@@ -13,10 +13,10 @@ from curry.backends import refusals
 
 
 ROOT = Path(__file__).resolve().parent.parent
-GENERATOR = ROOT / 'docs/build-feature-support.py'
+GENERATOR = ROOT / 'docs/build-compatibility.py'
 
 
-class TestFeatureSupport(cytest.TestCase):
+class TestCompatibility(cytest.TestCase):
   def test_generated_tables_cover_packages_and_refused_modules(self):
     expected = json.loads((ROOT / 'tests/data/cpm/index-expected.json').read_text())
     with tempfile.TemporaryDirectory() as work:
@@ -59,7 +59,7 @@ class TestFeatureSupport(cytest.TestCase):
       self.assertIn('`' + issue + ' <https://github.com/andyjost/Sprite/issues/', packages)
 
   def test_unclassified_exception_stops_generation(self):
-    spec = importlib.util.spec_from_file_location('feature_support', GENERATOR)
+    spec = importlib.util.spec_from_file_location('compatibility', GENERATOR)
     generator = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(generator)
     expected = json.loads((ROOT / 'tests/data/cpm/index-expected.json').read_text())

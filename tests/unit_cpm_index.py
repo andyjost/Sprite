@@ -26,7 +26,7 @@ class TestCPMIndex(cytest.TestCase):
   def test_refused_feature_diagnostics(self):
     message = ('ERROR: CLPB.prim_neg: not supported by Sprite: PAKCS constraint solvers; '
                'they are bound to the Prolog back end of PAKCS '
-               '(see the page Feature Support of the documentation)')
+               '(see https://andyjost.github.io/Sprite/Compatibility.html)')
     self.assertEqual(survey.classify(message, 1), 'unsupported feature: ' + message)
     self.assertEqual(survey.failure_set('test', message), [
         'test: class: unsupported feature', 'test: diagnostic: ' + message])

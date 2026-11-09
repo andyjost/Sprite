@@ -29,7 +29,7 @@ class TestRefusals(cytest.TestCase):
         symbol = getattr(M, function)
         fullname = module + '.' + function
         message = (fullname + ': not supported by Sprite: ' + reason +
-            ' (see the page Feature Support of the documentation)') if reason else (
+            ' (see https://andyjost.github.io/Sprite/Compatibility.html)') if reason else (
             fullname + ': not implemented (no primitive in the runtime)')
         self.assertEqual(curryrt.icurry_is_interpreted(symbol.info), interpreted)
         with self.assertRaisesRegex(EvaluationError, re.escape(message)):

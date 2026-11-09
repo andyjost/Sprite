@@ -3,7 +3,7 @@ Status
 ======
 
 This page says what Sprite is today, in one place.
-See :doc:`FeatureSupport` for what runs unchanged, what produces different
+See :doc:`Compatibility` for what runs unchanged, what produces different
 output, and what Sprite refuses when you port a program from PAKCS or KiCS2.
 
 The front end
@@ -27,7 +27,7 @@ Sprite provides weak encapsulation (:ref:`CurryPrimer/Semantics:Set functions`).
 
 Every module of the Curry library compiles, ships compiled and imports.
 Missing externals refused by the support rule raise the named errors
-listed in :doc:`FeatureSupport`. Other externals without a primitive in
+listed in :doc:`Compatibility`. Other externals without a primitive in
 the runtime raise ``not implemented`` at their call.
 ``Curry.Compiler.Distribution``, ``System.CPUTime``, ``System.Environment``,
 ``Data.IORef``, ``System.IO`` and ``System.IO.Unsafe`` have their primitives.

@@ -794,8 +794,8 @@
       "failure_class": "unsupported feature",
       "failure_set": [
         "test: class: unsupported feature",
-        "test: diagnostic: i/o error: Control.AllValues.allValues: not supported by Sprite: strong encapsulation; its results depend on the evaluation order (see the page Feature Support of the documentation)",
-        "test: diagnostic: i/o error: Control.AllValues.oneValue: not supported by Sprite: strong encapsulation; its results depend on the evaluation order (see the page Feature Support of the documentation)",
+        "test: diagnostic: i/o error: Control.AllValues.allValues: not supported by Sprite: strong encapsulation; its results depend on the evaluation order (see https://andyjost.github.io/Sprite/Compatibility.html)",
+        "test: diagnostic: i/o error: Control.AllValues.oneValue: not supported by Sprite: strong encapsulation; its results depend on the evaluation order (see https://andyjost.github.io/Sprite/Compatibility.html)",
         "test: diagnostic: testGetAllValues (module TestAllValues): EXECUTION FAILURE:",
         "test: diagnostic: testGetOneValue (module TestAllValues): EXECUTION FAILURE:",
         "test: diagnostic: testQueens1 (module TestAllValues): EXECUTION FAILURE:",
@@ -847,7 +847,7 @@
       "failure_class": "unsupported feature",
       "failure_set": [
         "test: class: unsupported feature",
-        "test: diagnostic: ERROR: CLP.R.prim_CLPR_i2f: not supported by Sprite: PAKCS constraint solvers; they are bound to the Prolog back end of PAKCS (see the page Feature Support of the documentation)"
+        "test: diagnostic: ERROR: CLP.R.prim_CLPR_i2f: not supported by Sprite: PAKCS constraint solvers; they are bound to the Prolog back end of PAKCS (see https://andyjost.github.io/Sprite/Compatibility.html)"
       ]
     },
     "clpbool": {
@@ -859,7 +859,7 @@
       "failure_class": "unsupported feature",
       "failure_set": [
         "test: class: unsupported feature",
-        "test: diagnostic: ERROR: CLPB.prim_neg: not supported by Sprite: PAKCS constraint solvers; they are bound to the Prolog back end of PAKCS (see the page Feature Support of the documentation)"
+        "test: diagnostic: ERROR: CLPB.prim_neg: not supported by Sprite: PAKCS constraint solvers; they are bound to the Prolog back end of PAKCS (see https://andyjost.github.io/Sprite/Compatibility.html)"
       ]
     },
     "combinatorial": {
@@ -1034,7 +1034,7 @@
       "shard": 3,
       "failure_set": [
         "test: class: unsupported feature",
-        "test: diagnostic: i/o error: GlobalVariable.prim_writeGVar: not supported by Sprite: backtrackable global variables; their values depend on the search order (see the page Feature Support of the documentation)",
+        "test: diagnostic: i/o error: GlobalVariable.prim_writeGVar: not supported by Sprite: backtrackable global variables; their values depend on the search order (see https://andyjost.github.io/Sprite/Compatibility.html)",
         "test: diagnostic: testGlobalVariableTest1 (module TestGlobalVariable): EXECUTION FAILURE:",
         "test: diagnostic: testGlobalVariableTest2 (module TestGlobalVariable): EXECUTION FAILURE:"
       ]
@@ -1132,8 +1132,8 @@
       "failure_class": "unsupported feature",
       "failure_set": [
         "test: class: unsupported feature",
-        "test: diagnostic: i/o error: Control.Findall.allValues: not supported by Sprite: strong encapsulation; its results depend on the evaluation order (see the page Feature Support of the documentation)",
-        "test: diagnostic: i/o error: Control.Findall.oneValue: not supported by Sprite: strong encapsulation; its results depend on the evaluation order (see the page Feature Support of the documentation)",
+        "test: diagnostic: i/o error: Control.Findall.allValues: not supported by Sprite: strong encapsulation; its results depend on the evaluation order (see https://andyjost.github.io/Sprite/Compatibility.html)",
+        "test: diagnostic: i/o error: Control.Findall.oneValue: not supported by Sprite: strong encapsulation; its results depend on the evaluation order (see https://andyjost.github.io/Sprite/Compatibility.html)",
         "test: diagnostic: testGetAllSolutions (module TestAllSolutions): EXECUTION FAILURE:",
         "test: diagnostic: testGetOneValue (module TestAllSolutions): EXECUTION FAILURE:",
         "test: diagnostic: testQueens1 (module TestAllSolutions): EXECUTION FAILURE:",
@@ -1149,7 +1149,7 @@
       "failure_class": "unsupported feature",
       "failure_set": [
         "test: class: unsupported feature",
-        "test: diagnostic: ERROR: Control.Search.SearchTree.Unsafe.allNormalForms: not supported by Sprite: strong encapsulation; its results depend on the evaluation order (see the page Feature Support of the documentation)"
+        "test: diagnostic: ERROR: Control.Search.SearchTree.Unsafe.allNormalForms: not supported by Sprite: strong encapsulation; its results depend on the evaluation order (see https://andyjost.github.io/Sprite/Compatibility.html)"
       ]
     },
     "setfunctions": {
