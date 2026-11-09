@@ -419,16 +419,15 @@ namespace curryrt
 
   bool RuntimeState::is_void(Configuration * C, Node * freevar)
   {
+    return !has_generator(freevar) && this->is_free_in_configuration(C, freevar);
+  }
+
+  bool RuntimeState::is_free_in_configuration(Configuration * C, Node * freevar)
+  {
     assert(freevar);
     assert(freevar->info->tag == T_FREE);
-    if(!has_generator(freevar))
-    {
-      xid_type vid = obj_id(freevar);
-      xid_type gid = C->grp_id(vid);
-      if(!this->get_binding(C, gid) && !this->is_narrowed(C, gid))
-        return true;
-    }
-    return false;
+    xid_type gid = C->grp_id(obj_id(freevar));
+    return !this->get_binding(C, gid) && !this->is_narrowed(C, gid);
   }
 }
 

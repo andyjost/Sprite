@@ -302,6 +302,7 @@ namespace curryrt
       , void const * guides
       );
     bool is_void(Configuration *, Node * freevar);
+    bool is_free_in_configuration(Configuration *, Node * freevar);
 
     // rts_setfunctions:
     void push_queue(Queue *, TraceOpt=TRACE);
