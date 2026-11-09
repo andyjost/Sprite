@@ -1005,7 +1005,9 @@ writeFree = writeGlobalT counter x where x free
     for action, name in ((module.goal, 'prim_writeGVar'),
                          (module.prim_readGVar(module.counter), 'prim_readGVar')):
       with self.subTest(primitive=name), self.assertRaisesRegex(
-          curry.EvaluationError, 'GlobalVariable.' + name + ': not implemented'):
+          curry.EvaluationError, 'GlobalVariable.' + name +
+          ': not supported by Sprite: backtrackable global variables; '
+          'their values depend on the search order'):
         curry.eval(action).one()
 
   def test_random_seed_clock(self):

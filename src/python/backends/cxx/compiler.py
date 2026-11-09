@@ -1,3 +1,4 @@
+from ..refusals import missing_external_message
 from ...exceptions import CompileError, CurryTypeError
 from ..generic import compiler, renderer
 from ... import common, icurry
@@ -81,7 +82,8 @@ __all__ = ['compile', 'write_module', 'FORMAT_VERSION']
 # Format 30: installed-origin provenance and explicit stage authorization.
 # Format 31: effective wrapper authorization in translation input receipts.
 # Format 32: monadic flags exclude effects hidden by unsafePerformIO (#241).
-FORMAT_VERSION = 32
+# Format 33: named diagnostics for externals refused by design.
+FORMAT_VERSION = 33
 
 # The runtime headers every generated file includes, as vEmitHeader writes
 # them: one directive per name.  The toolchain digests the include closure
@@ -470,7 +472,7 @@ class CxxCompiler(compiler.CompilerBase):
         lines.append('static InfoTable const %s{T_FUNC, %d, %d, %d, %s, %s, +[](RuntimeState *, Configuration * C) -> tag_type { C->set_error(%s); return E_ERROR; }, nullptr};' % (
             record_info, info.arity, alloc_size(info.arity), info.flags | curryrt.F_BUILTIN,
             _dquote(ifun.name), _dquote('p' * info.arity),
-            _dquote(ifun.fullname + ': not implemented (no primitive in the runtime)')))
+            _dquote(missing_external_message(ifun.fullname))))
       function_rows.append(
           '{%s, &%s, &%s, &%s}' % (vis, fun_md, record_info, _slot(h_info))
         )

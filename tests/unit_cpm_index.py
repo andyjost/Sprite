@@ -23,6 +23,14 @@ spec.loader.exec_module(framework)
 
 
 class TestCPMIndex(cytest.TestCase):
+  def test_refused_feature_diagnostics(self):
+    message = ('ERROR: CLPB.prim_neg: not supported by Sprite: PAKCS constraint solvers; '
+               'they are bound to the Prolog back end of PAKCS '
+               '(see the page Feature Support of the documentation)')
+    self.assertEqual(survey.classify(message, 1), 'unsupported feature: ' + message)
+    self.assertEqual(survey.failure_set('test', message), [
+        'test: class: unsupported feature', 'test: diagnostic: ' + message])
+
   def test_snapshot_excludes_uploads_and_rejects_changed_metadata(self):
     with tempfile.TemporaryDirectory() as work:
       root = Path(work)

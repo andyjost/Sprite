@@ -9,6 +9,7 @@ is the disassembly of its bytecode, with the constants the materializer kept
 when it attached the code.  A built-in identifies its implementation language.
 '''
 
+from ..refusals import missing_external_message
 from ...common import T_FUNC
 from ...objects.handle import getHandle
 from . import bytecode, curryrtbindings as curryrt, materialize
@@ -29,7 +30,7 @@ def getimpl(symbol):
   module = symbol.module
   if function.is_external and module is not None and \
       getHandle(module).backend_handle.get_builtin_symbol(symbol.name) is None:
-    return '%s: external, not implemented (no primitive in the runtime)' % symbol.fullname
+    return missing_external_message(symbol.fullname, inspection=True)
   if module is not None and \
       materialize.function_primitive(getHandle(module).backend_handle, function, getHandle(module).icurry) is not None:
     return '%s: registered %s primitive' % (symbol.fullname, curryrt.primitive_kind(info))
