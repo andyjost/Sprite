@@ -496,21 +496,16 @@ class TestScheduler(SchedulerTests):
       child.stdout.close()
 
   def test_width_two_runs_two_at_once(self):
-    # The serial run first: the saving of the parallel run is measured
-    # against it, so a slow start of Python on a loaded machine (an Intel
-    # macOS runner took 2.3 s for the two jobs at width two) does not fail
-    # the test; two one-second jobs side by side still save most of a second.
-    jobs = [
-        self.pyjob('t%d.py' % i, 'import time; time.sleep(1)') for i in range(2)
-      ]
-    serial = self.run_jobs(jobs, width=1)
-    self.assertGreater(serial.wall, 1.9)
-    self.assertTrue(all(job.ok for job in jobs))
-    jobs = [
-        self.pyjob('s%d.py' % i, 'import time; time.sleep(1)') for i in range(2)
-      ]
+    # Neither child can finish until both have announced their presence.
+    markers = [os.path.join(self.logdir, str(i)) for i in range(2)]
+    jobs = [self.pyjob('t%d.py' % i, """
+import pathlib, time
+markers = %r
+pathlib.Path(markers[%d]).touch()
+while not all(pathlib.Path(p).exists() for p in markers):
+  time.sleep(.01)
+""" % (markers, i), timeout=10) for i in range(2)]
     parallel = self.run_jobs(jobs, width=2)
-    self.assertLess(parallel.wall, serial.wall - 0.5)
     self.assertTrue(all(job.ok for job in jobs))
 
   def test_budget_serializes_two_big_files(self):
@@ -526,19 +521,22 @@ class TestScheduler(SchedulerTests):
     running = self.pyjob('long.py', 'import time; time.sleep(60)')
     waiting = self.pyjob('wait.py', 'pass')
     before = {sig: signal.getsignal(sig) for sig in INTERRUPT_SIGNALS}
-    # Two interrupts: the second lands during the final reap and changes
-    # nothing.
-    timers = [
-        threading.Timer(delay, os.kill, args=(os.getpid(), signal.SIGINT))
-        for delay in (0.5, 0.7)
-      ]
-    for timer in timers:
-      timer.start()
-    try:
+    from testrunner.scheduler import Watchdog
+    original_join = Watchdog.join
+    original_admit = Scheduler.admit
+    sent = []
+    def admit(sched):
+      original_admit(sched)
+      if sched.running and not sent:
+        sent.append(True)
+        os.kill(os.getpid(), signal.SIGINT)
+    def join(watchdog):
+      # Deliver synchronously inside cleanup, before the actual join.
+      os.kill(os.getpid(), signal.SIGINT)
+      original_join(watchdog)
+    with mock.patch.object(Scheduler, 'admit', admit), \
+         mock.patch.object(Watchdog, 'join', join):
       sched = self.run_jobs([running, waiting], width=1)
-    finally:
-      for timer in timers:
-        timer.cancel()
     self.assertTrue(sched.interrupted)
     self.assertEqual(sched.interrupt_requested, signal.SIGINT)
     self.assertEqual(running.status, 'killed: interrupted')
@@ -576,6 +574,29 @@ class TestScheduler(SchedulerTests):
     self.assertTrue(sched.interrupted)
     self.assertEqual(job.status, 'not run')
     self.assertIsNone(job.pid)
+
+  def test_watchdog_cleanup_error_restores_handlers(self):
+    from testrunner.scheduler import Watchdog
+    before = {sig: signal.getsignal(sig) for sig in INTERRUPT_SIGNALS}
+    for sig, handler in before.items():
+      self.addCleanup(signal.signal, sig, handler)
+    # Raise after the real cleanup, so the regression leaves no thread behind.
+    for method in ('stop', 'join'):
+      with self.subTest(method=method):
+        original = getattr(Watchdog, method)
+        def fail(watchdog):
+          original(watchdog)
+          if method == 'stop':
+            watchdog.join()
+          raise RuntimeError('watchdog cleanup failed')
+        with mock.patch.object(Watchdog, method, fail):
+          with self.assertRaisesRegex(RuntimeError, 'watchdog cleanup failed'):
+            self.run_jobs([])
+        after = {sig: signal.getsignal(sig) for sig in INTERRUPT_SIGNALS}
+        # Restore even on the old implementation before asserting the result.
+        for sig, handler in before.items():
+          signal.signal(sig, handler)
+        self.assertEqual(after, before)
 
   def test_echo_copies_the_output(self):
     job = self.pyjob('echo.py', 'print("hello from the child")')
@@ -1187,6 +1208,83 @@ print('env', os.environ.get('CXX'), os.environ.get('CXXFLAGS'))
 '''
 
 class TestCli(unittest.TestCase):
+
+  @cytest.posix_only('uses synchronous POSIX SIGINT delivery')
+  def test_second_interrupt_after_run_keeps_summary_and_manifest(self):
+    tmpdir = tempfile.mkdtemp(dir=os.environ.get('TMPDIR'))
+    self.addCleanup(shutil.rmtree, tmpdir, ignore_errors=True)
+    home = stub_installation(os.path.join(tmpdir, 'install'))
+    manifest = os.path.join(tmpdir, 'manifest.json')
+    Manifest({}, manifest).save()
+    before = {sig: signal.getsignal(sig) for sig in INTERRUPT_SIGNALS}
+    original_admit, original_run = Scheduler.admit, Scheduler.run
+    original_save = Manifest.save
+    # Exercise an interrupt in either pass; the other pass must not start
+    # after an interrupted prepare pass.
+    for preparing in (False, True):
+      with self.subTest(preparing=preparing):
+        completed = stubjob('unit_finished.py')
+        completed.finished = True
+        completed.status = 'ok'
+        completed.returncode = 0
+        completed.duration = 0.01
+        completed.peak = MIB
+        completed.tests, completed.failures = 2, 0
+        running = Job(
+            'prepare stub' if preparing else 'unit_runner.py', 'cxx'
+          , [PYTHON, '-c', 'import time; time.sleep(60)']
+          , cap=GIB, timeout=10, logfile=os.path.join(tmpdir, 'slow.log')
+          )
+        waiting = stubjob('unit_runner.py')
+        calls = []
+        def admit(sched):
+          original_admit(sched)
+          if sched.running:
+            os.kill(os.getpid(), signal.SIGINT)
+        def run(sched):
+          calls.append(sched)
+          if not preparing:
+            # Keep a completed measurement to exercise the manifest update
+            # even when the interrupted child ends before the first poll.
+            sched.done.append(completed)
+          result = original_run(sched)
+          # This hook runs after Scheduler.run has returned, before the CLI
+          # can format or write its summary. There is no signal timer.
+          os.kill(os.getpid(), signal.SIGINT)
+          return result
+        def save(man, path):
+          # The flag handler must also survive the manifest write.
+          os.kill(os.getpid(), signal.SIGINT)
+          original_save(man, path)
+        out = io.StringIO()
+        with mock.patch.dict(os.environ, {'SPRITE_HOME': home}), \
+             mock.patch.object(cli, 'test_job', return_value=waiting if preparing else running), \
+             mock.patch.object(cli, 'prepare_pass_jobs', return_value=[running] if preparing else []), \
+             mock.patch.object(prepare, 'summary', return_value='prepare: interrupted'), \
+             mock.patch.object(prepare, 'prune_product_cache', return_value=None), \
+             mock.patch.object(Scheduler, 'admit', admit), \
+             mock.patch.object(Scheduler, 'run', run), \
+             mock.patch.object(Manifest, 'save', save), redirect_stdout(out):
+          try:
+            status = cli.main([
+                '-j', '1', '--update-manifest', '--backend', 'cxx'
+              , '--manifest', manifest, '--logdir', tmpdir, 'unit_runner.py'
+              ] + (['--prepare'] if preparing else []))
+          except KeyboardInterrupt:
+            self.fail('the second SIGINT escaped before the CLI report')
+        self.assertEqual(status, 130, out.getvalue())
+        self.assertEqual(len(calls), 1)
+        self.assertRegex(out.getvalue(), r'\d+ of \d+ run, [^\n]*interrupted')
+        self.assertIn('killed: interrupted', out.getvalue())
+        self.assertFalse(procs.is_alive(running.pid))
+        if preparing:
+          self.assertIsNone(waiting.pid)
+          self.assertIn('not run', out.getvalue())
+        else:
+          self.assertRegex(out.getvalue(), r'manifest: \d+ entr(?:y|ies) written')
+          self.assertEqual(Manifest.load(manifest).entry('unit_finished.py', 'cxx')['tests'], 2)
+        for sig, handler in before.items():
+          self.assertIs(signal.getsignal(sig), handler)
 
   def test_defaults(self):
     args = cli.parse_args([])

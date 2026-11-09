@@ -145,6 +145,23 @@ reproducers pass.
   WARNING level; `SPRITE_FRONTEND_WARNINGS=0` silences it, and the test
   runner, the test library, the benchmark harness and the run scripts of
   the examples whose rules overlap by design set it.
+- The CPM support rule (2026-11-08, #262): Sprite supports a feature
+  when its set of results does not depend on the schedule or search order.
+  If PAKCS gives it meaning through left-first search, Sprite raises a
+  named error. The CPM index records the package as a known exception.
+  The release notes list it. PAKCS is evidence, not the definition.
+  The dissertation's semantics is the reference. The release goal is that
+  every CPM package works or fails with a named and documented error.
+  Every known exception in the index names one of five classes:
+  1. Results depend on the schedule or search order: allvalues,
+     searchtree, searchtree-unsafe, global-variables.
+  2. Sprite is stricter than PAKCS under a schedule-independent rule:
+     flatcurry-xml rejects a choice that reaches an I/O step (#216).
+  3. The package installs a module the runtime implements: base,
+     setfunctions.
+  4. The package binds a PAKCS constraint solver: clp-pakcs, clpbool.
+  5. An external tool is absent, or the package is broken upstream
+     under PAKCS too.
 - The Curry path adds local CPM project and installed-package source
   directories after `CURRYPATH` and before the installation at import;
   `SPRITE_CPM_PATH=0` disables discovery.

@@ -618,6 +618,33 @@ Reload drops that interpreter's queued and posted LLVM hot work, refreshes
 the attachment generation of still-loaded interpreted functions, and resets
 their bytecode call counters; already compiled LLVM steps keep their code.
 
+CPM support rule
+================
+
+The rule dates from 2026-11-08 (#262).
+Sprite supports a CPM feature when its set of results does not depend on
+its schedule or search order. If PAKCS gives a feature its meaning through
+left-first search, Sprite raises a named error. The CPM index records the
+package as a known exception. The release notes list it.
+PAKCS is evidence, not the definition. The dissertation's semantics is the
+reference. The release goal is that every CPM package works or fails with a
+named and documented error.
+
+Every known exception in the CPM index names one class:
+
+1. Results depend on the schedule or search order. This class contains
+   ``allvalues``, ``searchtree``, ``searchtree-unsafe`` and
+   ``global-variables``. Their results depend on how the search runs.
+2. Sprite is stricter than PAKCS under a rule that does not depend on the
+   schedule. In ``flatcurry-xml``, a choice that reaches an I/O step is an
+   error (#216).
+3. The package installs a module that the runtime implements. This class
+   contains ``base`` and ``setfunctions``.
+4. The package binds a PAKCS constraint solver. This class contains
+   ``clp-pakcs`` and ``clpbool``.
+5. The package needs an absent external tool, or it is broken upstream
+   under PAKCS too.
+
 The module image
 ================
 

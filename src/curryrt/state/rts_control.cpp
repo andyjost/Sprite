@@ -53,17 +53,27 @@ namespace curryrt
     if(C->residuals.empty())
       return true;
     Residuals remaining;
-    for(auto vid: C->residuals)
+    bool ready = false;
+    for(auto const & [vid, kinds]: C->residuals)
     {
       // The collector keeps the variable of a residual while the
       // configuration lives (see gc/wdgc.cpp).  A variable without a node
       // cannot be bound, so the configuration keeps waiting on it.
       Node * var = rts->get_freevar(vid);
       assert(var);
-      if(!var || rts->is_void(C, var))
-        remaining.insert(vid);
+      unsigned char pending = kinds;
+      if(var)
+      {
+        if((kinds & DEMAND) && !rts->is_void(C, var))
+          pending &= ~DEMAND;
+        if((kinds & BOUND) && !rts->is_free_in_configuration(C, var))
+          pending &= ~BOUND;
+      }
+      if(pending)
+        remaining.insert(vid, pending);
+      ready |= pending != kinds;
     }
-    if(remaining.size() < C->residuals.size())
+    if(ready)
     {
       C->residuals.swap(remaining);
       return true;

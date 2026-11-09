@@ -33,6 +33,16 @@ def _state(goal):
 def _values(module, name, *args):
   return sorted(str(v) for v in cytest.raw.values(cytest.raw.expr(getattr(module, name), *args, typed=True)))
 
+def _suspended_values(module, name):
+  '''Keep the values preceding suspension, and require the suspension.'''
+  values = []
+  try:
+    for value in cytest.raw.values(getattr(module, name)):
+      values.append(str(value))
+  except curry.SuspensionError:
+    return sorted(values)
+  raise AssertionError('%s exhausted instead of suspending' % name)
+
 def _goals(module):
   '''The nullary functions of a module, by name.'''
   from curry import inspect
@@ -356,12 +366,14 @@ class TestKnownGood(CheckerTestCase):
         , 'bindMany': _values(M, 'bindMany', 500)
         , 'uniteMany': _values(M, 'uniteMany', 100)
         , 'triple': _values(M, 'triple')
-        , 'wakeByNarrowing': _values(M, 'wakeByNarrowing')
+        , 'boundWaitWithNarrowing': _suspended_values(M, 'boundWaitWithNarrowing')
+        , 'boundWaitInGroup': _suspended_values(M, 'boundWaitInGroup')
         , 'lasts': _values(M, 'lasts', 10)
         }
     values = self.both_ways(compute)
     self.assertEqual(values['narrowMany'], ['500'])
-    self.assertEqual(values['wakeByNarrowing'], ['I', 'I', 'O', 'O'])
+    self.assertEqual(values['boundWaitWithNarrowing'], ['I', 'O'])
+    self.assertEqual(values['boundWaitInGroup'], ['I', 'O'])
 
   def test_programs(self):
     '''The narrowed name, the released residual, the narrowing, the pairing.'''
@@ -516,16 +528,19 @@ class TestKnownGoodInterpreted(cytest.TestCase):
 
   def test_free_variables(self):
     values = self.both_ways(
+        "from unit_cxx_checker import _suspended_values\n"
         "M = curry.import_('CxxFreeVars')\n"
         "out['narrowMany'] = values(M, 'narrowMany', 500)\n"
         "out['bindMany'] = values(M, 'bindMany', 500)\n"
         "out['uniteMany'] = values(M, 'uniteMany', 100)\n"
         "out['triple'] = values(M, 'triple')\n"
-        "out['wakeByNarrowing'] = values(M, 'wakeByNarrowing')\n"
+        "out['boundWaitWithNarrowing'] = _suspended_values(M, 'boundWaitWithNarrowing')\n"
+        "out['boundWaitInGroup'] = _suspended_values(M, 'boundWaitInGroup')\n"
         "out['lasts'] = values(M, 'lasts', 10)"
       )
     self.assertEqual(values['narrowMany'], ['500'])
-    self.assertEqual(values['wakeByNarrowing'], ['I', 'I', 'O', 'O'])
+    self.assertEqual(values['boundWaitWithNarrowing'], ['I', 'O'])
+    self.assertEqual(values['boundWaitInGroup'], ['I', 'O'])
 
   def test_programs(self):
     values = self.both_ways(
