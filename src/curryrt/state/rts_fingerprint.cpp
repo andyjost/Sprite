@@ -151,7 +151,10 @@ namespace curryrt
       {
         lr = (*p)->front()->fingerprint.test(gid);
         if(lr != UNDETERMINED)
+        {
+          this->check_closed_level(p - this->qstack.rbegin());
           break;
+        }
       }
     }
     return lr;

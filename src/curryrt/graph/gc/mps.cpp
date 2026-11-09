@@ -434,7 +434,10 @@ namespace curryrt
         for(auto & pair: istate->vtable)
           CURRYRT_FIX_EXACT(pair.second);
         for(auto & pair: istate->globals)
-          CURRYRT_FIX_EXACT(pair.second);
+        {
+          CURRYRT_FIX_EXACT(pair.second.initial);
+          CURRYRT_FIX_EXACT(pair.second.value);
+        }
       }
     }
     MPS_SCAN_END(ss);

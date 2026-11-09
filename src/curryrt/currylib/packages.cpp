@@ -4,6 +4,8 @@
 #include "curryrt/module.hpp"
 #include "curryrt/exceptions.hpp"
 #include "curryrt/graph/copy.hpp"
+#include "curryrt/graph/equality.hpp"
+#include "curryrt/checker.hpp"
 #include "curryrt/graph/walk.hpp"
 #include "curryrt/inspect.hpp"
 #include <algorithm>
@@ -60,45 +62,78 @@ namespace
       if(op == "prim_globalT" || op == "initializeGlobal")
       {
         auto key = extract_string(root[0].target);
-        if(op == "initializeGlobal" || !store.count(key))
+        auto error = "Data.Global: the initial value of global " + key
+            + " depends on its caller";
+        if(op == "prim_globalT")
         {
-          if(op == "prim_globalT")
-          {
-            // The native capsule runs on the caller's runtime and reads its
-            // bindings and decisions. Keep its stream in the graph so that
-            // rotations and collections can suspend and resume initialization.
-            GcClamp clamp;
-            Node * goal = Node::create(&applygnf_Info,
-                Node::create_partial(&global_value), root[1]);
-            root->forward_to(Node::create(&global_init, root[0],
-                Node::create(&set0_Info, goal)));
-            return T_FWD;
-          }
-          Variable values = root[1];
-          auto tag = rts->hnf(C, &values);
-          if(tag < T_CTOR) return tag;
-          Variable stream = values[0];
-          tag = rts->hnf(C, &stream);
-          if(tag < T_CTOR) return tag;
-          if(stream.target->info == &Nil_Info) return root->make_failure();
-          Variable tail = stream[1];
-          tag = rts->hnf(C, &tail);
-          if(tag < T_CTOR) return tag;
-          if(tail.target->info != &Nil_Info)
-            throw std::runtime_error("Data.Global: global " + key
-                + " has more than one initial value");
-          // Only publish after exhaustion proves uniqueness. The stream
-          // owns the first value until then; failed searches leave no entry.
-          // An initialization already in progress must check its own stream
-          // even if another configuration has published this key. Preserve
-          // that entry when this stream has exactly one value.
+          // Enter directly, without evalS's absorption of caller state.
+          // The ordinary stream machinery still handles rotation and GC.
           GcClamp clamp;
-          if(!store.count(key))
+          Node * goal = Node::create(&applygnf_Info,
+              Node::create_partial(&global_value), root[1]);
+          Set * set = new Set();
+          set->closed_error = error;
+          // Free variables already in the argument graph belong to the
+          // caller. Record them as escapes, without evaluating any thunk:
+          // variables created while evaluating that thunk belong to the
+          // capsule. Choices use SF.1 and decision ownership instead.
+          InfoTable const * unknown = Module::find_symbol(
+              rts->istate.modules, "Prelude", "unknown");
+          auto nodes = visit_unique(root[1].target);
+          while(Node * node = nodes.next())
           {
-            Node * value = stream[0].rvalue();
-            store.emplace(key, copy_graph(value, SKIPFWD).arg.node);
+            // Python free markers are shared calls of unknown. Realize
+            // only this variable allocator, not an arbitrary application,
+            // so the caller's variable joins the escape set as well.
+            if(node->info == unknown)
+            {
+              Node * variable = rts->freshvar();
+              node->forward_to(variable);
+              node = variable;
+            }
+            if(node->info->tag == T_FREE)
+              set->escape_set.insert(NodeU{node}.free->vid);
           }
+          Queue * queue = new Queue(set, goal);
+          if(rts->checker)
+            rts->checker->capsule_entry(set, goal);
+          Node * capsule = Node::create(&SetEval_Info, set, queue);
+          gc_register_seteval(capsule);
+          Node * values = Node::create(&Values_Info,
+              Node::create(&allValues_Info, capsule));
+          root->forward_to(Node::create(&global_init, root[0], values));
+          return T_FWD;
         }
+        Variable values = root[1];
+        auto tag = rts->hnf(C, &values);
+        if(tag < T_CTOR) return tag;
+        Variable stream = values[0];
+        tag = rts->hnf(C, &stream);
+        if(tag < T_CTOR) return tag;
+        if(stream.target->info == &Nil_Info) return root->make_failure();
+        Variable tail = stream[1];
+        tag = rts->hnf(C, &tail);
+        if(tag < T_CTOR) return tag;
+        if(tail.target->info != &Nil_Info)
+          throw std::runtime_error("Data.Global: global " + key
+              + " has more than one initial value");
+        // Compare closed normal forms, including partial-application heads
+        // and unevaluated captures under one node bijection. Equal heads,
+        // labels and sharing preserve later call-time choices; identifying
+        // a shared capture with two independent ones would not. This is
+        // conservative graph equality, not function extensionality.
+        GcClamp clamp;
+        Node * value = stream[0].rvalue();
+        auto found = store.find(key);
+        // Retain the definition independently of mutable contents: a later
+        // write must not invalidate an ordinary top-level global declaration.
+        if(found == store.end())
+        {
+          Node * initial = copy_graph(value, SKIPFWD).arg.node;
+          store.emplace(key, InterpreterState::Global{initial, initial});
+        }
+        else if(!graph_equal(value, found->second.initial))
+          throw EvaluationError(error);
         root->forward_to(Node::create(ctor, root[0]));
       }
       else
@@ -117,10 +152,10 @@ namespace
         // Copy on both boundaries, as Prolog assert and clause lookup do.
         GcClamp clamp;
         if(op == "prim_readGlobalT")
-          root->forward_to(io(copy_graph(found->second, SKIPFWD).arg.node));
+          root->forward_to(io(copy_graph(found->second.value, SKIPFWD).arg.node));
         else
         {
-          found->second = copy_graph(root[1].target, SKIPFWD).arg.node;
+          found->second.value = copy_graph(root[1].target, SKIPFWD).arg.node;
           root->forward_to(io(unit()));
         }
       }

@@ -30,6 +30,7 @@ The known exceptions fall into five classes:
 The open package is ``currypp``: Contracts times out (#247, caused by #251),
 and DefaultRules times out (#242).
 
+- Require closed initializers and one definition per key for ``Data.Global.globalT``; caller dependencies and conflicting initial values raise a named ``EvaluationError`` (#266, owner decision of 2026-11-08).
 - Record the CPM support rule of 2026-11-08 (#262). Sprite supports
   features whose result sets do not depend on the schedule or search order.
   Features whose meaning relies on PAKCS's left-first search raise named
