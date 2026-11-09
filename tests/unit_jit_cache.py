@@ -1200,9 +1200,12 @@ print(json.dumps(dict(ok=True)))
     path = self.object()
     before = (path.stat().st_mtime_ns, path.read_bytes())
     code = CHILD.replace("jit_backend='llvm')", "jit_backend='llvm', inline_budget=0)")
+    # Eager compilation with a foreign budget also rebuilds library images
+    # and their JIT objects. This bound guards hangs, not compilation speed;
+    # slot preservation is checked by the bytes and timestamp below.
     self.result(self.start([sys.executable, '-c', code, 'all', 'eager',
         str(self.source), ''], env=self.env, stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE, text=True))
+        stderr=subprocess.PIPE, text=True), timeout=600)
     self.assertEqual((path.stat().st_mtime_ns, path.read_bytes()), before)
 
   def test_reattach_reuses_linked_generation(self):

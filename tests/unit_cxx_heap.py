@@ -1,5 +1,6 @@
 '''Tests for the block heap of the C++ runtime.'''
 import cytest # from ./lib; must be first
+from cytest.buildtools import runtime_test_command, runtime_test_environment
 from curry import config
 import curry, os, re, shutil, subprocess, tempfile, unittest
 from unittest import mock
@@ -296,11 +297,15 @@ class TestHeapProgram(cytest.TestCase):
         , source, '-o', exe
         , '-L%s' % libdir, '-lcurryrt', '-Wl,-rpath,%s' % libdir
         ]
+      if os.name == 'nt':
+        exe += '.exe'
+        cmd = runtime_test_command(source, exe)
       proc = subprocess.run(cmd, capture_output=True, text=True)
       self.assertEqual(proc.returncode, 0, proc.stderr)
       self.assertEqual(proc.stderr, '', 'the compiler warned')
       proc = subprocess.run(
-          ['timeout', str(TIMEOUT), exe], capture_output=True, text=True
+          [exe], timeout=TIMEOUT, capture_output=True, text=True,
+          env=runtime_test_environment()
         )
       self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
       self.assertEqual(proc.stdout, 'ok\n')

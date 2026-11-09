@@ -62,7 +62,13 @@ class TestStagedLibrary(cytest.TestCase):
       if '.curry' in source.relative_to(root).parts:
         continue
       rel = source.relative_to(root)
-      flat = Path(config.system_curry_path()) / '.curry' / config.frontend_subdir() / rel.with_suffix('.fcy')
+      flat = (Path(config.system_curry_path()) / '.curry' /
+              config.frontend_subdir() / rel.with_suffix('.fcy'))
+      if not flat.is_file():
+        # A stage made from pins has stock-reader FlatCurry in the analysis
+        # directory, even when a front end becomes available at test time.
+        flat = (Path(config.system_curry_path()) / '.curry' /
+                config.analysis_subdir() / rel.with_suffix('.fcy'))
       expected = source.parent / '.curry/sprite-pakcs-3.10.0' / (source.stem + '.icy')
       result = f2i.showterm(f2i.translate_file(str(flat), finder, icurry_compat=False))
       self.assertEqual(result.encode(), expected.read_bytes(), str(rel))
@@ -92,18 +98,23 @@ class TestStagedLibrary(cytest.TestCase):
   @unittest.skipIf(config.cxx_tool() is None, 'no C++ compiler is installed')
   def test_cxx_objects_are_staged(self):
     '''
-    Every system module has its object with the current ABI stamp, and the
-    precompiled header of the default flavor exists.
+    Every system module has its object with the current ABI stamp.
     '''
     from curry.backends.cxx import toolchain as cxx_toolchain
     # The stamp is the digest of the headers and of the installed flavor.
     digest = cxx_toolchain.object_digest()
     for name in config.supported_syslibs():
-      sofile = installed_file(name, '.so')
+      sofile = installed_file(name, config.module_object_suffix())
       self.assertTrue(os.path.isfile(sofile), sofile)
       self.assertTrue(os.path.isfile(installed_file(name, '.cpp')), name)
       self.assertEqual(cxx_toolchain.Cpp2So.read_stamp(sofile), digest, sofile)
       self.assertTrue(cxx_toolchain.Cpp2So(cytest.raw.interp()).stamp_is_current(sofile), sofile)
+
+  @cytest.posix_only('clang-cl compiles without the GCC/Clang precompiled header')
+  @unittest.skipIf(config.cxx_tool() is None, 'no C++ compiler is installed')
+  def test_precompiled_header_is_staged(self):
+    '''The precompiled header of the default flavor exists and is current.'''
+    from curry.backends.cxx import toolchain as cxx_toolchain
     # The member name follows the compiler flags.  make stage does not pass
     # CXXFLAGS on, so a test run with CXXFLAGS set would look for another
     # member.
@@ -175,8 +186,8 @@ class TestStagedLibrary(cytest.TestCase):
         'SPRITE_INTERPRETER_FLAGS': 'backend:cxx,interpret:all', 'CXXFLAGS': '-bad',
         'SPRITE_PRODUCT_CACHE': '/products', 'SPRITE_STAGE_LIBRARY': '1'}
     for pythonpath, expected in [
-        (None, '/stage/python'), ('', '/stage/python'),
-        ('/build-env/site', '/stage/python' + os.pathsep + '/build-env/site')]:
+        (None, str(Path('/stage') / 'python')), ('', str(Path('/stage') / 'python')),
+        ('/build-env/site', str(Path('/stage') / 'python') + os.pathsep + '/build-env/site')]:
       with self.subTest(pythonpath=pythonpath):
         with mock.patch.dict(os.environ, ambient):
           if pythonpath is None:
@@ -232,12 +243,12 @@ class TestStagedLibrary(cytest.TestCase):
       # Start with no library products, including in the build's own prefix.
       # An incremental stage can hide private publication of missing objects.
       shutil.rmtree(prefix / 'curry')
-      command = ['timeout', '180', sys.executable,
+      command = [sys.executable,
           str(Path(SOURCE_ROOT) / 'scripts/build-package.py'),
           '--source', str(source), '--prefix', str(prefix), '--jobs', '2',
           '--frontend', config.curry_frontend(), '--cxx', config.cxx_tool()]
       def stage():
-        result = subprocess.run(command, text=True, capture_output=True)
+        result = subprocess.run(command, text=True, capture_output=True, timeout=180)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
       stage()
       for name in ('Prelude', 'A', 'B'):
@@ -273,7 +284,7 @@ assert errors.nerrors == 0
         self.assertEqual((prefix / 'curry/lib' / SUBDIR / 'A.img').is_file(),
             operation == 'stage')
       products = [prefix / 'curry/lib' / SUBDIR / ('B' + suffix)
-          for suffix in ('.icy', '.cpp', '.so', '.so.abi')]
+          for suffix in ('.icy', '.cpp', config.module_object_suffix(), config.module_object_suffix() + '.abi')]
       self.assertTrue(all(p.is_file() for p in products))
       # Establish an unchanged pinned B, as in an incremental library stage.
       pinned = lib / SUBDIR / 'B.icy'

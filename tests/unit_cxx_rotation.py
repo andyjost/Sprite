@@ -662,9 +662,9 @@ class TestRotationTestsInBothModes(cytest.TestCase):
 
   def run_tests(self, mode):
     env = dict(os.environ, SPRITE_ROTATION=mode, PYTHONIOENCODING='utf-8')
-    cmd = ['timeout', str(3 * TIMEOUT), sys.executable, '-B', '-m', 'unittest']
+    cmd = [sys.executable, '-B', '-m', 'unittest']
     proc = subprocess.run(
-        cmd + self.TESTS, cwd=HERE, env=env, capture_output=True, text=True
+        cmd + self.TESTS, cwd=HERE, env=env, capture_output=True, text=True, timeout=3 * TIMEOUT
       )
     self.assertEqual(
         proc.returncode, 0

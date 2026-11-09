@@ -33,12 +33,14 @@ class WindowsJob:
     self.handle = self.kernel.CreateJobObjectW(None, None)
     if not self.handle:
       raise c.WinError(c.get_last_error())
-    limits = ExtendedLimits()
-    limits.basic.flags = 0x2000  # JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
-    if not self.kernel.SetInformationJobObject(self.handle, 9, c.byref(limits), c.sizeof(limits)) or not self.kernel.AssignProcessToJobObject(self.handle, int(process._handle)):
-      error = c.get_last_error()
+    try:
+      limits = ExtendedLimits()
+      limits.basic.flags = 0x2000  # JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
+      if not self.kernel.SetInformationJobObject(self.handle, 9, c.byref(limits), c.sizeof(limits)) or not self.kernel.AssignProcessToJobObject(self.handle, int(process._handle)):
+        raise c.WinError(c.get_last_error())
+    except BaseException:
       self.close()
-      raise c.WinError(error)
+      raise
 
   def members(self):
     c = self.c

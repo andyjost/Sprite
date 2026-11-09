@@ -673,7 +673,7 @@ class TestSpriteMake(PreRewriteCase):
     env = dict(os.environ, SPRITE_CACHE_FILE='', CURRYPATH=self.tmpdir)
     def run(*args):
       return subprocess.run(
-          [makeprg] + list(args), env=env, cwd=self.tmpdir, stdout=subprocess.PIPE
+          [*cytest.tool_command([makeprg])] + list(args), env=env, cwd=self.tmpdir, stdout=subprocess.PIPE
         , stderr=subprocess.PIPE, text=True, timeout=300
         )
     modules = {}
@@ -695,7 +695,7 @@ class TestSpriteMake(PreRewriteCase):
     self.assertEqual(proc.stdout, 'sprite-make: pre-rewrite pairs: 2 translated again\n')
     for name in 'GuardO', 'GuardP':
       self.assertIn(b'constrEq', readbytes(modules[name][2]))
-    usage = subprocess.check_output([makeprg, '--man', '--no-header'], env=dict(env, PAGER='cat')).decode('utf-8')
+    usage = subprocess.check_output([*cytest.tool_command([makeprg]), '--man', '--no-header'], env=dict(env, PAGER='cat')).decode('utf-8')
     self.assertIn('pre-rewrite pairs', usage)
     self.assertRegex(usage, r'from the\s+ICurry cache')
     # With the ICurry cache: the first run stores the entry; the pair made
@@ -704,7 +704,7 @@ class TestSpriteMake(PreRewriteCase):
     cached = dict(env, SPRITE_CACHE_FILE=os.path.join(self.tmpdir, 'icurry.db'))
     def run_cached(*args):
       return subprocess.run(
-          [makeprg] + list(args), env=cached, cwd=self.tmpdir, stdout=subprocess.PIPE
+          [*cytest.tool_command([makeprg])] + list(args), env=cached, cwd=self.tmpdir, stdout=subprocess.PIPE
         , stderr=subprocess.PIPE, text=True, timeout=300
         )
     curryfile = self.write('GuardT', guard('GuardT'))
@@ -879,8 +879,8 @@ class TestImportedInterfaces(PreRewriteCase):
   '''A changed import invalidates all three products, even with old objects present.'''
 
   def child(self, code):
-    result = subprocess.run(['timeout', '120', sys.executable, '-c', code],
-        cwd=self.tmpdir, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    result = subprocess.run([sys.executable, '-c', code],
+        cwd=self.tmpdir, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=120)
     self.assertEqual(result.returncode, 0, result.stdout)
 
   def test_sidecar_and_each_interface_text(self):
@@ -939,7 +939,7 @@ class TestImportedInterfaces(PreRewriteCase):
         self.child(setup + 'curry.reset(interpret="off")\n'
             'm = curry.import_("B")\nassert list(curry.eval(m.main)) == [1]\n')
         icy = os.path.join(directory, SUBDIR, 'B.icy')
-        cpp, so = icy[:-4] + '.cpp', icy[:-4] + '.so'
+        cpp, so = icy[:-4] + '.cpp', icy[:-4] + config.module_object_suffix()
         self.assertTrue(os.path.isfile(so))
         before = mtimes(icy, cpp, so)
         a_stem = os.path.join(directory, SUBDIR, 'A')

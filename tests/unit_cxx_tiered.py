@@ -15,6 +15,11 @@ import curry, gc, itertools, logging, os, shutil, subprocess, sys, tempfile
 import unittest
 from unittest import mock
 
+# clang-cl warns on unknown arguments unless that warning is an error.
+BAD_CXXFLAGS = '-fno-such-flag-of-sprite'
+if os.name == 'nt':
+  BAD_CXXFLAGS += ' -Werror=unknown-argument'
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 BENCHMARKS = os.path.join(HERE, 'data', 'curry', 'benchmarks')
 
@@ -833,6 +838,9 @@ class TestSwap(TieredTestCase):
     del first
 
   @cytest.hardreset
+  @cytest.posix_only(
+      'Windows refuses a second adoption of an edited object in one process '
+      '(decided 2026-11-01): under interpret:off the import raises LoadError')
   def test_edited_module_made_again_under_interpret_off(self):
     # The import route of issue #114 under interpret:off, the owner's
     # decision: the second incarnation runs the first code.  Its object
@@ -860,7 +868,7 @@ class TestPolicy(TieredTestCase):
     # A flag the compiler refuses reaches the child through CXXFLAGS.
     before = tiered.status()
     failed_stat = curry.stats()['failed_compiles']
-    with binding(os.environ, 'CXXFLAGS', '-fno-such-flag-of-sprite'):
+    with binding(os.environ, 'CXXFLAGS', BAD_CXXFLAGS):
       with capture_log('curry.backends.cxx.tiered') as log:
         M = self.fresh_module()
         self.assertEqual(self.py(M.area, self.value(M.mk, 2)), 6)
@@ -1034,7 +1042,7 @@ class TestPolicy(TieredTestCase):
     name = self.write_module(BUDGET_MODULE)
     env = dict(os.environ, CURRYPATH=self.tmpdir,
         SPRITE_INTERPRETER_FLAGS='backend:cxx,inline_budget:4')
-    result = subprocess.run([config.installed_path('bin', 'sprite-make'), '--so', name],
+    result = subprocess.run([*cytest.tool_command([config.installed_path('bin', 'sprite-make')]), '--so', name],
         env=env, capture_output=True, text=True, timeout=120)
     self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
     original = os.path.splitext(self.sofile(name))[0] + '.cpp'
@@ -1146,9 +1154,9 @@ assert Cpp2So(curry._interpreter_).format_version(%r) is not None
     env['SPRITE_INTERPRETER_FLAGS'] = 'backend:cxx,interpret:new,jit:hot,jit_backend:cxx'
     env['CURRYPATH'] = self.tmpdir
     cmd = cytest.limit_prefix(ADDRESS_SPACE, TIMEOUT) + [
-        config.installed_path('bin', 'sprite-make'), '--so', name
+        *cytest.tool_command([config.installed_path('bin', 'sprite-make')]), '--so', name
       ]
-    proc = subprocess.run(cmd, env=env, capture_output=True, text=True)
+    proc = subprocess.run(cmd, env=env, capture_output=True, text=True, timeout=TIMEOUT)
     self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
     self.assertTrue(os.path.isfile(self.sofile(name)))
 class TestPrograms(cytest.TestCase):
@@ -1174,9 +1182,9 @@ class TestPrograms(cytest.TestCase):
     env.pop('SPRITE_GC_STRESS', None)
     env.update(extra)
     cmd = cytest.limit_prefix(ADDRESS_SPACE, TIMEOUT) + [
-        config.installed_path('bin', 'sprite-exec'), '--stats', '-m', program
+        *cytest.tool_command([config.installed_path('bin', 'sprite-exec')]), '--stats', '-m', program
       ]
-    proc = subprocess.run(cmd, env=env, capture_output=True, text=True)
+    proc = subprocess.run(cmd, env=env, capture_output=True, text=True, timeout=TIMEOUT)
     self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
     self.last_stderr = proc.stderr
     stats = dict(
@@ -1196,7 +1204,7 @@ class TestPrograms(cytest.TestCase):
     # finished object (one with its ABI stamp) is left behind.
     self.assertFalse(os.path.exists(sofile + '.abi'))
     # The run was interpreted from the image.
-    self.assertTrue(os.path.exists(sofile[:-3] + '.img'))
+    self.assertTrue(os.path.exists(os.path.splitext(sofile)[0] + '.img'))
 
   def test_failed_compile_is_logged(self):
     # A compile that fails during the evaluation of a program is reported
@@ -1206,7 +1214,7 @@ class TestPrograms(cytest.TestCase):
     expected = self.run_child('Tak1', 'off', BENCHMARKS)
     shutil.copy(os.path.join(BENCHMARKS, 'Tak1.curry'), self.tmpdir)
     actual = self.run_child(
-        'Tak1', 'cxx', self.tmpdir, CXXFLAGS='-fno-such-flag-of-sprite'
+        'Tak1', 'cxx', self.tmpdir, CXXFLAGS=BAD_CXXFLAGS
       )
     self.assertEqual(actual, expected)
     stderr = self.last_stderr
@@ -1252,7 +1260,7 @@ print(next(curry.eval((M.total)(4))))
 print('exiting normally')
 '''
 QUICKSTART = r'''
-import os, subprocess
+import os, subprocess, sys
 import cytest, curry
 os.chdir(%(tmpdir)r)
 curry.path.insert(0, '.')
@@ -1265,7 +1273,7 @@ curry._interpreter_.save(M, %(name)r + '.cpp', module_main=False)
 # object.  So sprite-make runs here while the background compile may run,
 # as a session at the keyboard may run it.
 subprocess.run(
-    [%(make)r, '--so', %(name)r + '.curry'], check=True
+    cytest.tool_command([%(make)r, '--so', %(name)r + '.curry']), check=True
   , env=dict(os.environ, CURRYPATH='.'), capture_output=True, text=True
   )
 try:
@@ -1300,9 +1308,9 @@ class TestLoadDuringCompile(TieredTestCase):
     env['SPRITE_INTERPRETER_FLAGS'] = 'backend:cxx,interpret:new,jit:hot,jit_backend:cxx'
     env['CURRYPATH'] = self.tmpdir
     cmd = cytest.limit_prefix(ADDRESS_SPACE, TIMEOUT) + [
-        config.installed_path('bin', 'sprite-make'), '--so', name
+        *cytest.tool_command([config.installed_path('bin', 'sprite-make')]), '--so', name
       ]
-    proc = subprocess.run(cmd, env=env, capture_output=True, text=True)
+    proc = subprocess.run(cmd, env=env, capture_output=True, text=True, timeout=TIMEOUT)
     self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
     self.assertTrue(os.path.isfile(self.sofile(name)))
     return self.sofile(name)
