@@ -148,6 +148,8 @@ namespace curryrt { inline namespace
         );
       return T_FWD;
     }
+    if(!seteval->set->closed_error.empty())
+      throw EvaluationError(seteval->set->closed_error);
     choice = NodeU{value.arg.node}.choice;
     assert(seteval->queue->front()->root == (Node *) choice);
     // The choice escapes the set function (rule SF.1), whatever this

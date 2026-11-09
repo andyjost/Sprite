@@ -915,13 +915,14 @@ readItems = readGlobalT items
     native.gc_verify()
     self.assertEqual(curry.eval(module.readItems).one(), list(range(1, 201)))
 
-  def test_named_global_duplicate_key_ignores_initializer(self):
+  def test_named_global_duplicate_key_checks_initializer(self):
     module = curry.compile(NAMED_GLOBALS + '''
 same :: IO Int
 same = readGlobalT (prim_globalT "CPM.counter" (error "unused initializer"))
 ''')
     curry.eval(module.writeCounter(42)).one()
-    self.assertEqual(curry.eval(module.same).one(), 42)
+    with self.assertRaisesRegex(curry.EvaluationError, 'unused initializer'):
+      curry.eval(module.same).one()
 
   def test_named_global_reads_copy_and_keep_internal_sharing(self):
     module = curry.compile(NAMED_GLOBALS + '''
@@ -962,14 +963,15 @@ goal = do
 ''')
     self.assertEqual(curry.eval(module.goal).one(), ([21, 42], 7))
 
-  def test_named_global_initializer_waits_for_groundness(self):
+  def test_named_global_initializer_rejects_free_variable(self):
     module = curry.compile(NAMED_GLOBALS + '''
 unbound :: GlobalT [Int]
 unbound = globalT "CPM.unbound" [x] where x free
 goal :: IO [Int]
 goal = readGlobalT unbound
 ''')
-    with self.assertRaises(curry.SuspensionError):
+    with self.assertRaisesRegex(curry.EvaluationError,
+        "initial value of global CPM.unbound depends on its caller"):
       curry.eval(module.goal).one()
 
   def test_named_global_write_uses_ground_normal_form(self):

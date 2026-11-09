@@ -1085,10 +1085,15 @@ Loaders reject missing primitives by name.
 The emitter records local shape descriptors, which the loader binds by name;
 it does not require a primitive to export a mangled C++ data symbol.
 Unregistered externals continue to raise ``not implemented`` when called.
-``Data.Global`` initializes in the caller's encapsulated search (one ground
-value is stored, no value fails, multiple values raise an error naming the
-key), while ``GlobalVariable`` remains unimplemented and ``global-variables``
-is a known exception: written for PAKCS 2.x, with no implementation in PAKCS
+``Data.Global.globalT`` declares a top-level entity: its key is its qualified
+name and its initial value has a type without type variables. Its initializer
+runs in a capsule and must be closed: reaching a caller's choice, binding or
+free variable raises ``EvaluationError`` naming the key. A second definition
+of a key must give the same initial value or raise the same error (#266,
+owner decision of 2026-11-08). One ground value is stored, no value fails,
+and multiple values raise an error naming the key.
+``GlobalVariable`` remains unimplemented and ``global-variables`` is a known
+exception: written for PAKCS 2.x, with no implementation in PAKCS
 3.10.0 and no reference semantics.
 ``curry.inspect.getimpl`` identifies registered C++ and Python primitives.
 
