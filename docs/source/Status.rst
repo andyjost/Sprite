@@ -3,6 +3,8 @@ Status
 ======
 
 This page says what Sprite is today, in one place.
+See :doc:`Compatibility` for what runs unchanged, what produces different
+output, and what Sprite refuses when you port a program from PAKCS or KiCS2.
 
 The front end
 =============
@@ -18,15 +20,15 @@ base 3.4.0 from PAKCS 3.10.0, with Sprite's own ``Control.SetFunctions``,
 the body are captured, choices in arguments stay outside and duplicates
 are kept. The search strategies they name are accepted and ignored:
 every search uses Sprite's scheduler and value order. ``rewriteAll`` and
-``rewriteSome`` raise a not-implemented error.
+``rewriteSome`` of ``Control.Search.Unsafe`` use weak encapsulation too.
 ``Control.Search.SearchTree`` compiles and builds its tree from ``allValues``;
 its externals have Curry alternatives under PAKCS.
 Sprite provides weak encapsulation (:ref:`CurryPrimer/Semantics:Set functions`).
 
 Every module of the Curry library compiles, ships compiled and imports.
-Externals without a primitive in the runtime raise ``not implemented`` at
-their call: the strong-search
-operations described above, which await an owner decision.
+Missing externals refused by the support rule raise the named errors
+listed in :doc:`Compatibility`. Other externals without a primitive in
+the runtime raise ``not implemented`` at their call.
 ``Curry.Compiler.Distribution``, ``System.CPUTime``, ``System.Environment``,
 ``Data.IORef``, ``System.IO`` and ``System.IO.Unsafe`` have their primitives.
 ``Debug.Trace.traceIO`` uses the current Python standard error stream, and

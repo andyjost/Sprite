@@ -630,6 +630,10 @@ PAKCS is evidence, not the definition. The dissertation's semantics is the
 reference. The release goal is that every CPM package works or fails with a
 named and documented error.
 
+:doc:`Compatibility` explains what runs unchanged, what produces different
+output, and what Sprite refuses for a program from PAKCS or KiCS2.
+It includes the pinned package results and examples checked against PAKCS.
+
 Every known exception in the CPM index names one class:
 
 1. Results depend on the schedule or search order. This class contains

@@ -83,7 +83,8 @@ __all__ = ['compile', 'write_module', 'FORMAT_VERSION']
 # Format 31: effective wrapper authorization in translation input receipts.
 # Format 32: monadic flags exclude effects hidden by unsafePerformIO (#241).
 # Format 33: named diagnostics for externals refused by design.
-FORMAT_VERSION = 33
+# Format 34: refusal diagnostics link to the compatibility page.
+FORMAT_VERSION = 34
 
 # The runtime headers every generated file includes, as vEmitHeader writes
 # them: one directive per name.  The toolchain digests the include closure

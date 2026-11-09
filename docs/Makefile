@@ -10,6 +10,7 @@ all: html man info
 build-module:
 	cd source/Reference && ./build-api.bash
 	cd source/CommandLineInterface && ./build.bash
+	$(PREFIX)/bin/python build-compatibility.py source/CompatibilityTables.inc
 html: build-module
 	$(SPHINXBUILD) -W --keep-going -b html $(SPHINXOPTS) source $(BUILDDIR)/html
 latexpdf: latex

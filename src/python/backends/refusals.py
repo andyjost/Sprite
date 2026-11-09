@@ -7,7 +7,7 @@ from collections import namedtuple
 
 # Bump with cxx.compiler.FORMAT_VERSION when the table or wording changes;
 # image readers reject older messages.
-DIAGNOSTIC_VERSION = 1
+DIAGNOSTIC_VERSION = 2
 
 Refusal = namedtuple('Refusal', 'kind sentence')
 STRONG = Refusal('strong encapsulation',
@@ -46,7 +46,7 @@ def refusal_message(fullname):
   if refusal is None:
     return None
   return ('%s: not supported by Sprite: %s; %s '
-          '(see the page Feature Support of the documentation)' %
+          '(see https://andyjost.github.io/Sprite/Compatibility.html)' %
           (fullname, refusal.kind, refusal.sentence))
 
 
