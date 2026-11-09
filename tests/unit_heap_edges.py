@@ -19,6 +19,8 @@ def checked(action):
 
 def product_interleaving(action, basename):
   from curry.toolchain import _productlock
+  # Order the lock/heap handoff with events, independent of compiler setup
+  # and compilation time. The enclosing child timeout alone guards hangs.
   entered, owned, attempted = [threading.Event() for _ in range(3)]
   from curry.backends.cxx import image
   original_tag = native.InfoTable.tag
@@ -31,7 +33,7 @@ def product_interleaving(action, basename):
       if selected:
         paths.append(path)
         entered.set()
-        assert owned.wait(2)
+        assert owned.wait()
       try:
         yield waited
       finally:
@@ -49,11 +51,11 @@ def product_interleaving(action, basename):
     return bindings._metadata_call(lambda: original_tag.__get__(self, native.InfoTable))
   def callback():
     owned.set()
-    assert attempted.wait(2)
+    assert attempted.wait()
     with original_lock(paths[0]):
       pass
   def owner():
-    assert entered.wait(2)
+    assert entered.wait()
     bindings._metadata_call(callback)
   with mock.patch.object(_productlock, 'locked', locked), \\
        mock.patch.object(native, 'registered_names', registry), \\
