@@ -2,14 +2,16 @@ cmake_minimum_required(VERSION 3.24)
 file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/VERSION" sprite_version LIMIT_COUNT 1)
 # CMake accepts the numeric release; Python metadata retains the PEP 440 suffix.
 string(REGEX MATCH "^[0-9]+\\.[0-9]+(\\.[0-9]+)?" sprite_release "${sprite_version}")
+# Set the project default before compiler initialization supplies a platform
+# default (Debug for clang-cl). Keep explicit cache and environment choices.
+if(NOT CMAKE_BUILD_TYPE AND "$ENV{CMAKE_BUILD_TYPE}" STREQUAL "")
+  set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
+endif()
 project(Sprite VERSION ${sprite_release} LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
-if(NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
-endif()
 set(default_pakcs AUTO)
 if(DEFINED ENV{PAKCS})
   set(default_pakcs "$ENV{PAKCS}")
@@ -442,8 +444,10 @@ if(SKBUILD)
 else()
   install(DIRECTORY "${image}/" DESTINATION . USE_SOURCE_PERMISSIONS
     PATTERN "*.gch" EXCLUDE PATTERN "*.tiered" EXCLUDE PATTERN "*.old-*" EXCLUDE)
+  # These configured paths are parsed again by the install script. Bracket
+  # arguments preserve literal path text, including Windows backslashes.
   install(CODE "
-    execute_process(COMMAND \"${Python_EXECUTABLE}\" \"${CMAKE_SOURCE_DIR}/scripts/install-package.py\"
-      \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}\" \"${image}\" COMMAND_ERROR_IS_FATAL ANY)
+    execute_process(COMMAND [==[${Python_EXECUTABLE}]==] [==[${CMAKE_SOURCE_DIR}/scripts/install-package.py]==]
+      \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}\" [==[${image}]==] COMMAND_ERROR_IS_FATAL ANY)
   ")
 endif()

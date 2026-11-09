@@ -84,6 +84,8 @@ namespace curryrt
       }
       if(node)
       {
+        if(k)
+          this->check_closed_level(k);
         if(k && k == n - 1 && Q->size() == 1)
         {
           this->qstack.back()->absorbed[vid] = node;
@@ -134,6 +136,7 @@ namespace curryrt
   {
     assert(C->cursor()->info->tag == T_FREE);
     xid_type vid = obj_id(C->cursor());
+    this->check_closed_variable(vid);
     xid_type gid = C->grp_id(vid);
     size_t level = 0;
     char const * kind = "binding";
@@ -185,6 +188,7 @@ namespace curryrt
     bool const decided_wanted = values && values->kind == 'd';
     if(free_wanted)
       values = nullptr;
+    this->check_closed_variable(obj_id(slot));
     xid_type const gid = C->grp_id(obj_id(slot));
     bool const narrow = free_wanted
         ? !decided_wanted && !this->get_binding(C, gid)
@@ -419,16 +423,15 @@ namespace curryrt
 
   bool RuntimeState::is_void(Configuration * C, Node * freevar)
   {
+    return !has_generator(freevar) && this->is_free_in_configuration(C, freevar);
+  }
+
+  bool RuntimeState::is_free_in_configuration(Configuration * C, Node * freevar)
+  {
     assert(freevar);
     assert(freevar->info->tag == T_FREE);
-    if(!has_generator(freevar))
-    {
-      xid_type vid = obj_id(freevar);
-      xid_type gid = C->grp_id(vid);
-      if(!this->get_binding(C, gid) && !this->is_narrowed(C, gid))
-        return true;
-    }
-    return false;
+    xid_type gid = C->grp_id(obj_id(freevar));
+    return !this->get_binding(C, gid) && !this->is_narrowed(C, gid);
   }
 }
 

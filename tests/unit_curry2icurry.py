@@ -110,7 +110,8 @@ class TestCurry2ICurry(cytest.TestCase):
     # Remove the tool in the child even on a development machine with it.
     code = r'''
 import curry, os, unittest
-from curry import cache, exceptions
+from curry import cache, config, exceptions
+os.environ['SPRITE_FRONTEND'] = config.curry_frontend()
 from curry.toolchain import _frontend, _preprocessor
 from cytest.testcase.functional import FunctionalTestCase
 os.environ['PATH'] = %r
@@ -209,7 +210,8 @@ print('missing preprocessor detected and skipped')
     frontend = config.curry_frontend()
     self.assertTrue(os.access(frontend, os.X_OK))
     self.assertEqual(
-        frontend, os.path.join(config.installed_path('tools'), 'curry-frontend')
+        frontend, (shutil.which('curry-frontend') if os.name == 'nt' else
+                   os.path.join(config.installed_path('tools'), 'curry-frontend'))
       )
     self.assertIn(config.curry2icurry_tool(), config.CURRY2ICURRY_TOOLS)
     self.assertIn('--extended', config.frontend_flags().split())
@@ -244,7 +246,7 @@ print('missing preprocessor detected and skipped')
     dirs = cmd[start + len(flags):-1]
     self.assertEqual(dirs[::2], ['-i'] * (len(dirs) // 2))
     self.assertEqual(
-        dirs[1::2], [moduledir, '/x', self.tmpdir, config.system_curry_path()]
+        dirs[1::2], [moduledir, os.path.abspath('/x'), self.tmpdir, config.system_curry_path()]
       )
     self.assertEqual(cmd[-1], 'Deep')
     # Quiet mode adds the options icurry uses, after the output directory.
@@ -734,17 +736,17 @@ print('missing preprocessor detected and skipped')
     makeprg = os.path.join(os.environ['SPRITE_HOME'], 'bin', 'sprite-make')
     curryfile = self.copy('hello.curry')
     icy = os.path.join(self.tmpdir, SUBDIR, 'hello.icy')
-    subprocess.check_output([makeprg, '--icy', '--curry2icurry', 'frontend', curryfile])
+    subprocess.check_output([*cytest.tool_command([makeprg]), '--icy', '--curry2icurry', 'frontend', curryfile])
     self.assertTrue(os.path.isfile(icy))
     oracle = oracle_icy('', 'hello')
     if oracle is not None:
       self.assertEqual(readbytes(icy), readbytes(oracle))
     with self.assertRaises(subprocess.CalledProcessError):
       subprocess.check_output(
-          [makeprg, '--icy', '--curry2icurry', 'bogus', curryfile]
+          [*cytest.tool_command([makeprg]), '--icy', '--curry2icurry', 'bogus', curryfile]
         , stderr=subprocess.DEVNULL
         )
-    usage = subprocess.check_output([makeprg, '-h']).decode('utf-8')
+    usage = subprocess.check_output([*cytest.tool_command([makeprg]), '-h']).decode('utf-8')
     self.assertIn('--curry2icurry', usage)
     self.assertIn('--rewrite-flat', usage)
 
@@ -759,7 +761,7 @@ print('missing preprocessor detected and skipped')
     env = dict(os.environ, SPRITE_CACHE_FILE='')
     def make(*args):
       return subprocess.run(
-          [makeprg] + list(args), env=env, stdout=subprocess.PIPE
+          [*cytest.tool_command([makeprg])] + list(args), env=env, stdout=subprocess.PIPE
         , stderr=subprocess.PIPE, text=True, timeout=300
         )
     curryfile = self.copy('sendMoreMoney.curry')

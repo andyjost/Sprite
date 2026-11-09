@@ -16,6 +16,14 @@ name: Windows
   push:
     branches: [master, wt/windows, 'wt/windows-*']
   workflow_dispatch:
+    inputs:
+      tier:
+        description: Unit tier to run
+        type: choice
+        default: fast
+        options:
+          - fast
+          - full
 
 permissions:
   contents: read
@@ -24,7 +32,7 @@ jobs:
   build:
     name: runtime (clang-cl)
     runs-on: windows-2025
-    timeout-minutes: 60
+    timeout-minutes: ${{ inputs.tier == 'full' && 120 || 80 }}
     defaults:
       run:
         shell: bash
@@ -156,14 +164,22 @@ jobs:
           python -c "from curry.backends.cxx import msvc; c, e = msvc.discover(); assert c and e.get('INCLUDE') and e.get('LIB'), (c, sorted(e))"
           python -m unittest -v unit_windows_aot unit_make.TestMake.test_sprite_make_so
       - name: Unit tier
-        timeout-minutes: 35
+        # The fast tier took 1255 s to 2107 s on the same code in November
+        # 2026; allow 1.5 times the slowest recent run, rounded up to 55 minutes.
+        timeout-minutes: ${{ inputs.tier == 'full' && 90 || 55 }}
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         env:
+          UNIT_TIER: ${{ inputs.tier || 'fast' }}
           SPRITE_HOME: ${{ github.workspace }}\build\stage
           PYTHONPATH: ${{ github.workspace }}\build\stage\python
           SPRITE_INTERPRETER_FLAGS: interpret:new,jit:off
           SPRITE_ROTATION: steps:65536
-        run: python tests/run_tests.py --fast -j 2 --timeout 600
+        run: |
+          if [ "$UNIT_TIER" = full ]; then
+            python tests/run_tests.py 'unit_*.py' -j 2 --timeout 1200
+          else
+            python tests/run_tests.py --fast -j 2 --timeout 600
+          fi
       - name: Persistent LLVM cache
         timeout-minutes: 10
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}

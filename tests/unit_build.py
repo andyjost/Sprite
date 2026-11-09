@@ -115,7 +115,7 @@ class TestDistribution(cytest.TestCase):
             continue
           stem = source.parent / '.curry/sprite-pakcs-3.10.0' / source.stem
           for suffix in ('.icy', '.fint', '.icurry', '.icy.imports', '.icy.source', '.fcy', '.acy'):
-            self.assertIn(prefix + str(stem.with_suffix(suffix).relative_to(ROOT)), names)
+            self.assertIn(prefix + stem.with_suffix(suffix).relative_to(ROOT).as_posix(), names)
         self.assertFalse(any('/object-root/' in n or '/install/' in n for n in names))
         metadata = BytesParser().parsebytes(archive.extractfile(prefix + 'PKG-INFO').read())
         self.assertEqual(metadata['Author'], 'Andy Jost')
@@ -138,7 +138,7 @@ class TestDistribution(cytest.TestCase):
       # A ccache masquerade (``/usr/lib/ccache/cc`` on the CI runners) is
       # skipped: linked under the compiler's name, ccache finds only itself
       # on this PATH; the real compiler is linked from its own directory.
-      for directory in os.get_exec_path():
+      for directory in ([] if os.name == 'nt' else os.get_exec_path()):
         if not Path(directory).is_dir():
           continue
         for tool in Path(directory).iterdir():
@@ -150,14 +150,20 @@ class TestDistribution(cytest.TestCase):
             target = bindir / tool.name
             if not target.exists():
               target.symlink_to(resolved)
-      python = bindir / 'build-python'
-      python.symlink_to(sys.executable)
+      python = Path(sys.executable) if os.name == 'nt' else bindir / 'build-python'
+      if os.name != 'nt':
+        python.symlink_to(sys.executable)
       env = {k: v for k, v in os.environ.items()
              if not k.startswith(('SPRITE_', 'CURRY', 'PAKCS', 'PYTHONPATH'))}
-      env.update(PATH=str(bindir), LC_ALL='C.UTF-8', SPRITE_STAGE_JIT_CACHE='0')
+      env.update(PATH=os.environ['PATH'] if os.name == 'nt' else str(bindir),
+          LC_ALL='C.UTF-8', SPRITE_STAGE_JIT_CACHE='0')
+      if os.name == 'nt':
+        # Windows Python needs its original DLL layout. Explicitly disable
+        # front-end discovery beside that interpreter as well as on PATH.
+        env.update(SPRITE_FRONTEND='', CC='clang-cl', CXX='clang-cl')
       build, prefix = root / 'build', root / 'install'
       def run(*command):
-        result = subprocess.run(['timeout', '600', *map(str, command)],
+        result = subprocess.run(list(map(str, command)),
             env=env, text=True, capture_output=True, timeout=610)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         return result

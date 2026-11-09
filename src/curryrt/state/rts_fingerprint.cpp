@@ -47,6 +47,9 @@ namespace curryrt
     auto && process_one = [this,Q,C,choice,&clones,&nclones](Node * alt, ChoiceState lr) -> void
     {
       auto copy = C->clone(alt);
+      // The new alternative must run once even if another redex has a
+      // pending wait. Keep those reasons for its next suspension/recheck.
+      copy->forced_rotate = true;
       if(this->update_fp(copy.get(), choice->cid, lr))
       {
         xid_type gid = copy->grp_id(choice->cid);
@@ -148,7 +151,10 @@ namespace curryrt
       {
         lr = (*p)->front()->fingerprint.test(gid);
         if(lr != UNDETERMINED)
+        {
+          this->check_closed_level(p - this->qstack.rbegin());
           break;
+        }
       }
     }
     return lr;

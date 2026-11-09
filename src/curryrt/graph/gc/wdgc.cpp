@@ -436,8 +436,8 @@ namespace curryrt
       }
       if(C->error.first)
         stack.push_back(C->error.first);
-      for(xid_type vid: C->residuals)
-        push_freevar(stack, vid);
+      for(auto const & residual: C->residuals)
+        push_freevar(stack, residual.first);
       UnionFind const * constraints = C->strict_constraints.get();
       // Real union endpoints include every member of every non-singleton
       // class, including roots kept in the sparse parent table.
@@ -538,7 +538,10 @@ namespace curryrt
       stack.push_back(pair.first);
     for(InterpreterState * istate: g_istates)
       for(auto const & pair: istate->globals)
-        stack.push_back(pair.second);
+      {
+        stack.push_back(pair.second.initial);
+        stack.push_back(pair.second.value);
+      }
     // In a nested evaluation, every node of an older block allocated before
     // the evaluation began is a root.  See the comment at the top of this
     // file and the header of gc/blockheap.cpp.

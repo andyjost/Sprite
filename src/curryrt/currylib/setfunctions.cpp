@@ -61,8 +61,8 @@ namespace curryrt { inline namespace
         // their variables, so its other alternatives can still run and a
         // later binding can wake this configuration and its capsule.
         for(Configuration * suspended: *seteval->queue)
-          for(auto vid: suspended->residuals)
-            C->add_residual(vid);
+          for(auto const & [vid, kinds]: suspended->residuals)
+            C->add_residual(vid, kinds);
         return E_RESIDUAL;
       }
     }
@@ -148,6 +148,8 @@ namespace curryrt { inline namespace
         );
       return T_FWD;
     }
+    if(!seteval->set->closed_error.empty())
+      throw EvaluationError(seteval->set->closed_error);
     choice = NodeU{value.arg.node}.choice;
     assert(seteval->queue->front()->root == (Node *) choice);
     // The choice escapes the set function (rule SF.1), whatever this

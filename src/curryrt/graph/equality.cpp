@@ -14,6 +14,8 @@ namespace
   struct GraphEquality
   {
     bool skipfwd;
+    bool sharing;
+    std::unordered_map<void *, void *> left_to_right, right_to_left;
     // The memo is keyed by the addresses of the nodes: no node may move
     // while the comparison runs.
     GcClamp gc_clamp;
@@ -21,7 +23,8 @@ namespace
 
     using pending_type = std::vector<std::pair<Cursor, Cursor>>;
 
-    GraphEquality(bool skipfwd) : skipfwd(skipfwd) {}
+    GraphEquality(bool skipfwd, bool sharing=false)
+      : skipfwd(skipfwd), sharing(sharing) {}
 
     // Compares two graphs.  The traversal keeps its own stack, so a deep
     // graph such as a long list cannot overflow the C stack.
@@ -42,6 +45,18 @@ namespace
     // pairs onto ``pending``; the leftmost pair goes on top.
     bool visit(Cursor lhs, Cursor rhs, pending_type & pending)
     {
+      if(sharing)
+      {
+        lhs = inspect::fwd_chain_target(lhs);
+        rhs = inspect::fwd_chain_target(rhs);
+      }
+      if(sharing && lhs.kind == 'p' && rhs.kind == 'p')
+      {
+        auto [l, fresh_l] = left_to_right.emplace(lhs.id(), rhs.id());
+        auto [r, fresh_r] = right_to_left.emplace(rhs.id(), lhs.id());
+        if(!fresh_l || !fresh_r)
+          return l->second == rhs.id() && r->second == lhs.id();
+      }
       auto p = memo.find(lhs.id());
       if(p != memo.end() && p->second.find(rhs.id()) != p->second.end())
         return true;
@@ -85,6 +100,11 @@ namespace
 
 namespace curryrt
 {
+  bool graph_equal(Cursor lhs, Cursor rhs)
+  {
+    return GraphEquality(true, true).apply(lhs, rhs);
+  }
+
   bool equal(Cursor lhs, Cursor rhs, bool skipfwd)
   {
     auto && equality = GraphEquality(skipfwd);

@@ -118,15 +118,15 @@ namespace curryrt
     throw EvaluationError(msg, this->error_kind, this->error_filename);
   }
 
-  void Configuration::add_residual(xid_type vid)
+  void Configuration::add_residual(xid_type vid, unsigned char kinds)
   {
-    this->residuals.insert(vid);
-    this->residuals.insert(this->grp_id(vid));
+    this->residuals.insert(vid, kinds);
+    this->residuals.insert(this->grp_id(vid), kinds);
   }
 
-  void Configuration::remove_residual(xid_type vid)
+  void Configuration::remove_residual(xid_type vid, unsigned char kinds)
   {
-    this->residuals.erase(vid);
-    this->residuals.erase(this->grp_id(vid));
+    this->residuals.erase(vid, kinds);
+    this->residuals.erase(this->grp_id(vid), kinds);
   }
 }

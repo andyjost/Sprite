@@ -71,6 +71,7 @@ namespace curryrt { inline namespace
   template<typename Action>
   static tag_type _applyspecial(
       RuntimeState * rts, Configuration * C, Action const & action
+    , bool const & private_result=false
     )
   {
     Cursor _0 = C->cursor();
@@ -101,27 +102,105 @@ namespace curryrt { inline namespace
     Node * replacement = Node::create(
         &apply_Info, _1.rvalue(), _2.rvalue()
       );
+    if(private_result)
+    {
+      // Groundness can depend on C's bindings and narrowing decisions in
+      // a capture. A sibling may still be waiting on this shared redex.
+      // Publish the application only in C, preserving that sibling's check.
+      *C->root = C->scan.copy_spine(C->root, replacement);
+      return E_RESTART;
+    }
     _0->forward_to(replacement);
     return T_FWD;
   }
 
-  static tag_type applynf_step(RuntimeState * rts, Configuration * C)
+  static ValueSet const FREE_IN_CONFIGURATION{nullptr, 0, 'v'};
+
+  // Inspect only the demanded argument, including its partial captures and
+  // effective bindings and chosen generator instances. Never enter an
+  // undecided variable's shared generator. Applications left by normalization
+  // are inspected structurally, without evaluating them.
+  static bool wait_for_ground(
+      RuntimeState * rts, Configuration * C, Cursor root, bool & depends_on_config
+    )
   {
-    auto && normalize = [](
-        RuntimeState * rts, Configuration * C, Variable * var, bool monadic
-      )
+    GcClamp clamp;
+    std::unordered_set<Node *> seen;
+    std::vector<Node *> pending{root};
+    bool ground = true;
+    while(!pending.empty())
     {
-      // hnf first: it handles a choice, a failure, or a constraint at the
-      // root of the argument.  procN pull-tabs a choice to the root of its
-      // scan, which must not be the choice itself.
-      tag_type tag = rts->hnf(C, var, nullptr, monadic);
-      // A free variable is a normal form: ($!!) and normalForm give the
-      // variable, as the former runtime and PAKCS do.  hnf recorded a
-      // residual for it; take it back, as hnf_or_free does, and report the
-      // variable.  ($##) suspends on it afterwards (applygnf_step).
+      Node * node = pending.back();
+      pending.pop_back();
+      for(auto visitor = walk(node); visitor; ++visitor)
+      {
+        Cursor cur = visitor.cursor();
+        if(cur.kind != 'p' || !seen.insert(cur).second)
+          continue;
+        if(inspect::isa_freevar(cur))
+        {
+          // Use the same representative and enclosing-configuration lookup
+          // as is_free_in_configuration (the bound-wait readiness check).
+          rts->check_closed_variable(obj_id(cur));
+          xid_type const gid = C->grp_id(obj_id(cur));
+          if(Node * binding = rts->get_binding(C, gid))
+          {
+            depends_on_config = true;
+            pending.push_back(binding);
+          }
+          else if(rts->is_narrowed(C, gid))
+          {
+            depends_on_config = true;
+            // As in replace_freevar: a decided variable denotes its
+            // generator instance, whose constructor fields may still be free.
+            pending.push_back(rts->get_generator(C, gid));
+          }
+          else
+          {
+            C->add_residual(obj_id(cur), BOUND);
+            ground = false;
+          }
+        }
+        else if(cur->info->tag == T_CHOICE)
+        {
+          ChoiceNode * choice = NodeU{cur}.choice;
+          ChoiceState const side = rts->read_fp(C, choice->cid);
+          if(side == LEFT || side == RIGHT)
+          {
+            depends_on_config = true;
+            pending.push_back(side == LEFT ? choice->lhs : choice->rhs);
+          }
+          else
+            visitor.extend();
+        }
+        else
+          visitor.extend();
+      }
+    }
+    return ground;
+  }
+
+  static tag_type applynormal_step(RuntimeState * rts, Configuration * C, bool ground)
+  {
+    // The action sets this only when the ground check reads C. A ground
+    // argument with no such dependency can use the shared in-place rewrite.
+    bool depends_on_config = false;
+    auto normalize = [ground, &depends_on_config](
+        RuntimeState * rts, Configuration * C, Variable * var, bool monadic
+      ) -> tag_type
+    {
+      // Ground normalization must leave an undecided generator alone even
+      // at the argument root. Ordinary ($!!) retains its hnf behavior.
+      tag_type tag = rts->hnf(C, var,
+          ground ? &FREE_IN_CONFIGURATION : nullptr, monadic);
       if(tag == E_RESIDUAL && inspect::isa_freevar(var->target))
       {
         C->remove_residual(obj_id(var->target));
+        if(ground)
+        {
+          C->add_residual(obj_id(var->target), BOUND);
+          return E_RESIDUAL;
+        }
         return T_FREE;
       }
       if(tag < T_CTOR)
@@ -138,45 +217,23 @@ namespace curryrt { inline namespace
           rts->checker->normalization_failure(C, redex);
         return redex->make_failure();
       }
-      // E_RESTART can replace the whole configuration root when a nested
-      // step reads a binding.  Hand it outward: var and redex still refer
-      // to the old graph, so only a new step may normalize the argument.
+      // Interrupted normalization (including E_RESTART) retains the redex.
+      // Check only a completed normal form, before _applyspecial forwards
+      // it to apply. Each wake normalizes again, since a binding can bring
+      // more free variables into the argument.
+      if(tag >= T_CTOR && ground
+          && !wait_for_ground(rts, C, var->target, depends_on_config))
+        return E_RESIDUAL;
       return tag;
     };
-    return _applyspecial(rts, C, normalize);
+    return _applyspecial(rts, C, normalize, depends_on_config);
   }
 
+  static tag_type applynf_step(RuntimeState * rts, Configuration * C)
+    { return applynormal_step(rts, C, false); }
+
   static tag_type applygnf_step(RuntimeState * rts, Configuration * C)
-  {
-    Cursor _0 = C->cursor();
-    auto rv = applynf_step(rts, C);
-    // The ground check applies when the normalization completed and the
-    // redex became the application.  Any other outcome is handed on as it
-    // is: the normalization was interrupted (E_GC, E_ROTATE, E_UNWIND),
-    // suspended, or raised an error, or hnf forwarded the redex to a
-    // failure, a lifted constraint, or a pull-tabbed choice.  The free
-    // variables still in the expression may be bound when the evaluation
-    // resumes (a constraint at the root binds them); a residual for them
-    // here suspended the configuration for good.
-    if(rv != T_FWD || _0->info->tag != T_FWD
-        || NodeU{_0}.fwd->target->info != &apply_Info)
-      return rv;
-    Residuals unbound;
-    auto node_visitor = visit_unique(_0);
-    while(Node * node = node_visitor.next())
-    {
-      if(inspect::isa_freevar(node) && !has_generator(node))
-        unbound.insert(obj_id(node));
-    }
-    if(!unbound.empty())
-    {
-      for(auto vid: unbound)
-        C->add_residual(vid);
-      return E_RESIDUAL;
-    }
-    else
-      return rv;
-  }
+    { return applynormal_step(rts, C, true); }
 
   static tag_type applyhnf_step(RuntimeState * rts, Configuration * C)
   {
@@ -203,17 +260,13 @@ namespace curryrt { inline namespace
   {
     Cursor _0 = C->cursor();
     Variable _1 = _0[0];
-    auto tag = rts->hnf_or_free(C, &_1);
+    auto tag = rts->hnf_or_free(C, &_1, &FREE_IN_CONFIGURATION);
     if(tag < T_CTOR)
     {
       if(tag != T_FREE)
         return tag;
-      if(rts->is_void(C, _1.target))
-      {
-        xid_type vid = obj_id(_1.target);
-        C->add_residual(vid);
-        return E_RESIDUAL;
-      }
+      C->add_residual(obj_id(_1.target), BOUND);
+      return E_RESIDUAL;
     }
     _0->forward_to(_1);
     return T_FWD;

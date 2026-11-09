@@ -47,7 +47,12 @@ namespace curryrt
     ModuleRegistry modules;
     // Named Data.Global values, shared by this interpreter's evaluations.
     // The collector traces them with the other interpreter roots.
-    std::unordered_map<std::string, Node *> globals;
+    struct Global
+    {
+      Node * initial;
+      Node * value;
+    };
+    std::unordered_map<std::string, Global> globals;
     uint32_t hot_threshold = 0;
     bool llvm_hot = true;
     xid_type    xidfactory = 0;
@@ -74,6 +79,8 @@ namespace curryrt
     Set(Set const &) = delete;
     Set & operator=(Set const &) = delete;
     std::unordered_set<xid_type> escape_set;
+    // Only Data.Global initializer capsules require a closed computation.
+    std::string closed_error;
     // The mark of the current collection.
     bool marked = false;
   };
@@ -158,6 +165,7 @@ namespace curryrt
     // SetEval nodes of the set functions under evaluation.
     std::unique_ptr<Queue> root_queue;
     qstack_type            qstack;
+    size_t                 closed_capsules = 0;
     // C-stack guard.  An evaluation may use ``stack_room`` bytes of C stack
     // below ``stack_base``, the frame of the outermost procD.  ``stack_room``
     // is ``stack_limit`` (from the flag) clamped to the stack of the thread
@@ -302,11 +310,14 @@ namespace curryrt
       , void const * guides
       );
     bool is_void(Configuration *, Node * freevar);
+    bool is_free_in_configuration(Configuration *, Node * freevar);
 
     // rts_setfunctions:
     void push_queue(Queue *, TraceOpt=TRACE);
     void pop_queue(TraceOpt=TRACE);
     bool choice_escapes(Configuration *, xid_type);
+    void check_closed_level(size_t) const;
+    void check_closed_variable(xid_type) const;
     bool owns_decision(Configuration *, xid_type);
     void record_failure(Configuration *, Variable const * inductive);
     // The level of an outside failure that crossed the guards of ``sets``
