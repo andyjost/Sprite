@@ -92,6 +92,11 @@ def stub_installation(root):
   return root
 
 
+# The peak column of a summary row: a number of MB, or "-" when the runner
+# could not sample the process (Windows without psutil, or a process that
+# exited before the first sample).
+PEAK = r'(?:\d+|-)' if sys.platform == 'win32' else r'\d+'
+
 class FakeResult:
   '''What Manifest.update reads from a job.'''
   def __init__(self, duration, peak, tests=1, failures=0, completed=True):
@@ -258,9 +263,8 @@ class TestScheduler(SchedulerTests):
     text = report.summary(sched.jobs, sched.wall)
     self.assertIn('2 of 2 run, 1 failed', text)
     # A short Windows child may exit before an RSS sample is available.
-    peak = r'(?:\d+|-)' if sys.platform == 'win32' else r'\d+'
     self.assertRegex(text,
-        r'bad\.py\s+cxx\s+3\s+2\s+[\d.]+ s\s+' + peak + r'\s+FAILED')
+        r'bad\.py\s+cxx\s+3\s+2\s+[\d.]+ s\s+' + PEAK + r'\s+FAILED')
 
   def test_advisory_job(self):
     '''
@@ -288,7 +292,7 @@ class TestScheduler(SchedulerTests):
     text = report.summary(sched.jobs, sched.wall)
     self.assertIn('1 of 1 run, 0 failed, prepare: 1 of 1 incomplete', text)
     self.assertRegex(
-        text, r'prepare x\s+cxx\s+-\s+-\s+[\d.]+ s\s+\d+\s+incomplete'
+        text, r'prepare x\s+cxx\s+-\s+-\s+[\d.]+ s\s+' + PEAK + r'\s+incomplete'
       )
     # Every advisory job passed: no clause.
     ok = Job(
@@ -1506,7 +1510,7 @@ class TestCli(unittest.TestCase):
     self.assertRegex(text, r'ok\s+cxx\s+unit_runner\.py\s+2 tests')
     self.assertIn('1 of 1 run, 0 failed, prepare: 1 of 1 incomplete', text)
     self.assertRegex(
-        text, r'prepare data/curry\s+cxx\s+-\s+-\s+[\d.]+ s\s+\d+\s+incomplete'
+        text, r'prepare data/curry\s+cxx\s+-\s+-\s+[\d.]+ s\s+' + PEAK + r'\s+incomplete'
       )
     # The log of the pass holds the messages of the stand-in.
     with open(os.path.join(logdir, 'cxx', 'prepare-data-curry.log')) as stream:
