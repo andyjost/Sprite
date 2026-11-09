@@ -33,6 +33,9 @@ class TestCMake(cytest.TestCase):
     '''Configures a build directory; ``frontend=False`` leaves the choice to CMake.'''
     args = [cmake_executable(), '-S', ROOT, '-B', self.build if build is None else build,
             '-G', 'Ninja', '-DPython_EXECUTABLE=' + sys.executable, '-DWITH_PAKCS=']
+    if sys.platform == 'win32':
+      args += ['-DCMAKE_C_COMPILER=clang-cl',
+               '-DCMAKE_CXX_COMPILER=' + config.cxx_tool()]
     if frontend:
       args.append('-DWITH_CURRY_FRONTEND=' + os.path.realpath(self.frontend))
     return run(*args, *options, env=env)
@@ -92,6 +95,65 @@ class TestCMake(cytest.TestCase):
                               '-DCURRY2ICURRY_TOOL=frontend', option)
       self.assertNotEqual(result.returncode, 0, result.stdout)
       self.assertIn(message, result.stdout)
+
+  @cytest.posix_only('POSIX permits literal backslashes in path components')
+  def test_install_code_preserves_literal_paths(self):
+    '''The generated install hook must pass configured paths literally.'''
+    root = Path(self.directory.name)
+    python = root / 'python\\host tools' / 'python'
+    python.parent.mkdir()
+    python.symlink_to(sys.executable)
+    source = root / 'source\\hooks tools'
+    scripts = source / 'scripts'
+    scripts.mkdir(parents=True)
+    (scripts / 'install-package.py').write_text(
+        'import sys\nprint(repr(sys.argv[1:]))\n')
+    image = root / 'image\\files'
+    prefix = root / 'prefix'
+
+    # Generate the product's actual install hook in a minimal project. This
+    # isolates its second CMake parse from compiler and FindPython probes.
+    install_code = (ROOT / 'CMakeLists.txt').read_text().split(
+        '  install(CODE ', 1)[1].rsplit('\nendif()', 1)[0]
+    project = root / 'project'
+    project.mkdir()
+    (project / 'CMakeLists.txt').write_text(
+        'cmake_minimum_required(VERSION 3.24)\n'
+        'project(InstallPaths NONE)\n'
+        'function(add_install_hook)\n'
+        '  set(Python_EXECUTABLE [==[' + str(python) + ']==])\n'
+        '  set(CMAKE_SOURCE_DIR [==[' + str(source) + ']==])\n'
+        '  set(image [==[' + str(image) + ']==])\n'
+        '  install(CODE ' + install_code + '\n'
+        'endfunction()\nadd_install_hook()\n')
+    result = run(cmake_executable(), '-S', project, '-B', self.build, '-G', 'Ninja')
+    self.assertEqual(result.returncode, 0, result.stdout)
+    destdir = root / 'destdir'
+    result = run(cmake_executable(), '--install', self.build, '--prefix', prefix,
+                 env=dict(os.environ, DESTDIR=str(destdir)))
+    self.assertEqual(result.returncode, 0, result.stdout)
+    self.assertIn(repr([str(destdir) + str(prefix), str(image)]), result.stdout)
+
+  def test_default_precedes_platform_initialization(self):
+    '''A compiler platform's Debug default must not replace Sprite's Release.'''
+    override = Path(self.directory.name) / 'platform-default.cmake'
+    override.write_text('set(CMAKE_BUILD_TYPE_INIT Debug)\n')
+    for choice in ('default', 'cache', 'environment'):
+      with self.subTest(choice=choice):
+        env = dict(os.environ)
+        env.pop('CMAKE_BUILD_TYPE', None)
+        options = ['-DCMAKE_USER_MAKE_RULES_OVERRIDE=' + str(override)]
+        if choice == 'cache':
+          options.append('-DCMAKE_BUILD_TYPE=Debug')
+        elif choice == 'environment':
+          env['CMAKE_BUILD_TYPE'] = 'Debug'
+        result = self.configure(*options, env=env)
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertEqual(self.cache('CMAKE_BUILD_TYPE'),
+            'Release' if choice == 'default' else 'Debug')
+        self.assertEqual((self.build / 'stage/sysconfig/cxx_flavor').read_text().strip(),
+            'release' if choice == 'default' else 'debug')
+        shutil.rmtree(self.build)
 
   @cytest.posix_only('CMake probes POSIX shebang tool fixtures')
   def test_frontend_and_optional_route(self):
@@ -324,6 +386,7 @@ class TestCMake(cytest.TestCase):
     flagged = set()
     target = None
     for line in (self.build / 'build.ninja').read_text().splitlines():
+      line = line.replace('\\', '/')
       if line.startswith('build CMakeFiles/'):
         target = line.split('/', 2)[1]
       elif line.strip().startswith('FLAGS =') and '-fno-strict-aliasing' in line:

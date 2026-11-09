@@ -158,7 +158,7 @@ class TestSelection(cytest.TestCase):
     defaults = get_default_flags()
     self.assertEqual(defaults['jit'], 'hot')
     self.assertEqual(defaults['jit_backend'], 'auto')
-    self.assertEqual(defaults['interpret'], 'all' if os.name == 'nt' else 'new')
+    self.assertEqual(defaults['interpret'], 'new')
     with self.assertRaisesRegex(curry.FlagError, 'jit:hot.*jit_backend:cxx'):
       curry.reset(interpret=''.join(('tier', 'ed')))
     with mock.patch.dict(os.environ, {'SPRITE_INTERPRETER_FLAGS': 'interpret:' + ''.join(('tier', 'ed'))}):

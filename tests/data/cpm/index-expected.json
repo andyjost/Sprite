@@ -789,7 +789,7 @@
       "version": "4.0.0",
       "measured_seconds": 26.9,
       "result": "exception",
-      "reason": "Strong encapsulation is not supported by Sprite: its results depend on the evaluation order.",
+      "reason": "Class 1: Strong encapsulation is not supported by Sprite: its results depend on the evaluation order.",
       "shard": 6,
       "failure_class": "unsupported feature",
       "failure_set": [
@@ -812,7 +812,7 @@
       "version": "3.4.0",
       "measured_seconds": 17.4,
       "result": "exception",
-      "reason": "The package puts the Prelude and the other runtime-reserved modules on its source path; Sprite refuses a path copy of a reserved module (module rule 2).",
+      "reason": "Class 3: The package puts the Prelude and the other runtime-reserved modules on its source path; Sprite refuses a path copy of a reserved module (module rule 2).",
       "shard": 2,
       "failure_class": "Sprite error",
       "failure_set": [
@@ -842,7 +842,7 @@
       "version": "3.2.0",
       "measured_seconds": 17.9,
       "result": "exception",
-      "reason": "PAKCS constraint solvers are not supported by Sprite: they are bound to its Prolog back end.",
+      "reason": "Class 4: PAKCS constraint solvers are not supported by Sprite: they are bound to its Prolog back end.",
       "shard": 5,
       "failure_class": "unsupported feature",
       "failure_set": [
@@ -854,7 +854,7 @@
       "version": "2.0.0",
       "measured_seconds": 22.1,
       "result": "exception",
-      "reason": "PAKCS constraint solvers are not supported by Sprite: they are bound to its Prolog back end.",
+      "reason": "Class 4: PAKCS constraint solvers are not supported by Sprite: they are bound to its Prolog back end.",
       "shard": 6,
       "failure_class": "unsupported feature",
       "failure_set": [
@@ -878,7 +878,7 @@
       "version": "4.0.0",
       "measured_seconds": 241.0,
       "result": "exception",
-      "reason": "With z3 4.16.0, the revAcc postcondition exceeds the upstream four-second solver limit; a direct PAKCS 3.10.0 run also reports z3 timeout and leaves revAcc unverified. CI uses its apt z3 version.",
+      "reason": "Class 5: With z3 4.16.0, the revAcc postcondition exceeds the upstream four-second solver limit; a direct PAKCS 3.10.0 run also reports z3 timeout and leaves revAcc unverified. CI uses its apt z3 version.",
       "shard": 7,
       "failure_class": "test failure",
       "failure_set": [
@@ -921,8 +921,8 @@
       "measured_seconds": 1799.5,
       "result": "open",
       "issue": "#247",
-      "reason": "IntegratedCode passes all 31 checks; optional SQL integration skips without erd2curry. All five Contracts modules preprocess and compile. The #241 non-determinism error is gone, but the first generated BubbleSort.sort7 check now exceeds the remaining package test budget (1460.1 seconds). A separate BubbleSort-only Contracts run times out at 300 seconds; the direct contracted sort [2,1] prints [1,2], while sort [7,1,6,3,5,4,2] times out at 90 seconds. Reproducer: in examples/Contracts run curry-check -k --nospec --nosource --nodet --deftype=Int BubbleSort. This Contracts evaluation timeout is #247; its cause is not established. DeterministicOperations passes all nine tests. The separate DefaultRules suite analyzes all 14 modules and compiles its test main, passes both BreakWhere checks, and times out at 1800 seconds while evaluating BubbleSort.bsort7 (#242).",
-      "issue_text": "IntegratedCode passes all 31 checks; optional SQL integration skips without erd2curry. All five Contracts modules preprocess and compile. The #241 non-determinism error is gone, but the first generated BubbleSort.sort7 check now exceeds the remaining package test budget (1460.1 seconds). A separate BubbleSort-only Contracts run times out at 300 seconds; the direct contracted sort [2,1] prints [1,2], while sort [7,1,6,3,5,4,2] times out at 90 seconds. Reproducer: in examples/Contracts run curry-check -k --nospec --nosource --nodet --deftype=Int BubbleSort. This Contracts evaluation timeout is #247; its cause is not established. DeterministicOperations passes all nine tests. The separate DefaultRules suite analyzes all 14 modules and compiles its test main, passes both BreakWhere checks, and times out at 1800 seconds while evaluating BubbleSort.bsort7 (#242).",
+      "reason": "IntegratedCode passes all 31 checks; optional SQL integration skips without erd2curry. All five Contracts modules preprocess and compile. The #241 non-determinism error is gone, but the first generated BubbleSort.sort7 check now exceeds the remaining package test budget (1460.1 seconds). A separate BubbleSort-only Contracts run times out at 300 seconds; the direct contracted sort [2,1] prints [1,2], while sort [7,1,6,3,5,4,2] times out at 90 seconds. Reproducer: in examples/Contracts run curry-check -k --nospec --nosource --nodet --deftype=Int BubbleSort. This Contracts evaluation timeout is #247; its cause is #251: a functional-pattern binding loses the sharing of an application that reads the bound variable, so the contract check recomputes it exponentially. DeterministicOperations passes all nine tests. The separate DefaultRules suite analyzes all 14 modules and compiles its test main, passes both BreakWhere checks, and times out at 1800 seconds while evaluating BubbleSort.bsort7 (#242).",
+      "issue_text": "IntegratedCode passes all 31 checks; optional SQL integration skips without erd2curry. All five Contracts modules preprocess and compile. The #241 non-determinism error is gone, but the first generated BubbleSort.sort7 check now exceeds the remaining package test budget (1460.1 seconds). A separate BubbleSort-only Contracts run times out at 300 seconds; the direct contracted sort [2,1] prints [1,2], while sort [7,1,6,3,5,4,2] times out at 90 seconds. Reproducer: in examples/Contracts run curry-check -k --nospec --nosource --nodet --deftype=Int BubbleSort. This Contracts evaluation timeout is #247; its cause is #251: a functional-pattern binding loses the sharing of an application that reads the bound variable, so the contract check recomputes it exponentially. DeterministicOperations passes all nine tests. The separate DefaultRules suite analyzes all 14 modules and compiles its test main, passes both BreakWhere checks, and times out at 1800 seconds while evaluating BubbleSort.bsort7 (#242).",
       "failure_class": "timeout",
       "shard": 2,
       "failure_set": [
@@ -935,7 +935,7 @@
       "version": "1.0.0",
       "measured_seconds": 17.7,
       "result": "exception",
-      "reason": "Requires PAKCS-only Prolog database primitives; its metadata also rejects PAKCS 3.10.0.",
+      "reason": "Class 5: Requires PAKCS-only Prolog database primitives; its metadata also rejects PAKCS 3.10.0.",
       "shard": 1,
       "failure_class": "front-end error",
       "failure_set": [
@@ -961,7 +961,7 @@
       "version": "1.0.0",
       "measured_seconds": 30.1,
       "result": "exception",
-      "reason": "Imports retired Char and List modules absent from base 3.4.0; PAKCS 3.10.0 fails too after bypassing package compiler metadata.",
+      "reason": "Class 5: Imports retired Char and List modules absent from base 3.4.0; PAKCS 3.10.0 fails too after bypassing package compiler metadata.",
       "shard": 6,
       "failure_class": "front-end error",
       "failure_set": [
@@ -1016,7 +1016,7 @@
       "measured_seconds": 63.2,
       "result": "exception",
       "issue": "#216",
-      "reason": "Sprite reports a choice that reaches an I/O step as an error, by design",
+      "reason": "Class 2: Sprite reports a choice that reaches an I/O step as an error, by design",
       "failure_class": "test failure",
       "shard": 7,
       "failure_set": [
@@ -1035,7 +1035,7 @@
       "version": "1.0.0",
       "measured_seconds": 22.0,
       "result": "exception",
-      "reason": "Backtrackable global variables are not supported by Sprite: their values depend on the search order.",
+      "reason": "Class 1: Backtrackable global variables are not supported by Sprite: their values depend on the search order.",
       "failure_class": "unsupported feature",
       "shard": 3,
       "failure_set": [
@@ -1091,7 +1091,7 @@
       "version": "2.0.0",
       "measured_seconds": 503.2,
       "result": "exception",
-      "reason": "With z3 4.16.0, the revAcc query exceeds the upstream four-second solver limit; the interactive solver then closes and the package reports EOF. The SMT query captured under PAKCS 3.10.0 also returns timeout with z3 4.16.0. CI uses its apt z3 version.",
+      "reason": "Class 5: With z3 4.16.0, the revAcc query exceeds the upstream four-second solver limit; the interactive solver then closes and the package reports EOF. The SMT query captured under PAKCS 3.10.0 also returns timeout with z3 4.16.0. CI uses its apt z3 version.",
       "shard": 1,
       "failure_class": "test failure",
       "failure_set": [
@@ -1140,7 +1140,7 @@
       "version": "3.0.0",
       "measured_seconds": 27.4,
       "result": "exception",
-      "reason": "Strong encapsulation is not supported by Sprite: its results depend on the evaluation order.",
+      "reason": "Class 1: Strong encapsulation is not supported by Sprite: its results depend on the evaluation order.",
       "shard": 5,
       "failure_class": "unsupported feature",
       "failure_set": [
@@ -1157,7 +1157,7 @@
       "version": "3.0.0",
       "measured_seconds": 28.0,
       "result": "exception",
-      "reason": "Strong encapsulation is not supported by Sprite: its results depend on the evaluation order.",
+      "reason": "Class 1: Strong encapsulation is not supported by Sprite: its results depend on the evaluation order.",
       "shard": 0,
       "failure_class": "unsupported feature",
       "failure_set": [
@@ -1169,7 +1169,7 @@
       "version": "3.0.0",
       "measured_seconds": 28.8,
       "result": "exception",
-      "reason": "The package puts runtime-reserved Control.SetFunctions source on its path; Sprite refuses that path copy (module rule 2).",
+      "reason": "Class 3: The package puts runtime-reserved Control.SetFunctions source on its path; Sprite refuses that path copy (module rule 2).",
       "shard": 3,
       "failure_class": "Sprite error",
       "failure_set": [
@@ -1217,7 +1217,7 @@
       "version": "1.0.0",
       "measured_seconds": 36.2,
       "result": "exception",
-      "reason": "Imports retired modules including List and IOExts; PAKCS 3.10.0 fails too after bypassing package compiler metadata.",
+      "reason": "Class 5: Imports retired modules including List and IOExts; PAKCS 3.10.0 fails too after bypassing package compiler metadata.",
       "shard": 1,
       "failure_class": "front-end error",
       "failure_set": [
@@ -1257,7 +1257,7 @@
       "version": "1.1.0",
       "measured_seconds": 63.8,
       "result": "exception",
-      "reason": "Imports retired modules including Time; PAKCS 3.10.0 also rejects its required html-2.0.0 dependency after bypassing top-level compiler metadata.",
+      "reason": "Class 5: Imports retired modules including Time; PAKCS 3.10.0 also rejects its required html-2.0.0 dependency after bypassing top-level compiler metadata.",
       "shard": 6,
       "failure_class": "front-end error",
       "failure_set": [

@@ -133,11 +133,18 @@ class TestStubModules(cytest.TestCase):
   @cytest.skipUnlessObjectsLoad('curry.load opens a compiled object')
   def test_load_example(self):
     with tempfile.TemporaryDirectory() as work:
-      product = os.path.join(work, 'Coin.so')
-      code = "import curry; curry.path.insert(0, %r); curry.save(curry.import_('Coin'), %r)" % (FLOW_PATH, product)
-      subprocess.run([sys.executable, '-c', code], check=True, capture_output=True, text=True)
-      M = curry.load(product)
-      self.assertEqual(curry.info(M).name, 'Coin')
+      # Compiled modules live until process exit; clean up after that exit.
+      child = cytest.run_in_subprocess(
+          'from unit_stub_modules import TestStubModules; '
+          'TestStubModules()._test_load_example(%r)' % work, timeout=120)
+      self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
+
+  def _test_load_example(self, work):
+    product = os.path.join(work, 'Coin.so')
+    code = "import curry; curry.path.insert(0, %r); curry.save(curry.import_('Coin'), %r)" % (FLOW_PATH, product)
+    subprocess.run([sys.executable, '-c', code], check=True, capture_output=True, text=True)
+    M = curry.load(product)
+    self.assertEqual(curry.info(M).name, 'Coin')
 
   def test_import_pathlike_is_a_file(self):
     M = curry.import_(Path(FLOW_PATH) / 'Coin.curry')
@@ -368,13 +375,20 @@ class TestStubModules(cytest.TestCase):
   @cytest.skipUnlessObjectsLoad('curry.load opens a compiled object')
   def test_load_same_file_returns_registered_module(self):
     with tempfile.TemporaryDirectory() as work:
-      ext = '.so' if curry.flags['backend'] == 'cxx' else '.py'
-      product = str(Path(work) / ('Coin' + ext))
-      code = "import curry; curry.path.insert(0, %r); curry.save(curry.import_('Coin'), %r)" % (FLOW_PATH, product)
-      subprocess.run([sys.executable, '-c', code], check=True, capture_output=True, text=True)
-      M = curry.load(product)
-      self.assertIs(curry.modules['Coin'], M)
-      self.assertIs(curry.load(product), M)
+      # Compiled modules live until process exit; clean up after that exit.
+      child = cytest.run_in_subprocess(
+          'from unit_stub_modules import TestStubModules; '
+          'TestStubModules()._test_load_same_file_returns_registered_module(%r)' % work, timeout=120)
+      self.assertEqual(child.returncode, 0, child.stdout + child.stderr)
+
+  def _test_load_same_file_returns_registered_module(self, work):
+    ext = '.so' if curry.flags['backend'] == 'cxx' else '.py'
+    product = str(Path(work) / ('Coin' + ext))
+    code = "import curry; curry.path.insert(0, %r); curry.save(curry.import_('Coin'), %r)" % (FLOW_PATH, product)
+    subprocess.run([sys.executable, '-c', code], check=True, capture_output=True, text=True)
+    M = curry.load(product)
+    self.assertIs(curry.modules['Coin'], M)
+    self.assertIs(curry.load(product), M)
 
   def test_load_same_name_from_another_file_is_rejected(self):
     M = curry.import_('Coin')

@@ -6,6 +6,27 @@ Unreleased
 ==========
 
 - Require closed initializers and one definition per key for ``Data.Global.globalT``; caller dependencies and conflicting initial values raise a named ``EvaluationError`` (#266, owner decision of 2026-11-08).
+- Record the CPM support rule of 2026-11-08 (#262). Sprite supports
+  features whose result sets do not depend on the schedule or search order.
+  Features whose meaning relies on PAKCS's left-first search raise named
+  errors. The CPM index records these packages as known exceptions, and
+  the release notes list them: ``allvalues``, ``searchtree``,
+  ``searchtree-unsafe`` and ``global-variables``. PAKCS is evidence;
+  the dissertation's semantics is the reference. The release goal is that
+  every CPM package works or fails with a named and documented error.
+- Ship 0.9.0a3 with `#251
+  <https://github.com/andyjost/Sprite/issues/251>`_ as a known defect
+  (decision #269, 2026-11-08). The general fix comes after the release.
+  A functional-pattern binding (``=:<=``) can lose call-time choice for a
+  shared application that reads the bound variable. The program can return
+  more answers than call-time choice allows. For example::
+
+      pick n = if n == 1 then 0 ? 1 else failed
+      let r = pick x in (x =:<= 1) &> (r,r)
+
+  Sprite gives four pairs. Call-time choice and PAKCS 3.10.0 give only
+  ``(0,0)`` and ``(1,1)``. The same mechanism makes currypp's contract check
+  of a seven-element sort recompute exponentially (#247).
 
 - Implement ``Data.Global`` temporary globals with interpreter-owned storage,
   copied reads and initialization in the caller's encapsulated search (one
