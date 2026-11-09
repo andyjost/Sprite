@@ -1,4 +1,4 @@
-"""Data.Global initialization belongs to the caller's encapsulated search."""
+"""Data.Global initialization is closed and preserves its stored definition."""
 import cytest # from ./lib; must be first
 from pathlib import Path
 import tempfile
@@ -7,78 +7,36 @@ from unit_cpm_primitives import NAMED_GLOBALS
 
 
 class TestIssue215(cytest.TestCase):
-  @cytest.with_flags(interpret='all', jit='off', rotation='steps:65536',
-                    checker=True)
-  def test_named_global_resumes_ground_pair_x_first(self):
-    self.check_resumed_ground_pair(first=0)
+  @cytest.with_flags(interpret='all', jit='off', checker=True)
+  def test_named_global_rejects_pair_x_bound(self):
+    self.check_rejected_pair(first=0)
 
-  @cytest.with_flags(interpret='all', jit='off', rotation='steps:65536',
-                    checker=True)
-  def test_named_global_resumes_ground_pair_y_first(self):
-    self.check_resumed_ground_pair(first=1)
+  @cytest.with_flags(interpret='all', jit='off', checker=True)
+  def test_named_global_rejects_pair_y_bound(self):
+    self.check_rejected_pair(first=1)
 
-  def check_resumed_ground_pair(self, first):
-    from curry import inspect
-    from curry.backends.cxx import curryrtbindings as native
+  def check_rejected_pair(self, first):
     module = curry.compile(NAMED_GLOBALS + '''
-goal :: Int -> Int -> GlobalT (Int,Int)
-goal x y = globalT "CPM.pair" (x,y)
-readOld :: IO (Int,Int)
-readOld = readGlobalT (GlobalT "CPM.pair")
+goal :: Bool -> Int -> Int -> GlobalT (Int,Int)
+goal first x y = (if first then x =:= 17 else y =:= 23)
+  &> globalT "CPM.pair" (x,y)
 ''')
-    variables = [curry.term(curry.free(name, type='Int'))._node
-                 for name in ('x', 'y')]
-    rts = native.RuntimeState(cytest.raw.interp(),
-                             cytest.raw.expr(module.goal, *variables))
-    try:
-      def assert_waiting():
-        with self.assertRaises(curry.SuspensionError):
-          next(rts.generate_values())
-        self.assertEqual(rts.queue_size, 1)
-        with self.assertRaisesRegex(curry.EvaluationError, 'not initialized'):
-          curry.eval(module.readOld).one()
-      assert_waiting()
-      vids = [inspect.fwd_chain_target(var).successors[0] for var in variables]
-      bindings = (17, 23)
-      native.checker_debug_bind(rts, vids[first], cytest.raw.expr(bindings[first]))
-      assert_waiting()
-      last = 1 - first
-      native.checker_debug_bind(rts, vids[last], cytest.raw.expr(bindings[last]))
-      handles = list(rts.generate_values())
-      self.assertEqual([str(handle) for handle in handles], ['GlobalT "CPM.pair"'])
-      self.assertEqual(curry.eval(module.readOld).one(), bindings)
-      self.assertEqual(rts.queue_size, 0)
-    finally:
-      rts.close()
+    x = curry.term(curry.free('x', type='Int'))
+    y = curry.term(curry.free('y', type='Int'))
+    with self.assertRaisesRegex(curry.EvaluationError,
+        'initial value of global CPM.pair depends on its caller'):
+      curry.eval(module.goal(first == 0, x, y)).one()
 
-  @cytest.with_flags(interpret='all', jit='off', rotation='steps:65536',
-                    checker=True)
-  def test_named_global_suspension_keeps_alternative_and_resumes(self):
-    from curry.backends.cxx import curryrtbindings as native
+  @cytest.with_flags(interpret='all', jit='off', checker=True)
+  def test_named_global_free_alternative_errors(self):
     module = curry.compile(NAMED_GLOBALS + '''
 goal :: Int -> GlobalT Int
 goal x = globalT "CPM.suspended" x ? globalT "CPM.suspended" 42
-readOld :: IO Int
-readOld = readGlobalT (GlobalT "CPM.suspended")
 ''')
-    x = curry.term(curry.free('x', type='Int'))._node
-    rts = native.RuntimeState(cytest.raw.interp(), cytest.raw.expr(module.goal, x))
-    try:
-      handle = next(rts.generate_values())
-      self.assertEqual(str(handle), 'GlobalT "CPM.suspended"')
-      self.assertEqual(curry.eval(module.readOld).one(), 42)
-      self.assertEqual(rts.queue_size, 1)
-      # Bind the remaining configuration's variable, using the checker's
-      # existing binding hook to resume the same evaluation and capsule.
-      from curry import inspect
-      vid = inspect.fwd_chain_target(x).successors[0]
-      native.checker_debug_bind(rts, vid, cytest.raw.expr(17))
-      handles = list(rts.generate_values())
-      self.assertEqual(len(handles), 1)
-      self.assertEqual(str(handles[0]), str(handle))
-      self.assertEqual(curry.eval(module.readOld).one(), 42)
-    finally:
-      rts.close()
+    x = curry.term(curry.free('x', type='Int'))
+    with self.assertRaisesRegex(curry.EvaluationError,
+        'initial value of global CPM.suspended depends on its caller'):
+      list(curry.eval(module.goal(x)))
 
   @cytest.with_flags(interpret='all', jit='off', rotation='steps:1000')
   def test_named_global_competing_store_keeps_multiplicity_error(self):
@@ -100,7 +58,7 @@ readOld = readGlobalT (GlobalT "CPM.competing")
     self.assertEqual(curry.eval(module.readOld).one(), 42)
 
   @cytest.with_flags(interpret='all', jit='off', rotation='steps:1000')
-  def test_named_global_competing_single_value_keeps_stored_entry(self):
+  def test_named_global_competing_single_value_rejects_other_definition(self):
     module = curry.compile(NAMED_GLOBALS + '''
 slow :: Int -> Int
 slow n = if n == 0 then 22 else slow (n-1)
@@ -112,25 +70,30 @@ readOld = readGlobalT (GlobalT "CPM.single")
     values = iter(curry.eval(module.goal))
     next(values)
     self.assertEqual(curry.eval(module.readOld).one(), 42)
-    next(values)
+    with self.assertRaisesRegex(curry.EvaluationError,
+        'initial value of global CPM.single depends on its caller'):
+      next(values)
     self.assertEqual(list(values), [])
     self.assertEqual(curry.eval(module.readOld).one(), 42)
 
-  def test_named_global_initializer_uses_callers_binding(self):
+  def test_named_global_initializer_rejects_callers_binding(self):
     module = curry.compile(NAMED_GLOBALS + '''
 goal :: IO Int
 goal = x =:= 42 &> readGlobalT (globalT "CPM.bound" (x+1)) where x free
 ''')
-    self.assertEqual(curry.eval(module.goal).one(), 43)
+    with self.assertRaisesRegex(curry.EvaluationError,
+        'initial value of global CPM.bound depends on its caller'):
+      curry.eval(module.goal).one()
 
-  def test_named_global_initializer_uses_callers_choice(self):
+  def test_named_global_initializer_rejects_callers_choice(self):
     module = curry.compile(NAMED_GLOBALS + '''
 goal :: GlobalT Int
 goal = if x == 22 then globalT "CPM.decided" (x+1) else failed
   where x = 11 ? 22
 ''')
-    handle = curry.eval(module.goal).one()
-    self.assertEqual(curry.eval(module.readGlobalT(handle)).one(), 23)
+    with self.assertRaisesRegex(curry.EvaluationError,
+        'initial value of global CPM.decided depends on its caller'):
+      curry.eval(module.goal).one()
 
   @cytest.with_flags(interpret='all', jit='off', rotation='steps:7')
   def test_named_global_multiple_initial_values_after_rotation(self):
@@ -193,9 +156,11 @@ initialize n = readGlobalT (globalT "CPM.python" (callback n))
     self.assertEqual(first.eval(a.initialize(31)).one(), 42)
     self.assertEqual(second.eval(b.initialize(51)).one(), 62)
     self.assertEqual(calls, [31, 51])
-    self.assertEqual(first.eval(a.initialize(0)).one(), 42)
-    self.assertEqual(second.eval(b.initialize(0)).one(), 62)
-    self.assertEqual(calls, [31, 51])
+    for interp, module in ((first, a), (second, b)):
+      with self.assertRaisesRegex(curry.EvaluationError,
+          'initial value of global CPM.python depends on its caller'):
+        interp.eval(module.initialize(0)).one()
+    self.assertEqual(calls, [31, 51, 0, 0])
 
   def test_named_global_collection_during_initialization(self):
     import gc
@@ -307,3 +272,26 @@ useHandle = do
       native.gc_verify()
       curry.eval(module.useHandle).one()
       self.assertEqual(path.read_bytes(), b'm')
+
+
+# Every initializer regression runs in a reaped, bounded child. Preserve the
+# normal TestCase setup, teardown and per-method interpreter flags there.
+def bounded(method):
+  def run(self):
+    code = """
+import unittest
+from unit_issue215 import TestIssue215
+case = TestIssue215(%r)
+case.%s = lambda: TestIssue215.%s.original(case)
+result = unittest.TextTestRunner().run(unittest.TestSuite([case]))
+assert result.wasSuccessful()
+""" % (method.__name__, method.__name__, method.__name__)
+    proc = cytest.run_in_subprocess(code, timeout=60)
+    self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+  run.original = method
+  return run
+
+
+for name in list(vars(TestIssue215)):
+  if name.startswith('test_'):
+    setattr(TestIssue215, name, bounded(getattr(TestIssue215, name)))

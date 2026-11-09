@@ -53,6 +53,7 @@ namespace curryrt
       Configuration * C, xid_type vid, size_t * level
     )
   {
+    this->check_closed(vid);
     auto p = C->bindings->find(vid);
     if(p != C->bindings->end())
     {

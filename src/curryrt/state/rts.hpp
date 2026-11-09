@@ -47,7 +47,12 @@ namespace curryrt
     ModuleRegistry modules;
     // Named Data.Global values, shared by this interpreter's evaluations.
     // The collector traces them with the other interpreter roots.
-    std::unordered_map<std::string, Node *> globals;
+    struct Global
+    {
+      Node * initial;
+      Node * value;
+    };
+    std::unordered_map<std::string, Global> globals;
     uint32_t hot_threshold = 0;
     bool llvm_hot = true;
     xid_type    xidfactory = 0;
@@ -74,6 +79,10 @@ namespace curryrt
     Set(Set const &) = delete;
     Set & operator=(Set const &) = delete;
     std::unordered_set<xid_type> escape_set;
+    // Only Data.Global initializer capsules require a closed computation.
+    // IDs below this boundary were allocated by the caller.
+    std::string closed_error;
+    xid_type closed_boundary = 0;
     // The mark of the current collection.
     bool marked = false;
   };
@@ -308,6 +317,7 @@ namespace curryrt
     void push_queue(Queue *, TraceOpt=TRACE);
     void pop_queue(TraceOpt=TRACE);
     bool choice_escapes(Configuration *, xid_type);
+    void check_closed(xid_type) const;
     bool owns_decision(Configuration *, xid_type);
     void record_failure(Configuration *, Variable const * inductive);
     // The level of an outside failure that crossed the guards of ``sets``

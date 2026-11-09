@@ -1,5 +1,6 @@
 #include "curryrt/builtins.hpp"
 #include "curryrt/checker.hpp"
+#include "curryrt/exceptions.hpp"
 #include "curryrt/state/rts.hpp"
 #include <algorithm>
 
@@ -23,6 +24,16 @@ namespace curryrt
     if(trace && this->trace)
       this->trace->activate_queue(this->Q());
     #endif
+  }
+
+  // Reject a demand on state predating any enclosing global initializer.
+  // Check every boundary so an ordinary nested capsule cannot absorb it.
+  void RuntimeState::check_closed(xid_type id) const
+  {
+    for(Queue * queue: this->qstack)
+      if(Set * set = queue->set)
+        if(!set->closed_error.empty() && id < set->closed_boundary)
+          throw EvaluationError(set->closed_error);
   }
 
   // Tells whether the choice at the root of C, the front of the current
@@ -60,6 +71,7 @@ namespace curryrt
   {
     if(!this->in_recursive_call())
       return false;
+    this->check_closed(cid);
     bool escapes = C->escape_all;
     auto const rbegin = this->qstack.rbegin(), rend = this->qstack.rend();
     for(auto p=rbegin; !escapes && p!=rend; ++p)

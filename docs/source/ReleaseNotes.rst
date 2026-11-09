@@ -5,6 +5,8 @@ Release Notes
 Unreleased
 ==========
 
+- Require closed initializers and one definition per key for ``Data.Global.globalT``; caller dependencies and conflicting initial values raise a named ``EvaluationError`` (#266, owner decision of 2026-11-08).
+
 - Implement ``Data.Global`` temporary globals with interpreter-owned storage,
   copied reads and initialization in the caller's encapsulated search (one
   ground value is stored, no value fails, multiple values raise an error naming

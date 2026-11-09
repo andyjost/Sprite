@@ -140,6 +140,7 @@ namespace curryrt
 
   ChoiceState RuntimeState::read_fp(Configuration * C, xid_type cid)
   {
+    this->check_closed(cid);
     auto gid = C->grp_id(cid);
     auto lr = C->fingerprint.test(gid);
     if(lr == UNDETERMINED)
