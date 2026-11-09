@@ -28,6 +28,7 @@ statement, so an interpreted function takes the steps of its compiled form:
 The names of the opcodes (OPCODES) and their numbers agree with the enum of
 curryrt/icurry.hpp; a unit test compares them with the runtime.
 '''
+from ..refusals import missing_external_message
 from ...exceptions import CompileError
 from ... import icurry
 from ...utility import strings, visitation
@@ -224,7 +225,7 @@ class _Emitter(object):
     if self.ifun.is_external:
       # As the generator does for an external without a definition: a call
       # of error with the message.
-      message = '%s: not implemented (no primitive in the runtime)' % self.ifun.fullname
+      message = missing_external_message(self.ifun.fullname)
       block = icurry.IBlock(
           [], [], icurry.IReturn(
               icurry.IFCall('Prelude.prim_error', [icurry.IString(message)])

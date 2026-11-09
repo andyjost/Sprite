@@ -240,6 +240,47 @@ class TestImage(cytest.TestCase):
         toolchain.makecurry(plan, source, curry.path, is_sourcefile=True)
       self.assertEqual(writes.call_count, 0)
 
+  def test_staleness_checks_refusal_version(self):
+    from curry.backends.refusals import DIAGNOSTIC_VERSION
+    from curry.toolchain._icurry2image import ICurry2Image
+    with tempfile.TemporaryDirectory() as directory:
+      source = os.path.join(directory, 'ImageRefusalVersion.curry')
+      with open(source, 'w') as stream:
+        stream.write('module ImageRefusalVersion where\nanswer :: Int\nanswer = 42\n')
+      plan = toolchain.plans.makeplan(curry._interpreter_,
+          toolchain.plans.MAKE_ICURRY | toolchain.plans.MAKE_IMAGE)
+      search = [directory] + list(curry.path)
+      toolchain.makecurry(plan, source, search, is_sourcefile=True)
+      path = image.filename(source)
+      header = image.read(path)
+      self.assertEqual(header['refusals'], DIAGNOSTIC_VERSION)
+      with open(path, 'rb') as stream:
+        data = stream.read()
+      _, _, size = image.PREFIX.unpack_from(data)
+      body = data[image.PREFIX.size + size:]
+      for check_budget in (True, False):
+        with open(path, 'wb') as stream:
+          stream.write(data)
+        step = ICurry2Image(curry._interpreter_, check_budget=check_budget)
+        self.assertFalse(step.is_stale(path, search))
+        for version in (None, DIAGNOSTIC_VERSION - 1):
+          with self.subTest(check_budget=check_budget, refusals=version):
+            old_header = dict(header)
+            if version is None:
+              del old_header['refusals']
+            else:
+              old_header['refusals'] = version
+            encoded = json.dumps(old_header, sort_keys=True,
+                separators=(',', ':')).encode('ascii')
+            with open(path, 'wb') as stream:
+              stream.write(image.PREFIX.pack(image.MAGIC, image.VERSION, len(encoded)))
+              stream.write(encoded)
+              stream.write(body)
+            self.assertTrue(step.is_stale(path, search))
+            toolchain.makecurry(plan, source, search, is_sourcefile=True)
+            self.assertEqual(image.read(path)['refusals'], DIAGNOSTIC_VERSION)
+            self.assertFalse(step.is_stale(path, search))
+
   def test_staleness_uses_loaded_import_digest(self):
     from curry.toolchain._icurry2image import ICurry2Image
     with tempfile.TemporaryDirectory() as directory:

@@ -1,3 +1,4 @@
+from ..refusals import missing_external_message
 from ...exceptions import CompileError
 from ... import config, icurry
 from ...utility import formatDocstring, maxrecursion, strings, visitation
@@ -525,7 +526,7 @@ class CompilerBase(abc.ABC):
       try:
         body = ifun.body
         if ifun.is_external:
-          msg = '%s: not implemented (no primitive in the runtime)' % ifun.fullname
+          msg = missing_external_message(ifun.fullname)
           body = icurry.IBody(icurry.IReturn(icurry.IFCall(
               'Prelude.prim_error', [icurry.IString(msg)])))
         return self.compileF(body, h_stepfunc, linesF)
