@@ -2,8 +2,33 @@
 Release Notes
 =============
 
-Unreleased
-==========
+0.9.0a3
+========
+
+Windows x64 is new. Its wheels carry the compiled Curry library and the
+interpreter. The LLVM JIT runs with the extra ``curry[jit]``. The C++
+compiler backend on Windows uses clang-cl of Visual Studio. Microsoft cl
+is not supported.
+Linux x86-64 and aarch64 and macOS 15 or newer on arm64 and x86-64
+remain as in 0.9.0a2. Windows ARM64 comes later (`#259
+<https://github.com/andyjost/Sprite/issues/259>`_).
+
+The CPM package index of 2026-11-04 has 148 packages. Of these, 60 have a
+test suite for the current ``base`` library: 44 pass, 15 are known
+exceptions and 1 is open. The CPM tools are tested on Linux only.
+The known exceptions fall into five classes:
+
+1. Results depend on the schedule or search order: ``allvalues``,
+   ``searchtree``, ``searchtree-unsafe``, ``global-variables``.
+2. Sprite is stricter than PAKCS under a schedule-independent rule:
+   ``flatcurry-xml`` rejects a choice that reaches an I/O step (#216).
+3. The package installs a module the runtime implements: ``base``, ``setfunctions``.
+4. The package binds a PAKCS constraint solver: ``clp-pakcs``, ``clpbool``.
+5. An external tool is absent, or the package is broken upstream under PAKCS too:
+   ``contract-prover``, ``db-pakcs``, ``dsdcurry``, ``property-prover``, ``ui``, ``wui``.
+
+The open package is ``currypp``: Contracts times out (#247, caused by #251),
+and DefaultRules times out (#242).
 
 - Record the CPM support rule of 2026-11-08 (#262). Sprite supports
   features whose result sets do not depend on the schedule or search order.
