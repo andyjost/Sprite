@@ -876,15 +876,9 @@
     },
     "contract-prover": {
       "version": "4.0.0",
-      "measured_seconds": 241.0,
-      "result": "exception",
-      "reason": "Class 5: With z3 4.16.0, the revAcc postcondition exceeds the upstream four-second solver limit; a direct PAKCS 3.10.0 run also reports z3 timeout and leaves revAcc unverified. CI uses its apt z3 version.",
-      "shard": 7,
-      "failure_class": "test failure",
-      "failure_set": [
-        "test: class: test failure",
-        "test: diagnostic: Rev.curry: FULL CONTRACT VERIFICATION FAILED!"
-      ]
+      "measured_seconds": 514.8,
+      "result": "pass",
+      "shard": 7
     },
     "coosy": {
       "version": "3.1.0",
@@ -1089,16 +1083,9 @@
     },
     "property-prover": {
       "version": "2.0.0",
-      "measured_seconds": 503.2,
-      "result": "exception",
-      "reason": "Class 5: With z3 4.16.0, the revAcc query exceeds the upstream four-second solver limit; the interactive solver then closes and the package reports EOF. The SMT query captured under PAKCS 3.10.0 also returns timeout with z3 4.16.0. CI uses its apt z3 version.",
-      "shard": 1,
-      "failure_class": "test failure",
-      "failure_set": [
-        "test: class: test failure",
-        "test: diagnostic: ERROR: i/o error: EOF",
-        "test: diagnostic: Rev.curry: FULL VERIFICATION FAILED!"
-      ]
+      "measured_seconds": 1549.9,
+      "result": "pass",
+      "shard": 1
     },
     "queue": {
       "version": "3.0.0",
@@ -1296,13 +1283,13 @@
     "package_budget_minutes": 90,
     "measured_seconds": [
       675.1,
-      762.0,
+      1808.7,
       2092.2,
       665.8,
       682.8,
       676.6,
       632.3,
-      682.7
+      956.5
     ]
   }
 }

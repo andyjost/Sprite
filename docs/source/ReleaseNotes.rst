@@ -14,7 +14,7 @@ remain as in 0.9.0a2. Windows ARM64 comes later (`#259
 <https://github.com/andyjost/Sprite/issues/259>`_).
 
 The CPM package index of 2026-11-04 has 148 packages. Of these, 60 have a
-test suite for the current ``base`` library: 44 pass, 15 are known
+test suite for the current ``base`` library: 46 pass, 13 are known
 exceptions and 1 is open. The CPM tools are tested on Linux only.
 The known exceptions fall into five classes:
 
@@ -25,7 +25,11 @@ The known exceptions fall into five classes:
 3. The package installs a module the runtime implements: ``base``, ``setfunctions``.
 4. The package binds a PAKCS constraint solver: ``clp-pakcs``, ``clpbool``.
 5. An external tool is absent, or the package is broken upstream under PAKCS too:
-   ``contract-prover``, ``db-pakcs``, ``dsdcurry``, ``property-prover``, ``ui``, ``wui``.
+   ``db-pakcs``, ``dsdcurry``, ``ui``, ``wui``.
+
+``contract-prover`` and ``property-prover`` pass with z3 4.8.12, the version
+that the CI job installs; with z3 4.16.0 their proofs exceed the upstream
+four-second solver limit, under PAKCS 3.10.0 too.
 
 The open package is ``currypp``: Contracts times out (#247, caused by #251),
 and DefaultRules times out (#242).
