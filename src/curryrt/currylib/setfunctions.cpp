@@ -57,8 +57,6 @@ namespace curryrt { inline namespace
       }
       catch(EvaluationSuspended const &)
       {
-        if(!seteval->set->closed_error.empty())
-          throw EvaluationError(seteval->set->closed_error);
         // All capsule alternatives are waiting. Suspend this caller on
         // their variables, so its other alternatives can still run and a
         // later binding can wake this configuration and its capsule.

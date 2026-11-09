@@ -53,7 +53,6 @@ namespace curryrt
       Configuration * C, xid_type vid, size_t * level
     )
   {
-    this->check_closed(vid);
     auto p = C->bindings->find(vid);
     if(p != C->bindings->end())
     {
@@ -85,6 +84,8 @@ namespace curryrt
       }
       if(node)
       {
+        if(k)
+          this->check_closed_level(k);
         if(k && k == n - 1 && Q->size() == 1)
         {
           this->qstack.back()->absorbed[vid] = node;
@@ -135,6 +136,7 @@ namespace curryrt
   {
     assert(C->cursor()->info->tag == T_FREE);
     xid_type vid = obj_id(C->cursor());
+    this->check_closed_variable(vid);
     xid_type gid = C->grp_id(vid);
     size_t level = 0;
     char const * kind = "binding";
@@ -186,6 +188,7 @@ namespace curryrt
     bool const decided_wanted = values && values->kind == 'd';
     if(free_wanted)
       values = nullptr;
+    this->check_closed_variable(obj_id(slot));
     xid_type const gid = C->grp_id(obj_id(slot));
     bool const narrow = free_wanted
         ? !decided_wanted && !this->get_binding(C, gid)

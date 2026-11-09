@@ -80,9 +80,7 @@ namespace curryrt
     Set & operator=(Set const &) = delete;
     std::unordered_set<xid_type> escape_set;
     // Only Data.Global initializer capsules require a closed computation.
-    // IDs below this boundary were allocated by the caller.
     std::string closed_error;
-    xid_type closed_boundary = 0;
     // The mark of the current collection.
     bool marked = false;
   };
@@ -167,6 +165,7 @@ namespace curryrt
     // SetEval nodes of the set functions under evaluation.
     std::unique_ptr<Queue> root_queue;
     qstack_type            qstack;
+    size_t                 closed_capsules = 0;
     // C-stack guard.  An evaluation may use ``stack_room`` bytes of C stack
     // below ``stack_base``, the frame of the outermost procD.  ``stack_room``
     // is ``stack_limit`` (from the flag) clamped to the stack of the thread
@@ -317,7 +316,8 @@ namespace curryrt
     void push_queue(Queue *, TraceOpt=TRACE);
     void pop_queue(TraceOpt=TRACE);
     bool choice_escapes(Configuration *, xid_type);
-    void check_closed(xid_type) const;
+    void check_closed_level(size_t) const;
+    void check_closed_variable(xid_type) const;
     bool owns_decision(Configuration *, xid_type);
     void record_failure(Configuration *, Variable const * inductive);
     // The level of an outside failure that crossed the guards of ``sets``

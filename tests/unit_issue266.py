@@ -38,16 +38,35 @@ plus :: Int -> Int -> Int
 plus n x = n+x
 other :: Int -> Int
 other x = x+1
+shared, independent :: GlobalT (Bool -> (Int,Int))
+shared = globalT "Closed.sharing" (const (x,x)) where x = 0 ? 1
+independent = globalT "Closed.sharing" (const (0 ? 1, 0 ? 1))
+unbound :: Int
+unbound = x where x free
+internal :: GlobalT Int
+internal = globalT "Closed.internal" unbound
+coin :: Int
+coin external
+hidden :: GlobalT Bool
+hidden = globalT "Closed.hidden" (isEmpty (set0 coin))
 '''
 
 
 def check(case, mode):
   import curry
   from unit_cpm_primitives import NAMED_GLOBALS
+  # Keep unbound as a call inside the capsule: inlining it into internal
+  # would move the free-variable declaration into the caller.
   curry.reset(interpret=mode, jit='off', checker=True,
-              rotation=os.environ['SPRITE_ROTATION'])
+              rotation=os.environ['SPRITE_ROTATION'],
+              **({'inline_budget': 0} if case == 'internal' else {}))
   source = NAMED_GLOBALS.replace('data GlobalT',
       'import Control.SetFunctions\ndata GlobalT')
+  # The raw bridge deliberately returns the same retained graph, so this
+  # checks ownership after an independent evaluation, not allocation age.
+  from curry.backends.cxx import curryrtbindings as native
+  coin = cytest.raw.expr(cytest.raw.choice(0, 1))
+  native._register_primitive('Data.Global.coin', 0, lambda interp: coin)
   module = curry.compile(source + SOURCE.replace('import Control.SetFunctions\n', ''))
 
   def rejects(goal, key):
@@ -74,6 +93,21 @@ def check(case, mode):
     rejects(module.function(module.plus(2)), 'Closed.function')
     # Distinct heads are distinct definitions even with equal behavior.
     rejects(module.function(module.other), 'Closed.function')
+  elif case in ('sharing', 'sharing_reverse'):
+    first, second = ((module.shared, module.independent) if case == 'sharing'
+                     else (module.independent, module.shared))
+    curry.eval(first).one()
+    rejects(second, 'Closed.sharing')
+  elif case == 'internal':
+    try:
+      list(curry.eval(module.internal))
+    except curry.SuspensionError as error:
+      assert 'depends on its caller' not in str(error), str(error)
+    else:
+      raise AssertionError('internal free variable did not suspend')
+  elif case == 'hidden':
+    assert sorted(int(curry.show(x)) for x in cytest.raw.values(coin)) == [0, 1]
+    assert curry.eval(module.readGlobalT(module.hidden)).one() is False
   elif case == 'deterministic':
     assert curry.eval(module.readGlobalT(module.constant)).one() == 42
     for _ in range(2):
@@ -124,3 +158,13 @@ class TestIssue266(cytest.TestCase):
 
   def test_top_level_and_deterministic_argument(self):
     self.child('deterministic')
+
+  def test_shared_top_level_choice_after_enumeration(self):
+    self.child('hidden')
+
+  def test_function_capture_sharing(self):
+    self.child('sharing')
+    self.child('sharing_reverse')
+
+  def test_internal_free_variable_suspends(self):
+    self.child('internal')

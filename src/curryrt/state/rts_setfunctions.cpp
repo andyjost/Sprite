@@ -10,6 +10,8 @@ namespace curryrt
   {
     assert(queue);
     this->qstack.push_back(queue);
+    if(queue->set && !queue->set->closed_error.empty())
+      ++this->closed_capsules;
     #ifdef SPRITE_TRACE_ENABLED
     if(trace && this->trace)
       this->trace->activate_queue(queue);
@@ -18,6 +20,8 @@ namespace curryrt
 
   void RuntimeState::pop_queue(TraceOpt trace)
   {
+    if(this->Q()->set && !this->Q()->set->closed_error.empty())
+      --this->closed_capsules;
     this->qstack.pop_back();
     assert(!this->qstack.empty());
     #ifdef SPRITE_TRACE_ENABLED
@@ -26,13 +30,26 @@ namespace curryrt
     #endif
   }
 
-  // Reject a demand on state predating any enclosing global initializer.
-  // Check every boundary so an ordinary nested capsule cannot absorb it.
-  void RuntimeState::check_closed(xid_type id) const
+  // A read from an enclosing owner crosses precisely these capsules.
+  // Called only after the encapsulation protocol found outside state,
+  // before the single-caller shortcut can absorb it into this queue.
+  void RuntimeState::check_closed_level(size_t level) const
   {
+    if(!this->closed_capsules)
+      return;
+    for(size_t k = 0; k < level; ++k)
+      if(Set * set = this->qstack[this->qstack.size() - 1 - k]->set)
+        if(!set->closed_error.empty())
+          throw EvaluationError(set->closed_error);
+  }
+
+  void RuntimeState::check_closed_variable(xid_type vid) const
+  {
+    if(!this->closed_capsules)
+      return;
     for(Queue * queue: this->qstack)
       if(Set * set = queue->set)
-        if(!set->closed_error.empty() && id < set->closed_boundary)
+        if(!set->closed_error.empty() && set->escape_set.count(vid))
           throw EvaluationError(set->closed_error);
   }
 
@@ -71,7 +88,6 @@ namespace curryrt
   {
     if(!this->in_recursive_call())
       return false;
-    this->check_closed(cid);
     bool escapes = C->escape_all;
     auto const rbegin = this->qstack.rbegin(), rend = this->qstack.rend();
     for(auto p=rbegin; !escapes && p!=rend; ++p)
@@ -236,6 +252,7 @@ namespace curryrt
   {
     size_t const n = this->qstack.size();
     assert(level > 0 && level < n);
+    this->check_closed_level(level);
     // The queue the configuration at that level runs, and the id under
     // which its configurations looked the variable up.
     Queue * target = this->qstack[n - level];

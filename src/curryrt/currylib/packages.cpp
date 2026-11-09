@@ -73,7 +73,27 @@ namespace
               Node::create_partial(&global_value), root[1]);
           Set * set = new Set();
           set->closed_error = error;
-          set->closed_boundary = rts->istate.xidfactory;
+          // Free variables already in the argument graph belong to the
+          // caller. Record them as escapes, without evaluating any thunk:
+          // variables created while evaluating that thunk belong to the
+          // capsule. Choices use SF.1 and decision ownership instead.
+          InfoTable const * unknown = Module::find_symbol(
+              rts->istate.modules, "Prelude", "unknown");
+          auto nodes = visit_unique(root[1].target);
+          while(Node * node = nodes.next())
+          {
+            // Python free markers are shared calls of unknown. Realize
+            // only this variable allocator, not an arbitrary application,
+            // so the caller's variable joins the escape set as well.
+            if(node->info == unknown)
+            {
+              Node * variable = rts->freshvar();
+              node->forward_to(variable);
+              node = variable;
+            }
+            if(node->info->tag == T_FREE)
+              set->escape_set.insert(NodeU{node}.free->vid);
+          }
           Queue * queue = new Queue(set, goal);
           if(rts->checker)
             rts->checker->capsule_entry(set, goal);
@@ -98,7 +118,10 @@ namespace
           throw std::runtime_error("Data.Global: global " + key
               + " has more than one initial value");
         // Compare closed normal forms, including partial-application heads
-        // and captures. This is structural equality, not function extensionality.
+        // and unevaluated captures under one node bijection. Equal heads,
+        // labels and sharing preserve later call-time choices; identifying
+        // a shared capture with two independent ones would not. This is
+        // conservative graph equality, not function extensionality.
         GcClamp clamp;
         Node * value = stream[0].rvalue();
         auto found = store.find(key);
@@ -109,7 +132,7 @@ namespace
           Node * initial = copy_graph(value, SKIPFWD).arg.node;
           store.emplace(key, InterpreterState::Global{initial, initial});
         }
-        else if(!logically_equal(value, found->second.initial))
+        else if(!graph_equal(value, found->second.initial))
           throw EvaluationError(error);
         root->forward_to(Node::create(ctor, root[0]));
       }

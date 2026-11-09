@@ -141,6 +141,7 @@ namespace curryrt { inline namespace
         {
           // Use the same representative and enclosing-configuration lookup
           // as is_free_in_configuration (the bound-wait readiness check).
+          rts->check_closed_variable(obj_id(cur));
           xid_type const gid = C->grp_id(obj_id(cur));
           if(Node * binding = rts->get_binding(C, gid))
           {
