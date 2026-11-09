@@ -32,7 +32,7 @@ jobs:
   build:
     name: runtime (clang-cl)
     runs-on: windows-2025
-    timeout-minutes: ${{ inputs.tier == 'full' && 120 || 60 }}
+    timeout-minutes: ${{ inputs.tier == 'full' && 120 || 80 }}
     defaults:
       run:
         shell: bash
@@ -164,7 +164,9 @@ jobs:
           python -c "from curry.backends.cxx import msvc; c, e = msvc.discover(); assert c and e.get('INCLUDE') and e.get('LIB'), (c, sorted(e))"
           python -m unittest -v unit_windows_aot unit_make.TestMake.test_sprite_make_so
       - name: Unit tier
-        timeout-minutes: ${{ inputs.tier == 'full' && 90 || 35 }}
+        # The fast tier took 1255 s to 2107 s on the same code in November
+        # 2026; allow 1.5 times the slowest recent run, rounded up to 55 minutes.
+        timeout-minutes: ${{ inputs.tier == 'full' && 90 || 55 }}
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         env:
           UNIT_TIER: ${{ inputs.tier || 'fast' }}
