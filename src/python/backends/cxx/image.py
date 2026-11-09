@@ -7,6 +7,7 @@ import logging
 import os
 import struct
 
+from ..refusals import DIAGNOSTIC_VERSION
 from ... import cache, exceptions, icurry
 from ...objects.handle import getHandle
 from ...utility.binding import binding
@@ -78,7 +79,7 @@ def _facts(interp, source, imports, registry=None):
   icy_digest = generation.product_digest('.icy') if generation is not None else digest(
       _filenames.icurryfilename(source))
   return dict(source=icy_digest, route=ROUTE_VERSION,
-      budget=interp.flags['inline_budget'], imports=imports,
+      budget=interp.flags['inline_budget'], imports=imports, refusals=DIAGNOSTIC_VERSION,
       wrappers=primitive_wrapper_names(source, interp, generation),
       registry=toolchain.registered_names(source) if registry is None else registry)
 
@@ -155,7 +156,7 @@ def _check(interp, source, path, imports=None, registry=None):
   header = read(path)
   # Check local facts before resolving any dependency of an old source.
   facts = _facts(interp, source, {}, registry)
-  if any(header.get(k) != facts[k] for k in ('source', 'route', 'budget', 'registry', 'wrappers')):
+  if any(header.get(k) != facts[k] for k in ('source', 'route', 'budget', 'registry', 'wrappers', 'refusals')):
     raise ValueError('stale module image')
   if imports is not None and header['imports'] != imports:
     raise ValueError('stale module image imports')
