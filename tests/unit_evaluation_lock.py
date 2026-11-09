@@ -25,16 +25,19 @@ class TestEvaluationLock(cytest.TestCase):
     self.child('''
 owned = threading.Event()
 release = threading.Event()
+# The handshake forces contention. A large recursive length only makes
+# collection at every step expensive in collector stress mode (#276).
+count = 1000
 def counted(hold=False):
   def values():
     if hold:
       owned.set()
       assert release.wait(10)
-    yield from range(100000)
+    yield from range(count)
   return Evaluator(cytest.raw.interp(),
       cytest.raw.expr(M.lengthInts, values(), typed=True))
 serial = counted()
-assert run(serial) == [100000]
+assert run(serial) == [count]
 expected = serial.rts.steps_total
 from curry.backends.cxx.curryrtbindings import _curryrtbindings as native
 before = native._heap_status()
@@ -60,7 +63,7 @@ finally:
   release.set()
   for thread in threads: thread.join()
 assert not errors, errors
-assert values == [[100000], [100000]], values
+assert values == [[count], [count]], values
 assert [ev.rts.steps_total for ev in runs] == [expected, expected]
 assert native._heap_status()['waits'] > before['waits']
 assert curry.stats()['steps'] == 3 * expected, curry.stats()
