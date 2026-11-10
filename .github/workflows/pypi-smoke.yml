@@ -1,0 +1,123 @@
+name: Smoke test of a published release
+
+'on':
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version of curry to install, for example 0.9.0a3'
+        required: true
+        type: string
+      index:
+        description: Package index for curry
+        type: choice
+        options: [pypi, testpypi]
+        default: pypi
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ${{ matrix.platform.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.11', '3.15']
+        platform:
+          - {runner: ubuntu-24.04, extra: '[jit]', compile: false}
+          - {runner: ubuntu-24.04-arm, extra: '[jit]', compile: false}
+          - {runner: macos-15, extra: '[jit]', compile: false}
+          - {runner: macos-15-intel, extra: '', compile: false}
+          - {runner: windows-2025, extra: '[jit]', compile: true}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            scripts/wheels/smoke.py
+            examples/Peano.curry
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          allow-prereleases: true
+      - name: Install the release and run the smoke tests
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+          RELEASE_INDEX: ${{ inputs.index }}
+          RELEASE_EXTRA: ${{ matrix.platform.extra }}
+          SMOKE_COMPILE: ${{ matrix.platform.compile }}
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          import shutil
+          import subprocess
+          import sys
+          import tempfile
+          import time
+          import venv
+
+          checkout = Path(os.environ['GITHUB_WORKSPACE'])
+          version = os.environ['RELEASE_VERSION']
+          extra = os.environ['RELEASE_EXTRA']
+          with tempfile.TemporaryDirectory(dir=os.environ['RUNNER_TEMP']) as directory:
+              work = Path(directory)
+              environment = work / 'venv'
+              venv.create(environment, with_pip=True)
+              windows = sys.platform == 'win32'
+              scripts = environment / ('Scripts' if windows else 'bin')
+              python = scripts / ('python.exe' if windows else 'python')
+              pip = [str(python), '-m', 'pip', '--isolated']
+              os.chdir(work)
+
+              def run(*args, **kwargs):
+                  # Argument lists preserve Windows paths with spaces.
+                  subprocess.run([str(arg) for arg in args], check=True, **kwargs)
+
+              # Allow the first attempt plus three retries for index lag.
+              for attempt in range(4):
+                  try:
+                      requirement = f'curry{extra}=={version}'
+                      if os.environ['RELEASE_INDEX'] == 'testpypi':
+                          # Fetch only curry from TestPyPI, then resolve dependencies on PyPI.
+                          # A local wheel prevents any fallback to curry from PyPI.
+                          with tempfile.TemporaryDirectory(dir=work) as wheelhouse:
+                              run(*pip, 'download', '--pre', '--no-cache-dir',
+                                  '--no-deps', '--only-binary=:all:',
+                                  '--index-url', 'https://test.pypi.org/simple/',
+                                  '--dest', wheelhouse, f'curry=={version}')
+                              wheel, = Path(wheelhouse).glob('*.whl')
+                              run(*pip, 'install', '--pre', '--no-cache-dir',
+                                  '--index-url', 'https://pypi.org/simple/',
+                                  f'{wheel}{extra}')
+                      else:
+                          run(*pip, 'install', '--pre', '--no-cache-dir',
+                              '--only-binary=curry',
+                              '--index-url', 'https://pypi.org/simple/', requirement)
+                      break
+                  except subprocess.CalledProcessError:
+                      if attempt == 3:
+                          raise
+                      print('Install failed; retry after 60 seconds.', flush=True)
+                      time.sleep(60)
+
+              run(*pip, 'list')
+              run(python, '-c',
+                  'from importlib.metadata import version; import sys; '
+                  'installed = version("curry"); print("curry", installed); '
+                  'sys.exit(0 if installed == sys.argv[1] else 1)', version)
+              smoke = checkout / 'scripts' / 'wheels' / 'smoke.py'
+              peano = work / 'Peano.curry'
+              shutil.copy2(checkout / 'examples' / 'Peano.curry', peano)
+              flags = ['--jit']
+              if os.environ['SMOKE_COMPILE'] == 'true':
+                  flags.append('--compile')
+              run(python, smoke, *flags, '--peano', peano)
+              if sys.platform.startswith('linux'):
+                  run(scripts / 'sprite-make', '--so', peano)
+                  assert any(path.stat().st_size for path in
+                             (work / '.curry').glob('*/Peano.so')), 'No Peano.so'
+                  run(python, smoke, '--peano', peano,
+                      env=dict(os.environ, SPRITE_INTERPRETER_FLAGS='interpret:off'))
+          PY
