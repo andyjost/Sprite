@@ -167,11 +167,12 @@ class TestImage(cytest.TestCase):
       with open(source, 'w') as stream:
         stream.write('module ImageRetryRace where\nanswer :: Int\nanswer = 42\n')
       toolchain.curry2icurry(source, curry.path)
-      code = 'from unit_image import image_input_race; image_input_race(%r, %r, %r)' % (
+      code = ('import faulthandler; faulthandler.dump_traceback_later(115); '
+          'from unit_image import image_input_race; image_input_race(%r, %r, %r)') % (
           source, phase, changes)
-      result = subprocess.run([sys.executable, '-B', '-c', code],
-          capture_output=True, text=True, timeout=5)
-      self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+      result = cytest.run_in_subprocess(code, timeout=120)
+      self.assertEqual(result.returncode, 0,
+          'child status %s\n%s\n%s' % (result.returncode, result.stdout, result.stderr))
 
   def test_incomplete_icurry_replacement_after_parse(self):
     self.check_icurry_replaced_after_parse(incomplete=True)
