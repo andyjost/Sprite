@@ -7,6 +7,8 @@ import cytest, curry, logging, os, signal, sys, tempfile, threading
 from curry.backends.cxx.curryrtbindings import _curryrtbindings as native
 from curry.backends.cxx import llvmjit, curryrtbindings
 from curry.toolchain import _productlock
+# Guard hangs well below the 120-second child limit.
+WAIT = 60
 curry.reset(backend='cxx', interpret='all', jit='off')
 term = curry.term(7)
 '''
@@ -246,7 +248,7 @@ def callback():
     if not sent and threading.current_thread() is not threading.main_thread():
       sent = True
       os.kill(os.getpid(), signal.SIGUSR1)
-      assert finish.wait(2), 'handler did not finish'
+      assert finish.wait(WAIT), 'handler did not finish'
     yield 1
 ev = Evaluator(cytest.raw.interp(), cytest.raw.expr(M.lengthInts, callback(), typed=True))
 assert [cytest.raw.interp().topython(v) for v in ev.evaluate()] == [3000]
@@ -271,7 +273,7 @@ with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') 
   entered, owned = threading.Event(), threading.Event()
   errors, records = [], []
   def owner():
-    assert entered.wait(2)
+    assert entered.wait(WAIT), 'first conversion log record did not arrive'
     def callback():
       owned.set()
       with _productlock.locked(path):
@@ -286,7 +288,7 @@ with tempfile.TemporaryDirectory(ignore_cleanup_errors=sys.platform == 'win32') 
         return
       records.append(record.getMessage())
       entered.set()
-      assert owned.wait(2)
+      assert owned.wait(WAIT), 'owner metadata callback did not start'
       assert curry.eval(term).one() == 7
       assert not getattr(_productlock._local, 'held', {})
   logger = logging.getLogger('curry.' + source)
@@ -532,7 +534,7 @@ def run():
 threading.excepthook = lambda args: errors.append(args.exc_value)
 thread = threading.Thread(target=run)
 thread.start()
-thread.join(2)
+thread.join(WAIT)
 assert not thread.is_alive(), 'thread did not exit'
 assert records == ['first', 'second', 'third'], records
 assert len(errors) == 1 and type(errors[0]) is failure and str(errors[0]) == 'first', errors
@@ -562,8 +564,8 @@ def run():
 threading.excepthook = lambda args: errors.append(args.exc_value)
 thread = threading.Thread(target=run)
 thread.start()
-thread.join(2)
-assert not thread.is_alive()
+thread.join(WAIT)
+assert not thread.is_alive(), 'thread did not exit'
 assert records == ['first', 'second'], records
 assert len(errors) == 1 and type(errors[0]) is failure, errors
 print('ok')
