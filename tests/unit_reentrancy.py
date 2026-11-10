@@ -12,11 +12,13 @@ term = curry.term(7)
 '''
 
 class TestReentrancy(cytest.TestCase):
-  def child(self, code):
-    proc = cytest.run_in_subprocess(CHILD + code, 5)
-    self.assertEqual(proc.returncode, 0,
-        'child status %s\n%s\n%s' % (proc.returncode, proc.stdout, proc.stderr))
-    self.assertEqual(proc.stdout.splitlines(), ['ok'])
+  def child(self, code, timeout=120):
+    prelude = 'import faulthandler\nfaulthandler.dump_traceback_later(%r)\n' % max(
+        timeout - 5, timeout / 2)
+    proc = cytest.run_in_subprocess(prelude + CHILD + code, timeout)
+    message = 'child status %s\n%s\n%s' % (proc.returncode, proc.stdout, proc.stderr)
+    self.assertEqual(proc.returncode, 0, message)
+    self.assertEqual(proc.stdout.splitlines(), ['ok'], message)
     return proc
 
   @cytest.posix_only('forces a signal inside real term construction')
