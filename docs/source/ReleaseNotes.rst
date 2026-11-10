@@ -2,8 +2,8 @@
 Release Notes
 =============
 
-0.9.0a3
-========
+0.9.0a3 (2026-11-10)
+====================
 
 Windows x64 is new. Its wheels carry the compiled Curry library and the
 interpreter. The LLVM JIT runs with the extra ``curry[jit]``. The C++
@@ -43,6 +43,11 @@ and DefaultRules times out (#242).
   ``searchtree-unsafe`` and ``global-variables``. PAKCS is evidence;
   the dissertation's semantics is the reference. The release goal is that
   every CPM package works or fails with a named and documented error.
+- Add the page :doc:`Compatibility with PAKCS and KiCS2 <Compatibility>`
+  (#264). It explains what runs unchanged, what runs with a different
+  result and what Sprite refuses, with the CPM package table.
+  Errors for externals that Sprite refuses by design end with the page's
+  URL, https://andyjost.github.io/Sprite/Compatibility.html.
 - Ship 0.9.0a3 with `#251
   <https://github.com/andyjost/Sprite/issues/251>`_ as a known defect
   (decision #269, 2026-11-08). The general fix comes after the release.

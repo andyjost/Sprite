@@ -13,8 +13,8 @@ The distribution `curry` 0.9.0a2 is the current release (the tag of
 2026-10-27), with wheels for Linux x86-64 and aarch64 and macOS 15 or
 newer on Python 3.11 to 3.15; it has no Windows wheels. `curry-frontend`
 3.1.0.post2 is on PyPI since 2026-10-31 for the same platforms and
-Windows x64. The next release is not tagged; its changes collect under
-"Unreleased" in the release notes.
+Windows x64. The next release is 0.9.0a3, not yet tagged, with Windows x64
+wheels. Its changes are under the heading 0.9.0a3 in the release notes.
 
 The work happens on `master`. The refresh for current tools (Python
 3.14, PAKCS 3.4.1) was done on the branch `py314`, which `master` took
