@@ -17,6 +17,9 @@ def report_error(error):
     print('*** Evaluation suspended!', file=sys.stderr)
   else:
     print('ERROR: %s' % message_text(error), file=sys.stderr)
+    if isinstance(error, exceptions.CompileError):
+      for note in getattr(error, '__notes__', ()):
+        print(note, file=sys.stderr)
   return 1
 
 

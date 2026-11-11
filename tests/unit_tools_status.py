@@ -95,8 +95,10 @@ class TestToolsStatus(cytest.TestCase):
         proc = self.tool(tool, ')')
         self.assertEqual(proc.returncode, 1)
         self.assertEqual(proc.stdout, '')
-        self.assertRegex(proc.stderr, r'^ERROR: [^/\n]*Error:.*\n$')
+        self.assertRegex(proc.stderr, r'^ERROR: [^/\n]*Error:.*\n')
         self.assertNotIn('Traceback', proc.stderr)
+        for hidden in (tempfile.gettempdir(), os.getcwd(), config.installed_path()):
+          self.assertNotIn(str(hidden), proc.stderr)
     with tempfile.TemporaryDirectory() as directory:
       source = os.path.join(directory, 'Broken.curry')
       with open(source, 'w') as stream:
@@ -106,7 +108,7 @@ class TestToolsStatus(cytest.TestCase):
           proc = self.tool(tool, 'main', source=source)
           self.assertEqual(proc.returncode, 1)
           self.assertEqual(proc.stdout, '')
-          self.assertRegex(proc.stderr, r'^ERROR: Broken.curry:2:\d+.*Error:.*\n$')
+          self.assertRegex(proc.stderr, r'^ERROR: Broken.curry:2:\d+.*Error:.*\n')
           self.assertNotIn(directory, proc.stderr)
 
   def test_prompt_keeps_session_after_error(self):
@@ -187,7 +189,8 @@ class TestToolsStatus(cytest.TestCase):
         out, err = proc.communicate(b':reload\n:eval value\n:quit\n', timeout=TIMEOUT)
         self.assertEqual(proc.returncode, 0, err.decode())
         self.assertEqual(out.decode().replace('\r\n', '\n'), 'ReloadTool> 2\nReloadTool> ')
-        diagnostics = err.decode().splitlines()
+        diagnostics = [line for line in err.decode().splitlines()
+            if line.startswith(('ERROR:', 'WARNING:'))]
         self.assertEqual(len(diagnostics), 2, diagnostics)
         self.assertRegex(diagnostics[0], r'^ERROR: ReloadTool.curry:\d+:\d+.*Error:')
         self.assertTrue(diagnostics[1].startswith("WARNING: module 'ReloadTool' was not read again:"))
@@ -206,6 +209,8 @@ class TestToolsStatus(cytest.TestCase):
           self.assertEqual(proc.returncode, 1)
           self.assertNotIn(directory, proc.stderr)
           self.assertNotIn('Traceback', proc.stderr)
+        for hidden in (tempfile.gettempdir(), os.getcwd(), config.installed_path()):
+          self.assertNotIn(str(hidden), proc.stderr)
       make = config.installed_path('bin', 'sprite-make')
       proc = self.child([*cytest.tool_command([make]), '--icy', missing])
       self.assertEqual(proc.returncode, 1)

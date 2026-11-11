@@ -22,6 +22,46 @@ class CompileError(CurryError):
       message = first
     CurryError.__init__(self, message.strip())
     self.report, self.line, self.column = report, line, column
+    for index, (header, body) in enumerate(_diagnostic_blocks(report)):
+      if index == 0 and header.endswith('Error:'):
+        body = '\n'.join(body.splitlines()[1:])
+      note = body if index == 0 else header + ('\n' + body if body else '')
+      if note:
+        self.add_note(note)
+
+
+def _diagnostic_blocks(report):
+  import re
+  import ntpath
+  headers = re.compile(r'(?m)^([^\n]*?\.curry):(\d+):(\d+)([^\n]*\b(?:Error|Warning):[^\n]*)')
+  matches = list(headers.finditer(report.replace('\r\n', '\n')))
+  report = report.replace('\r\n', '\n')
+  import os
+  from . import config
+  import tempfile
+  directories = set()
+  for directory in (config.installed_path(), tempfile.gettempdir(), os.getcwd()):
+    for spelling in (str(directory), os.path.realpath(directory)):
+      directories.add(spelling.rstrip('/\\'))
+      if os.name == 'nt':
+        directories.add(spelling.replace('\\', '/').rstrip('/'))
+        directories.add(spelling.replace('/', '\\').rstrip('\\'))
+  prefixes = '|'.join(re.escape(path) for path in sorted(directories, key=len, reverse=True) if path)
+  paths = re.compile(r"(?<![\w:/\\])(?:" + prefixes + r")[/\\][^\s'\"<>:;,()]+")
+  def message_text(text):
+    return paths.sub(lambda match: ntpath.basename(match[0]), text)
+  for index, match in enumerate(matches):
+    if 'Error:' not in match[4]:
+      continue
+    end = matches[index + 1].start() if index + 1 < len(matches) else len(report)
+    lines = report[match.end():end].splitlines()
+    body = []
+    for line in lines:
+      if line and not line[0].isspace():
+        break
+      body.append(line)
+    header = ntpath.basename(match[1]) + ':' + match[2] + ':' + match[3] + match[4]
+    yield message_text(header), message_text('\n'.join(body).strip('\n'))
 
 class NotConstructorError(CurryError, ValueError):
   '''Raised when a non-constructor value occurs where disallowed.'''
