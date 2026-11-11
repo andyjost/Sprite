@@ -1109,5 +1109,28 @@ def text_error(error, text, imports, lifted):
     column = max(1, column - len(COMPILED_NAME) - sum(len(n) + 1 for n in names) - 3)
   message = report.split('Error:', 1)[-1].strip().splitlines()[0]
   result = CompileError('%d:%d Error: %s' % (line, column, message))
+  from ..exceptions import _diagnostic_blocks
+  from ..interpreter.compile import COMPILED_NAME
+  for index, (header, body) in enumerate(_diagnostic_blocks(report)):
+    if index == 0 and header.endswith('Error:'):
+      body = '\n'.join(body.splitlines()[1:])
+    explanation = []
+    for part in body.splitlines():
+      if re.match(r'^\s*(?:\d+\s*)?\|', part):
+        break
+      explanation.append(part.replace(COMPILED_NAME, 'expression'))
+    note = '\n'.join(explanation).strip('\n')
+    if index:
+      position = re.search(r':(\d+):(\d+).*?Error:(.*)', header)
+      mapped_line = max(1, int(position[1]) - prefix_lines)
+      mapped_column = int(position[2])
+      if mapped_line == 1:
+        from ..typecheck.goals import split_where_free
+        _, names = split_where_free(text)
+        mapped_column = max(1, mapped_column - len(COMPILED_NAME) - sum(len(n) + 1 for n in names) - 3)
+      first = '%d:%d Error:%s' % (mapped_line, mapped_column, position[3])
+      note = first + ('\n' + note if note else '')
+    if note:
+      result.add_note(note)
   result.report, result.line, result.column = report, line, column
   return result

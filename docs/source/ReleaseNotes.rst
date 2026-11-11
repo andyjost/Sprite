@@ -2,6 +2,11 @@
 Release Notes
 =============
 
+Unreleased
+==========
+
+A compile error now shows the front end's whole diagnostic below its first line (#285).
+
 0.9.0a3 (2026-11-10)
 ====================
 

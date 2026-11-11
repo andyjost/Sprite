@@ -50,6 +50,11 @@ def carp(exc_value, program_name=None, hint_timeout_sec=1, hint_kwds={}):
   for line in exc_message.split('\n'):
     line = line.strip()
     write_ln('%s\n' % line)
+  from ..exceptions import CompileError
+  if isinstance(exc_value, CompileError):
+    for note in getattr(exc_value, '__notes__', ()):
+      for line in note.splitlines():
+        write_ln('%s\n' % line)
   # If a hint attribute was attached to the exception, then evaluate it and
   # display the result.
   if hasattr(exc_value, 'hint'):
