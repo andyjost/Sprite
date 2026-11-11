@@ -30,7 +30,9 @@ class TestDiagnostic(cytest.TestCase):
 
   def test_module_type(self):
     error = self.module_error('f :: Int -> Int\nf x = x ++ [1]\n')
-    self.assertEqual(str(error), 'Bad285.curry:3:1-3:14 Error: Type error in function definition')
+    # Front end 3.1.0 names the function definition, 2.0.0 the equation.
+    self.assertRegex(str(error),
+        r'^Bad285\.curry:3:1-3:14 Error: Type error in (function definition|equation)$')
     notes = self.check_notes(error)
     for text in ('Inferred type', 'Expected type', 'f x = x ++ [1]'):
       self.assertIn(text, notes)
@@ -50,7 +52,7 @@ class TestDiagnostic(cytest.TestCase):
     with self.assertRaises(curry.CompileError) as caught:
       curry.parse("1 + 'a'")
     notes = self.check_notes(caught.exception)
-    self.assertIn('arising from', notes)
+    self.assertRegex(notes, 'arising from infix operator|in infix application')
     self.assertNotIn('compiled_expression', notes)
     self.assertNotIn('|', notes)
 
@@ -84,7 +86,8 @@ class TestDiagnostic(cytest.TestCase):
     with self.assertRaises(curry.CompileError) as caught:
       curry.parse("(1 + True,\n 1 + 'a')")
     notes = self.check_notes(caught.exception)
-    self.assertIn('2:4 Error:', notes)
+    # The columns of the front ends differ; the line is that of the text.
+    self.assertRegex(notes, r'(?m)^2:\d+ Error:')
     self.assertIn('Prelude.Char', notes)
     self.assertNotIn('|', notes)
 
