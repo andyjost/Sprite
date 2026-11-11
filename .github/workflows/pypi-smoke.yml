@@ -69,10 +69,10 @@ jobs:
               scripts = environment / ('Scripts' if windows else 'bin')
               python = scripts / ('python.exe' if windows else 'python')
               pip = [str(python), '-m', 'pip', '--isolated']
-              os.chdir(work)
 
               def run(*args, **kwargs):
                   # Argument lists preserve Windows paths with spaces.
+                  kwargs.setdefault('cwd', work)
                   subprocess.run([str(arg) for arg in args], check=True, **kwargs)
 
               # Allow the first attempt plus three retries for index lag.
