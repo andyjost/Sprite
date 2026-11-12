@@ -27,6 +27,10 @@ on:
         description: Build the C++ runtime with the counters of writes into old nodes (make GC_WRITE_COUNTERS=1) and run the tests of the collector on it as well
         type: boolean
         default: false
+      cpm_outage:
+        description: Test the docs CPM cache fallback with an unreachable server
+        type: boolean
+        default: false
 
 env:
   PAKCS_VERSION: '3.10.0'
@@ -847,7 +851,22 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with:
           path: object-root/docs/html
+      - name: Set the daily CPM cache key
+        id: cpm_cache_key
+        run: echo "key=cpm-docs-v1-$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
+      - name: Restore the docs CPM cache
+        id: cpm_cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ${{ runner.temp }}/sprite-cpm-home/.cpm/index
+            ${{ runner.temp }}/sprite-cpm-home/.cpm/packages
+          key: ${{ steps.cpm_cache_key.outputs.key }}
+          restore-keys: cpm-docs-v1-
       - name: Run containers through the Curry Package Manager
+        id: cpm_smoke
+        env:
+          CPM_OUTAGE: ${{ inputs.cpm_outage }}
         run: |
           pakcs_home="$HOME/pakcs-$PAKCS_VERSION"
           export HOME="$RUNNER_TEMP/sprite-cpm-home"
@@ -855,7 +874,12 @@ jobs:
           export LC_ALL=C.UTF-8
           export PATH="$PWD/install/bin:$pakcs_home/bin:$PATH"
           export PYTHONPATH="$PWD/install/python${PYTHONPATH:+:$PYTHONPATH}"
-          if [ ! -f "$HOME/.cpmrc" ]; then
+          if [ "$CPM_OUTAGE" = true ]; then
+            cat > "$HOME/.cpmrc" <<'CPMRC'
+          PACKAGEINDEXURL=http://127.0.0.1:9/PACKAGES/INDEX.tar.gz
+          PACKAGETARFILESURL=http://127.0.0.1:9/PACKAGES
+          CPMRC
+          else
             cat > "$HOME/.cpmrc" <<'CPMRC'
           PACKAGEINDEXURL=https://cpm.curry-lang.org/PACKAGES/INDEX.tar.gz
           PACKAGETARFILESURL=https://cpm.curry-lang.org/PACKAGES
@@ -877,7 +901,7 @@ jobs:
           cat > package.json <<'JSON'
           {"name":"sprite-cpm-smoke","version":"0.0.1","author":"Sprite","synopsis":"Sprite package smoke test","dependencies":{"containers":">= 3.0.0, < 4.0.0"}}
           JSON
-          timeout 600 cypm update
+          "$GITHUB_WORKSPACE/.github/scripts/cpm-update-or-cached.sh"
           timeout 1800 cypm -d CURRYBIN="$pakcs_home/bin/pakcs" install currypp
           # PAKCS generates currypp with its own default stack options.
           limit_stack "$HOME/.cpm/bin/currypp"
@@ -918,6 +942,14 @@ jobs:
             cat .cache/runner/cxx/unit_cpm_repl.py.log || true
           fi
           exit "$status"
+      - name: Save the docs CPM cache
+        if: steps.cpm_smoke.outcome == 'success' && steps.cpm_smoke.outputs.fresh == 'true' && steps.cpm_cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ${{ runner.temp }}/sprite-cpm-home/.cpm/index
+            ${{ runner.temp }}/sprite-cpm-home/.cpm/packages
+          key: ${{ steps.cpm_cache_key.outputs.key }}
 
   deploy-docs:
     name: deploy docs
