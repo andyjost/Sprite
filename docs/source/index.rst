@@ -6,31 +6,31 @@ Sprite
 
 Sprite is an implementation of the multi-paradigm programming language
 `Curry`_, embedded in Python. It seamlessly integrates features of functional
-programming (algebraic data types, pattern matching, strong typing, type
-inference, lazy evaluation) and logic programming (nondeterminism, logic
-variables, search) into your Python project. It depends on one small
-package, the Curry front end; the optional LLVM JIT is a separate extra you add
-when you want it. The functional side rests on a powerful and efficient term rewriting engine: a
-program is a set of rewrite rules, applied lazily and only as far as a result
-demands. For the logic side, you state what a desired value has to satisfy and
-leave the search to Sprite. As a result, many programs are trivial to construct
-and obviously correct.
-Sprite's evaluation strategy, the Fair Scheme, is proved sound, complete, and
-optimal; it computes all and only the values of any source expression and
-takes only needed steps, which are unavoidable. The strategy and its proofs
-are written up in a `dissertation`_ and a shorter `paper`_.
+programming and logic programming into your Python project. These features
+include algebraic data types, pattern matching, strong typing, type inference,
+lazy evaluation, nondeterminism, logic variables, and search. Curry follows
+Haskell's syntax while adding its own semantics. Its only dependency is one
+small package, the Curry front end.
 
-Curry imports directly into Python. Your project uses it at whatever granularity
-it chooses, freely mixing imperative, functional, and logic styles. In other
-words, you always get to use the best tool exactly where it makes sense.
+The functional side rests on graph rewriting, the well-studied evaluation model
+behind lazy languages such as Haskell. Here, a program is a set of rewrite
+rules, applied lazily and only as far as a result demands. For the logic side,
+you state what a desired value has to satisfy, leaving search to the runtime.
+Many programs then read as their own specification, which keeps them simple,
+short, and obviously correct. Sprite's evaluation strategy, the Fair Scheme, is
+proved sound, complete, and optimal. This means it computes all and only the
+values of any source expression, and every step it takes is one that any
+strategy must take. The strategy and its proofs are written up in a
+`dissertation`_ and a shorter `paper`_.
 
-Curry code runs the way Python code does: import it and it runs. The import
-translates the module once, with the front end that comes in the package, and
-caches the result beside the source; no C++ compiler is needed. For speed, the
-same code compiles to native machine code, just in time as the program runs
-(the ``jit`` extra) or ahead of time into an object you can
-:doc:`embed in an application <PythonAPI/UsingTheAPI>` (a C++ compiler on your
-machine).
+With Sprite, you don't have to write your whole project in a functional or
+logic language, and deal with the integration and distribution issues that
+entails. Write the part that is naturally a search or a set of rules as a small
+Curry module, then simply import that module. The first import translates the
+module and caches the result beside the source, without a C++ compiler. For
+speed, the same code compiles to native machine code, either just in time as
+the program runs (the ``jit`` extra) or ahead of time into an object you can
+:doc:`embed in an application <PythonAPI/UsingTheAPI>`.
 
 Sprite is in alpha. Install it with ``pip install --pre curry``. Try it and
 tell us what breaks on the `issue tracker`_.
@@ -38,8 +38,7 @@ tell us what breaks on the `issue tracker`_.
 Getting started
 ===============
 
-The following Curry module defines a small type of Boolean formulas along with
-a printer.
+Here is a Curry module for Boolean formulas:
 
 .. code-block:: haskell
 
@@ -53,10 +52,10 @@ a printer.
    render (And p q) = "(" ++ render p ++ " & " ++ render q ++ ")"
    render (Or p q) = "(" ++ render p ++ " | " ++ render q ++ ")"
 
-So far this is an ordinary functional program: a data type with five
-constructors and a function defined by one equation per case, in the syntax
-Haskell made familiar. Save it next to your Python code, then import it,
-construct a formula, and render it as a string:
+The module declares a data type, ``Formula``, with five constructors, and a
+function, ``render``, over that type. This Curry snippet is also valid Haskell.
+Save it next to your Python code, then import it, construct a formula, and
+render it as a string:
 
 .. code-block:: python
 
@@ -68,10 +67,9 @@ construct a formula, and render it as a string:
    goal = L.render(formula)
    curry.eval(goal).one()             # the one value: '((T | F) & !F)'
 
-The import translates the Curry module and loads it. The
-constructors of ``Formula`` appear as ``L.T``, ``L.And``, and so on.
-``L.render(formula)`` builds an expression without running it, ``curry.eval``
-evaluates it, and Sprite converts the result to a Python string.
+The constructors of ``Formula`` and the ``render`` function appear as Python
+objects. ``L.render(formula)`` builds an expression without running it;
+``curry.eval`` evaluates it, and Sprite converts the result to a Python string.
 
 Where to go next
 ================
