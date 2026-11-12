@@ -3,8 +3,8 @@ Overload resolution as search over an algebraic model of C++ types.
 
 Builds overload sets, a class hierarchy and calls in Python, asks Curry for
 the viable candidates of each call and for the best one, and prints the
-answers.  The last scenario asks the inverse question: which argument types
-make a call ambiguous.
+answers.  The last two scenarios ask inverse questions: which argument types
+make a call ambiguous, and which pick a given candidate.
 
 Usage: python go.py
 '''
@@ -105,6 +105,12 @@ def main():
   print('(d) the argument types of depth at most %d that make the call ambiguous for %s'
         % (depth, ', '.join(signature('f', params) for _, params in fi)))
   print('  %s' % text(Overloads.ambiguousArgs, depth, fi))
+
+  # (e) The inverse question for one candidate: which argument types pick it?
+  pick = fi[2]
+  print('(e) the argument types of depth at most %d that pick %s from %s'
+        % (depth, signature('f', pick[1]), ', '.join(signature('f', params) for _, params in fi)))
+  print('  %s' % text(Overloads.pickingArgs, depth, fi, pick))
 
 if __name__ == '__main__':
   main()

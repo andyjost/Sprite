@@ -58,3 +58,26 @@ ambiguousArgs n cands =
   where
     types    = sortValues (set2 ambiguousArg n cands)
     prvalues = nub (sort (map prvalue types))
+
+-- (e) The inverse question for one candidate: an argument type of depth at
+-- most n whose call picks the candidate c as the best viable function.  As
+-- in (d), $## evaluates t to normal form before the question sees it.
+pickingArg :: Int -> [Candidate] -> Candidate -> Type
+pickingArg n cands c
+  | t =:= anyType n && (picks cands c $## t) = t
+  where t free
+
+-- Whether the call of the overload set with the one argument picks c.
+picks :: [Candidate] -> Candidate -> Type -> Bool
+picks cands c a = case resolve [] cands [a] of
+  Unique s _ -> s == showCandidate c
+  _          -> False
+
+-- The solutions in one line: the count, then every type, sorted by its
+-- C++ text.  The lvalue transformations are not applied, so an array and
+-- a pointer stay apart.
+pickingArgs :: Int -> [Candidate] -> Candidate -> String
+pickingArgs n cands c =
+  showNat (length types) ++ " types: " ++ intercalate ", " (sort (map showCxx types))
+  where
+    types = sortValues (set3 pickingArg n cands c)
