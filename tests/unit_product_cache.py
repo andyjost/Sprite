@@ -553,15 +553,13 @@ class TestCompile(ProductCacheTestCase):
       , cytest.readfile(self.cached_file(name, config.module_object_suffix() + '.abi'))
       )
     self.assertEqual(_productcache.counts, {'restored': 0, 'stored': 1})
-    # The facts name the format, registry, generator and optimizer,
-    # the budget and the route.  No fact names a tree: the installation and
-    # the source directory left the key when the objects stopped naming
-    # them (format 13), so a second tree is served (test_hit_in_another_tree).
+    # The facts include the relative source record, but no absolute tree:
+    # equivalent layouts in a second tree are served (test_hit_in_another_tree).
     facts = self.cpp2so.product_facts(os.path.join(self.srcdir, name + '.curry'))
     heads = [fact.split()[0] for fact in facts]
     self.assertEqual(
         heads
-      , ['format', 'registry', 'generator', 'optimizers', 'inline_budget', 'subdir', 'frontend']
+      , ['format', 'registry', 'source_record', 'generator', 'optimizers', 'inline_budget', 'subdir', 'frontend']
       )
     for fact in facts:
       self.assertNotIn(self.toolchain.installation_path(), fact)
@@ -618,6 +616,30 @@ class TestCompile(ProductCacheTestCase):
     self.assertEqual(os.stat(sofile).st_nlink, 2)
     module = curry.import_(name, path=[self.srcdir] + curry.path)
     self.assertEqual(list(curry.eval(module.goal)), [2])
+
+  def test_pruned_cpp_during_validation_is_a_miss(self):
+    '''Pruning cached C++ after its receipt is read falls back to a compile.'''
+    name = self.write_image(286)
+    sofile = makecurry(self.plan, name, [self.srcdir])
+    cached_cpp = os.path.join(self.entry(name), name + '.cpp')
+    self.remove_products(name)
+    source_record = self.toolchain.source_record
+
+    def prune_after_receipt(filename):
+      record = source_record(filename)
+      if filename == cached_cpp:
+        os.unlink(cached_cpp)
+      return record
+
+    _productcache.reset_counts()
+    with mock.patch.object(self.toolchain, 'source_record',
+        side_effect=prune_after_receipt), \
+        mock.patch.object(_system, 'pexec', wraps=_system.pexec) as compile:
+      self.assertEqual(makecurry(self.plan, name, [self.srcdir]), sofile)
+    self.assertGreater(compile.call_count, 0)
+    self.assertEqual(_productcache.counts['restored'], 0)
+    module = curry.import_(name, path=[self.srcdir] + curry.path)
+    self.assertEqual(list(curry.eval(module.goal)), [286])
 
   def test_stale_object_is_replaced(self):
     '''
@@ -766,6 +788,95 @@ class TestCompile(ProductCacheTestCase):
     self.assertEqual(value, [14])
     self.assertEqual(source, curryfile)
     self.assertEqual(loaded, sofile)
+
+  def test_installed_temporary_source_does_not_poison_cache(self):
+    '''An installation-relative record must not escape its source directory (#286).'''
+    producer = tempfile.mkdtemp(dir=config.installed_path('curry'),
+        prefix='product-cache-')
+    self.addCleanup(shutil.rmtree, producer, ignore_errors=True)
+    name = self.write_image(286)
+    shutil.copytree(self.srcdir, producer, dirs_exist_ok=True)
+    makecurry(self.plan, name, [producer])
+    # The producer's record names a temporary directory inside the install.
+    # The same image in another directory used to hit that cache entry.
+    shutil.rmtree(producer)
+    sofile = makecurry(self.plan, name, [self.srcdir])
+    module = curry.import_(name, path=[self.srcdir] + curry.path)
+    self.assertEqual(list(curry.eval(module.goal)), [286])
+    # A later named lookup must still find this loaded generation. Before
+    # the fix it follows the deleted producer and raises ModuleLookupError.
+    self.assertEqual(self.prerequisite(name), sofile)
+    self.assertEqual(module.__file__, os.path.join(self.srcdir, name + '.curry'))
+    self.assertEqual(_productcache.counts, {'restored': 0, 'stored': 2})
+    self.assertEqual(len(self.entries(self.cpp2so.digest())), 2)
+
+  def foreign_products(self):
+    producer = tempfile.mkdtemp(dir=config.installed_path('curry'),
+        prefix='product-cache-')
+    self.addCleanup(shutil.rmtree, producer, ignore_errors=True)
+    name = self.write_image(286)
+    shutil.copytree(self.srcdir, producer, dirs_exist_ok=True)
+    foreign = makecurry(self.plan, name, [producer])
+    producer_key = self.cpp2so.product_key(foreign, [producer])
+    files = [os.path.join(os.path.dirname(foreign), name + suffix)
+        for suffix in ('.cpp', config.module_object_suffix(),
+                       config.module_object_suffix() + '.abi')]
+    return name, producer_key, files
+
+  def test_foreign_source_record_is_a_cache_miss(self):
+    name, producer_key, files = self.foreign_products()
+    image = self.cached_file(name, '.img')
+    consumer_key = self.cpp2so.product_key(image, [self.srcdir])
+    self.assertNotEqual(producer_key, consumer_key)
+    # Seed a manifest-valid entry under the wrong key, as an older writer
+    # could do when it compiled retained C++ from another source location.
+    _productcache.store(self.cpp2so.digest(), consumer_key, files)
+    _productcache.reset_counts()
+    self.assertIsNone(self.cpp2so.restore(image, [self.srcdir]))
+    self.assertFalse(os.path.exists(self.cached_file(name, '.cpp')))
+    self.assertFalse(os.path.exists(
+        self.cached_file(name, config.module_object_suffix())))
+    sofile = makecurry(self.plan, name, [self.srcdir])
+    module = curry.import_(name, path=[self.srcdir] + curry.path)
+    self.assertEqual(list(curry.eval(module.goal)), [286])
+    self.assertEqual(self.prerequisite(name), sofile)
+    self.assertEqual(module.__file__, os.path.join(self.srcdir, name + '.curry'))
+    self.assertEqual(_productcache.counts['restored'], 0)
+
+  def test_recompiled_foreign_cpp_is_not_stored(self):
+    name, producer_key, files = self.foreign_products()
+    for path in files:
+      shutil.copy2(path, os.path.join(self.subdir, os.path.basename(path)))
+    cppfile = self.cached_file(name, '.cpp')
+    sofile = self.cached_file(name, config.module_object_suffix())
+    # Published snapshots and adopted products can legitimately retain a
+    # different location. Only cache operations reject that record.
+    self.assertFalse(self.toolchain.source_is_stale(cppfile))
+    self.assertFalse(self.cpp2so.is_stale(sofile))
+    self.assertTrue(self.cpp2so.stamp_is_current(sofile))
+    os.unlink(sofile)
+    self.cpp2so.remove_stamp(sofile)
+    _productcache.reset_counts()
+    self.assertEqual(self.cpp2so(cppfile, [self.srcdir]), sofile)
+    record = self.toolchain.source_record(cppfile)['filename']
+    with open(sofile, 'rb') as stream:
+      self.assertIn(record.encode('utf-8') + b'\0', stream.read())
+    self.assertFalse(self.cpp2so.product_source_current(cppfile, sofile, cppfile))
+    self.assertEqual(self.entries(self.cpp2so.digest()), [producer_key])
+    self.assertEqual(_productcache.counts, {'restored': 0, 'stored': 0})
+
+  def test_store_rejects_foreign_source_fact(self):
+    name = self.write_image(286)
+    sofile = makecurry(self.plan, name, [self.srcdir])
+    cppfile = self.cached_file(name, '.cpp')
+    facts = self.cpp2so.product_facts(os.path.join(self.srcdir, name + '.curry'))
+    facts = ['source_record foreign' if fact.startswith('source_record ')
+        else fact for fact in facts]
+    entries = self.entries(self.cpp2so.digest())
+    _productcache.reset_counts()
+    self.cpp2so.store(cppfile, sofile, [self.srcdir], facts=facts)
+    self.assertEqual(self.entries(self.cpp2so.digest()), entries)
+    self.assertEqual(_productcache.counts, {'restored': 0, 'stored': 0})
 
   def test_miss_on_another_digest(self):
     '''An entry of another runtime is not seen: the digest heads the key.'''

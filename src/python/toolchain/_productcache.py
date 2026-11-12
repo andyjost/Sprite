@@ -26,15 +26,17 @@ module's name and its own texts (its Curry source, its ICurry file and its
 image, each one that exists; image summaries shape generated code,
 and a new image from the same source, after a change to the ICurry reader or
 to a pinned ICurry file, must miss), the sources of the modules it imports,
-and the facts the backend names (the format of the generated code, the
-sources of the code generator, the flags of the optimizer and the route
+and the facts the backend names (the source record embedded in the object,
+the format of the generated code, the sources of the code generator,
+the flags of the optimizer and the route
 from Curry to ICurry; see ``Cpp2So.product_facts`` of the C++ backend for
-the list and the reasons).  No part of the key names a tree, and the
-products name no path (the objects name their imports by SONAME and the
+the list and the reasons). No part of the key names an absolute tree, and the
+products name no absolute path (the objects name their imports by SONAME and the
 record of a module names its source relative to the installation or to
 the object, since format 13 of the generated code), so an entry serves
-every tree of one runtime: the same tree after its products were removed
-or after an edit and its revert, and a second worktree, which compiles
+every tree of one runtime with the same relative source record: the same
+tree after its products were removed or after an edit and its revert,
+and a second worktree, which compiles
 nothing the first compiled.  The names of the files in an entry are the
 names of the products beside the source.  The stamp stored in an entry is
 the one the compile wrote; a restore writes a stamp of its own for the

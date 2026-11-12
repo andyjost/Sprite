@@ -468,7 +468,11 @@ def input_record(interp, source):
         recorded = receipt_source(stream.read())
   except (OSError, ValueError, AttributeError):
     recorded = None
-  return dict(source=recorded, registry=registered_names(source),
+  # Cache admission checks this against the destination. Ordinary products
+  # may keep another location, as private snapshots and saved modules do.
+  return dict(source=recorded,
+      filename=compiler._source_file_name(source) if source is not None else None,
+      registry=registered_names(source),
       wrappers=primitive_wrapper_names(source, interp, generation),
       route=ROUTE_VERSION, budget=interp.flags['inline_budget'])
 
@@ -1469,11 +1473,14 @@ class Cpp2So(object):
     generated code (compiler.FORMAT_VERSION) and the digest of the sources
     of the code generator (generator_digest); the keys of the optimizer
     passes and the inline budget of the interpreter, which shape the code;
-    the sorted registered names of the module; and the intermediate directory
+    the sorted registered names of the module; the source record embedded
+    in the object; and the intermediate directory
     and route from Curry to ICurry (cache.frontend_digest), which decide the ICurry of a source.  No fact
-    names a tree: the products name no path since format 13 (the SONAMEs
-    and the record), so an entry serves every tree of one runtime, and a
-    second worktree compiles nothing the first compiled.  Before format 13
+    names an absolute tree: the products use relative paths since format 13
+    (the SONAMEs and the record), so equivalent layouts share entries.
+    Installation-relative source records must match: an object compiled in
+    a temporary directory under the installation must not carry that
+    directory into another destination (#286). Before format 13
     the real paths of the installation and of the directory of the source
     were facts, because the object named both.
     '''
@@ -1483,6 +1490,8 @@ class Cpp2So(object):
     return [
         'format %d' % compiler.FORMAT_VERSION
       , 'registry ' + json.dumps(registered_names(curryfile) if registry is None else registry)
+      , 'source_record ' + hashlib.sha256(
+          compiler._source_file_name(curryfile).encode('utf-8')).hexdigest()
       , 'generator ' + generator_digest()
       , 'optimizers ' + ' '.join(key for key, _ in optimize.default_optimizers)
       , 'inline_budget %d' % flags['inline_budget']
@@ -1576,7 +1585,10 @@ class Cpp2So(object):
         os.path.basename(_filenames.replacesuffix(file_in, suffix))
         for suffix in self.PRODUCT_SUFFIXES
       ]
-    if _productcache.lookup(digest, key, names) is None:
+    found = _productcache.lookup(digest, key,
+        names + [os.path.basename(self.stampfile(sofile))])
+    if found is None or not self.product_source_current(
+        found[names[0]], found[names[1]], file_in):
       if logger.isEnabledFor(logging.INFO):
         _productlock.log(logger, logging.INFO, 'module %s: product cache miss', _filenames.logging_module_name(file_in))
       return None
@@ -1605,6 +1617,19 @@ class Cpp2So(object):
       return None
     return sofile
 
+  def product_source_current(self, cppfile, sofile, destination):
+    '''The C++ and object receipts agree with the source-record cache fact.'''
+    try:
+      record = source_record(cppfile)
+      digest, _, imports, object_record = self._read_stamp_records(sofile)
+      source = _filenames.curryfilename(destination)
+      return isinstance(record, dict) and \
+          record.get('filename') == compiler._source_file_name(source) and \
+          record == object_record and digest == self.digest() and \
+          imports == source_interfaces(cppfile)
+    except OSError:
+      return False
+
   @_findcurry.with_resolution
   def store(self, cppfile, sofile, currypath, registry=None, facts=None):
     '''
@@ -1616,6 +1641,13 @@ class Cpp2So(object):
       return
     if _productcache.excluded(_filenames.curryfilename(cppfile)):
       return
+    if not self.product_source_current(cppfile, sofile, cppfile):
+      return
+    if facts is not None:
+      expected = self.product_facts(_filenames.curryfilename(cppfile), registry)
+      if [fact for fact in facts if fact.startswith('source_record ')] != \
+          [fact for fact in expected if fact.startswith('source_record ')]:
+        return
     digest = self.digest()
     if digest is None:
       return
