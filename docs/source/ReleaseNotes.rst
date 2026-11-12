@@ -7,6 +7,8 @@ Unreleased
 
 A compile error now shows the front end's whole diagnostic below its first line (#285).
 
+The product cache no longer hands a build an object compiled in another directory, which made a later build fail to find the module (#286).
+
 0.9.0a3 (2026-11-10)
 ====================
 

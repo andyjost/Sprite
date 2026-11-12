@@ -64,6 +64,7 @@ generatedBranches = (if x then (0,p) else (1,p)) ? (2,p)
         with self.subTest(compiled=compiled, authorized=authorized):
           self.child('''
             import curry, os
+            os.environ['SPRITE_PRODUCT_CACHE'] = ''
             from curry.backends.cxx import image, toolchain
             from curry.toolchain import _filenames
             from curry.objects.handle import getHandle
