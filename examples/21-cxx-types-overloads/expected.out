@@ -38,3 +38,5 @@
                    result: h(int*) [exact]
 (d) the argument types of depth at most 2 that make the call ambiguous for f(long), f(double), f(int const*)
   120 types; after the lvalue transformations, 12: bool, char, signed char, unsigned char, short, unsigned short, int, unsigned int, unsigned long, long long, unsigned long long, long double
+(e) the argument types of depth at most 2 that pick f(int const*) from f(long), f(double), f(int const*)
+  20 types: int (&&)[3], int (&)[3], int const*, int const[3], int*, int* const, int* volatile, int*&, int*&&, int[3], std::nullptr_t, std::nullptr_t const, std::nullptr_t const volatile, std::nullptr_t const&, std::nullptr_t const&&, std::nullptr_t volatile, std::nullptr_t volatile&, std::nullptr_t volatile&&, std::nullptr_t&, std::nullptr_t&&

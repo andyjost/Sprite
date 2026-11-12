@@ -95,7 +95,7 @@ STRESS_EXCLUDED = {
         'two inverse searches in (d) over every type of a depth, unfinished '
         'after 580 s'
   , '21-cxx-types-overloads':
-        'an inverse search in (d) over every argument type of depth 2, '
+        'inverse searches in (d) and (e) over every argument type of depth 2, '
         'unfinished after 580 s'
   , '22-cxx-types-trait-check': 'seven searches over 1245 types, each a set function'
   , '23-cxx-types-layout':

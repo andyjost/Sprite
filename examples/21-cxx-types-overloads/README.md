@@ -70,7 +70,7 @@ set function collects them.
 The overload sets, the class hierarchy and the calls are Python lists and
 tuples built from the constructors of the model, `Overloads` converts them
 by the types of its parameters, and every answer comes back as text.  The
-driver `go.py` runs four scenarios; `expected.out` records them:
+driver `go.py` runs five scenarios; `expected.out` records them:
 
 ```
 (a) overloads f(int), f(long), f(double)
@@ -86,11 +86,18 @@ driver `go.py` runs four scenarios; `expected.out` records them:
   k(int*)            result: k(int*) [exact]
 (d) the argument types of depth at most 2 that make the call ambiguous for f(long), f(double), f(int const*)
   120 types; after the lvalue transformations, 12: bool, char, signed char, unsigned char, short, ...
+(e) the argument types of depth at most 2 that pick f(int const*) from f(long), f(double), f(int const*)
+  20 types: int (&&)[3], int (&)[3], int const*, int const[3], int*, int* const, ...
 ```
 
 Scenario (d) tries the 1245 types of depth at most two and finds the 120
-that make the call ambiguous.  A compiler that runs Python during
-compilation could hand such a model its own types and ask it.
+that make the call ambiguous.  Scenario (e) asks which of the 1245 pick one
+candidate, `f(int const*)`, and finds 20.  Besides `int*` and `int const*`,
+they include `int[3]`, which decays to a pointer and gains `const` in an
+exact match, and `std::nullptr_t`, which converts to any pointer but to
+neither `long` nor `double`.  The rest add references or qualifiers to
+these.  A compiler that runs Python during compilation could hand such a
+model its own types and ask it.
 
 ## Limits
 
