@@ -106,7 +106,7 @@ print(repr(values))
     self.assertEqual(sorted(curry.flags), [
         'backend', 'checker', 'debug', 'inline_budget'
       , 'interpret', 'jit', 'jit_backend', 'keep_temp_files', 'lazycompile', 'postmortem'
-      , 'recursion_limit', 'rotation', 'stack_limit', 'step_budget'
+      , 'recursion_limit', 'rotation', 'search', 'stack_limit', 'step_budget'
       , 'telemetry_interval', 'trace', 'worker_stack'
       ])
     with self.assertRaisesRegex(curry.FlagError, 'jit:hot.*jit_backend:cxx'):
