@@ -892,7 +892,14 @@ namespace curryrt { namespace python
       , "True when the runtime was built with the scheduler counters "
         "(make COUNTERS=1).", curryrt::python::heap_access{});
 
+    py::enum_<SearchMode>(mod, "SearchMode")
+      .value("fair", SearchMode::fair)
+      .value("dfs", SearchMode::dfs);
+
     py::class_<RuntimeState, HeapOwned<RuntimeState>>(mod, "RuntimeStateBase")
+      .def(py::init<
+          InterpreterState &, Node *, bool, size_t, size_t, uint64_t, bool, size_t, SearchMode
+        >(), curryrt::python::heap_access{})
       // The fourth and fifth arguments are the rotation cadence: the
       // completed steps between two rotation checks (0 selects time mode)
       // and the quantum of time mode in nanoseconds (see curryrt/ticker.hpp).

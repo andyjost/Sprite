@@ -168,6 +168,7 @@ class RuntimeState(RuntimeStateBase):
         self, istate, goal, self.tracing, self.stack_limit
       , self.rotation_steps, self.rotation_quantum_ns, self.checker
       , 0 if interp.flags['worker_stack'] is None else int(interp.flags['worker_stack'])
+      , getattr(SearchMode, interp.flags['search'])
       )
     # The count of the stepper starts here (StepCounter.reset_global).
     self._step_base = 0

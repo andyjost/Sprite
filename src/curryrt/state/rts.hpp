@@ -108,6 +108,8 @@ namespace curryrt
 
   using qstack_type  = std::vector<Queue*>;
 
+  enum class SearchMode { fair, dfs };
+
   struct RuntimeState
   {
     // The defaults of the arguments are the defaults of the interpreter
@@ -119,6 +121,7 @@ namespace curryrt
       , uint64_t rotation_quantum_ns = DEFAULT_QUANTUM_NS
       , bool checker = false
       , size_t worker_stack = size_t(1) << 30
+      , SearchMode search = SearchMode::fair
       );
     ~RuntimeState();
     RuntimeState(RuntimeState const &) = delete;
@@ -154,6 +157,7 @@ namespace curryrt
     // at the next check.  In time mode ``rotation_steps`` is TIME_MODE, and
     // the ticker sets g_tick every ``rotation_quantum_ns`` nanoseconds
     // while the outermost procD of the state runs (curryrt/ticker.hpp).
+    SearchMode             search;
     size_t                 rotation_steps;
     size_t                 rotation_next;
     uint64_t               rotation_quantum_ns;

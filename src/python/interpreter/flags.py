@@ -138,6 +138,16 @@ The following flags are available:
 
     Reserved for compatibility; this flag has no effect.
 
+  * ``search`` (**'fair'** | 'dfs')
+
+    The order of search.  ``fair`` is the default, the order of the Fair
+    Scheme: alternatives take turns, and every value is found even beside
+    an alternative that never ends.  Memory grows with the number of open
+    alternatives.  ``dfs`` is depth-first, left alternative first.  Its
+    memory grows with the depth of the search rather than its width.  An
+    alternative that never ends hides the values after it.  ``rotation``
+    has no effect on the order under ``dfs``.
+
   * ``rotation`` (**'time:10ms'** | 'time:<N>ms' | 'steps:<N>')
 
     How the C++ backend paces the rotation of its queue of alternatives.  The
@@ -209,6 +219,7 @@ FLAG_INFO = {
   , 'lazycompile'         : ( bool                , True  )
   , 'postmortem'          : ( bool                , False )
   , 'recursion_limit'     : ({None, int}          , 1 << 18)
+  , 'search'              : ( {'fair', 'dfs'}     , 'fair')
   , 'rotation'            : ( str                 , 'time:10ms')
   , 'stack_limit'         : ({None, int}          , 4194304)
   , 'worker_stack'        : ({None, int}          , 1 << 30)

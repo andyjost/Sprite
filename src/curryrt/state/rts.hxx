@@ -104,6 +104,7 @@ namespace curryrt
       if(this->cancelled.load(std::memory_order_relaxed))
         throw EvaluationError("evaluation interrupted");
       host_poll();
+      if(this->search == SearchMode::fair)
       for(Queue * Q: this->qstack)
         if(Q->size() > 1)
         {

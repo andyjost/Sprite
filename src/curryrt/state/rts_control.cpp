@@ -121,6 +121,8 @@ namespace curryrt
     assert(Q);
     if(forced)
       Q->front()->forced_rotate = true;
+    if(this->search == SearchMode::dfs && forced)
+      return;
     if(Q->size() > 1)
       Q->rotate();
   }

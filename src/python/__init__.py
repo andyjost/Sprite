@@ -91,7 +91,7 @@ if not getattr(_config._package_logger, '_sprite_process_logged', False):
     _config._package_logger.info(
         'process: %s installation=%s',
         ' '.join('%s=%s' % (key, _interpreter_.flags[key])
-                 for key in ('backend', 'interpret', 'jit', 'jit_backend', 'rotation')
+                 for key in ('backend', 'interpret', 'jit', 'jit_backend', 'rotation', 'search')
                  if key in _interpreter_.flags), _config.prefix())
 
 from .interpreter import session as _session

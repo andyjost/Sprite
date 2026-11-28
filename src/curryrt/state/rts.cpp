@@ -19,9 +19,9 @@ namespace curryrt
       InterpreterState & istate, Node * goal, bool trace
     , size_t stack_limit
     , size_t rotation_steps, uint64_t rotation_quantum_ns, bool checker
-    , size_t worker_stack
+    , size_t worker_stack, SearchMode search
     )
-    : istate(istate), rotation_steps(rotation_steps)
+    : istate(istate), search(search), rotation_steps(rotation_steps)
     , rotation_next(rotation_steps), rotation_quantum_ns(rotation_quantum_ns)
     , root_queue(new Queue())
     , stack_limit(stack_limit), worker_stack(worker_stack)
