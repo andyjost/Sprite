@@ -53,6 +53,14 @@ jobs:
           python -c "import sys, platform; print(sys.version); print(platform.machine())"
           "/c/Program Files (x86)/Microsoft Visual Studio/Installer/vswhere.exe" -latest -products '*' -property installationPath || true
           clang-cl --version || echo "no clang-cl on PATH"
+          # The clang of Visual Studio itself and the LLVM of llvmlite. The
+          # standard library of Visual Studio states the oldest clang it
+          # accepts, and llvmlite reads no bitcode of a newer LLVM.
+          vsroot=$("/c/Program Files (x86)/Microsoft Visual Studio/Installer/vswhere.exe" -latest -products '*' -property installationPath)
+          ls "$vsroot/VC/Tools/Llvm/x64/bin" || echo "no clang of Visual Studio"
+          "$vsroot/VC/Tools/Llvm/x64/bin/clang-cl.exe" --version || true
+          "$vsroot/VC/Tools/Llvm/x64/bin/clang++.exe" --version || true
+          python -c "import llvmlite, llvmlite.binding as b; print('llvmlite', llvmlite.__version__, 'LLVM', b.llvm_version_info)"
       # The developer environment of Visual Studio (INCLUDE, LIB, PATH) comes
       # from vcvars64.bat, which only cmd can call; Ninja then builds with the
       # clang-cl compiler and keeps going past errors, so one run
