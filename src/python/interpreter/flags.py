@@ -142,17 +142,22 @@ The following flags are available:
 
     The order of search.  ``fair`` is the default, the order of the Fair
     Scheme: alternatives take turns, and every value is found even beside
-    an alternative that never ends.  Memory grows with the number of open
-    alternatives.  ``dfs`` is depth-first, left alternative first.  Its
-    memory grows with the depth of the search rather than its width.  An
-    alternative that never ends hides the values after it.  ``rotation``
-    has no effect on the order under ``dfs``.
+    an alternative that never ends.  ``dfs`` is depth-first, left alternative
+    first.  Under ``dfs`` the pending alternatives grow with the depth of
+    the search rather than its width.  An alternative that suspends on a
+    free variable stays in the queue.  The memory of the graph an alternative
+    builds is the same under both values.  An alternative that never ends
+    hides the values after it.  ``rotation`` has no effect on the order
+    under ``dfs``.
 
   * ``rotation`` (**'time:10ms'** | 'time:<N>ms' | 'steps:<N>')
 
-    How the C++ backend paces the rotation of its queue of alternatives.  The
-    scheduler rotates at a safepoint, after a completed rewrite step, so a
-    diverging alternative cannot starve the others.  In time mode
+    How the C++ backend paces the rotation of its queue of alternatives.
+    The guarantees below on the turns of alternatives hold under
+    ``search='fair'``.  Under ``search='dfs'`` this flag sets only how often
+    cancellation is polled.  Under ``fair`` the scheduler rotates at a
+    safepoint, after a completed rewrite step, so a diverging alternative
+    cannot starve the others.  In time mode
     (``time:10ms``, the default; the unit may be ``s``, ``ms``, ``us`` or
     ``ns``) a ticker thread sets one byte every quantum and the safepoint
     polls it: the latency of a waiting alternative is bounded by the quantum

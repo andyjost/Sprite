@@ -81,34 +81,76 @@ print(json.dumps({
       results.append(result)
     self.assertEqual(*results)
 
-  @cytest.posix_only('requires an address-space limit')
   @cytest.skipIfGcStress('279,936 leaves collect at every step')
   def test_memory(self):
-    # Measured on a local system: DFS peaks at 225 MB RSS, fair at 586 MB.
-    # 512 MB of address space is over twice the DFS RSS and below fair RSS.
-    # Counting streams answers rather than retaining their Python values.
-    self.assertEqual(child(self, 'dfs',
-      'print(sum(1 for _ in curry.eval(M.main)))', cap=512_000_000), '21875')
+    # curry.eval does not expose its running runtime state.  As in
+    # test_suspended_front, use the native iterator to observe its queue.
+    self.assertEqual(json.loads(child(self, 'dfs', """
+from curry.backends.cxx import curryrtbindings as native
+import cytest
+rts = native.RuntimeState(cytest.raw.interp(), cytest.raw.expr(M.main))
+count = largest = 0
+try:
+  for value in rts.generate_values():
+    count += 1
+    largest = max(largest, rts.queue_size)
+  assert largest <= 36, largest
+  print(json.dumps([count, largest <= 36]))
+finally:
+  rts.close()
+""")), [21875, True])
+
+  def test_nested_order(self):
+    self.assertEqual(json.loads(child(self, 'dfs', """
+print(json.dumps(list(curry.eval(M.nestedOrder))))
+""")), [[0, 1, 2]])
+
+  def test_pruned_alternatives(self):
+    self.assertEqual(json.loads(child(self, 'dfs', """
+print(json.dumps({
+  'shared': list(curry.eval(M.sharedChoice)),
+  'failed': list(curry.eval(M.failedChoice))}))
+""")), {'shared': [[0, 0], [1, 1], [2, 2]], 'failed': [2]})
+
+  def test_polling_order(self):
+    results = []
+    for rotation in ['steps:65536', 'steps:1']:
+      results.append(json.loads(child(self, 'dfs', """
+curry.reset(search='dfs', rotation=%r, jit='off')
+M = curry.import_('Search')
+print(json.dumps(list(curry.eval(M.permutations))))
+""" % rotation)))
+    self.assertEqual(len(results[0]), 120)
+    self.assertEqual(*results)
 
   @cytest.posix_only('uses POSIX SIGINT delivery')
   def test_interruption(self):
     for rotation in ['steps:65536', 'time:10ms']:
       self.assertEqual(child(self, 'dfs', '''
-import os, signal, threading
+import os, signal, threading, time
 curry.reset(search='dfs', rotation=%r, jit='off')
 M = curry.import_('Search')
-# Import and construct before the signal is scheduled.
-values = curry.eval(M.loop)
-timer = threading.Timer(0.2, lambda: os.kill(os.getpid(), signal.SIGINT))
-timer.start()
+# Construct before scheduling the signal; keep the state to check that
+# cancellation happened with several alternatives pending.
+from curry.backends.cxx import curryrtbindings as native
+import cytest
+rts = native.RuntimeState(cytest.raw.interp(), cytest.raw.expr(M.loops))
+values = rts.generate_values()
+timer = threading.Timer(1.0, lambda: os.kill(os.getpid(), signal.SIGINT))
 try:
+  started = time.monotonic()
+  timer.start()
   next(values)
 except KeyboardInterrupt:
+  assert time.monotonic() - started >= 1.0  # timing-ok: SIGINT delay
+  assert rts.queue_size >= 2, rts.queue_size
   print('ok')
 else:
   raise AssertionError('the evaluation ignored SIGINT')
 finally:
+  timer.cancel()
   timer.join()
+  rts.close()
 ''' % rotation), 'ok')
 
   def test_suspended_front(self):

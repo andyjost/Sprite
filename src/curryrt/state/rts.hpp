@@ -151,13 +151,14 @@ namespace curryrt
     // The step is not a safepoint: ``stepcount`` and the rotation do not
     // see it, so a run without a limit keeps its counters.
     size_t                 step_limit = NOLIMIT;
+    // The search order of this evaluation.
+    SearchMode             search;
     // The rotation cadence of this evaluation (see check_interrupts).  In
     // step mode ``rotation_steps`` is the number of completed steps between
     // two rotation checks and ``rotation_next`` the value of ``stepcount``
     // at the next check.  In time mode ``rotation_steps`` is TIME_MODE, and
     // the ticker sets g_tick every ``rotation_quantum_ns`` nanoseconds
     // while the outermost procD of the state runs (curryrt/ticker.hpp).
-    SearchMode             search;
     size_t                 rotation_steps;
     size_t                 rotation_next;
     uint64_t               rotation_quantum_ns;

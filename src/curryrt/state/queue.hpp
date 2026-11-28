@@ -131,6 +131,8 @@ namespace curryrt
     void pop_front();
     // Moves the front configuration to the back.
     void rotate();
+    // Moves the last n configurations to the front, preserving their order.
+    void move_back_to_front(size_t n);
     // Makes the front configuration private to this queue: a configuration
     // another queue holds too is replaced by a clone.  Returns the front.
     // The scheduler calls this before it reads or steps the front.

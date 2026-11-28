@@ -1,4 +1,3 @@
-#include <algorithm>
 #include <cassert>
 #include "curryrt/builtins.hpp"
 #include "curryrt/checker.hpp"
@@ -107,7 +106,7 @@ namespace curryrt
     SCHEDULER_COUNT_END(C, END_FORK);
     Q->pop_front();
     if(this->search == SearchMode::dfs && nclones)
-      std::rotate(Q->begin(), Q->end() - nclones, Q->end());
+      Q->move_back_to_front(nclones);
     #ifdef SPRITE_SCHEDULER_COUNTERS
     if(!this->in_recursive_call() && Q->size() > this->counters.queue_max)
       this->counters.queue_max = Q->size();

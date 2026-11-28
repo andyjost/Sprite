@@ -70,6 +70,16 @@ namespace curryrt
     this->items.pop_front();
   }
 
+  void Queue::move_back_to_front(size_t n)
+  {
+    assert(n <= this->count);
+    while(n--)
+    {
+      this->items.push_front(this->items.back());
+      this->items.pop_back();
+    }
+  }
+
   // Whether C made choice ``cid``: its own fingerprint, read as read_fp
   // reads it, through the group.
   static ChoiceState decision(Configuration const * C, xid_type cid)

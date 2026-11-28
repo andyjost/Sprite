@@ -33,3 +33,13 @@ suspended :: Int -> [Int]
 suspended x = sortValues (set1 nearby x) ? [99]
 loop :: Int
 loop = loop
+
+-- Observe the nested queue through the order-preserving I/O accessor.
+nestedOrder :: IO [Int]
+nestedOrder = values2list (set0 order)
+sharedChoice :: (Int, Int)
+sharedChoice = (let x = 0 ? 1 in (x, x)) ? (2, 2)
+failedChoice :: Int
+failedChoice = (failed ? failed) ? 2
+loops :: Int
+loops = loop ? loop
